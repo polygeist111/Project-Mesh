@@ -61,6 +61,8 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.material)
+    implementation(libs.androidx.datastore.core)
+    implementation("androidx.datastore:datastore-preferences")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -70,5 +72,5 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.lib.meshrabiya)
     implementation (libs.material)
-
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 }

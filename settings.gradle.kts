@@ -17,6 +17,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven("https://devserver3.ustadmobile.com/maven2/")
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

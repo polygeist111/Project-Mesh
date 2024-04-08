@@ -73,4 +73,5 @@ dependencies {
     implementation(libs.lib.meshrabiya)
     implementation (libs.material)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("com.github.yveskalume:compose-qrpainter:0.0.1")
 }

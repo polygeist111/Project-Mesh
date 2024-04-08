@@ -1,20 +1,26 @@
 package com.greybox.projectmesh
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Log
+import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.activity.ComponentActivity
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -33,6 +39,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
+import androidx.compose.ui.unit.dp
 import com.greybox.projectmesh.ui.theme.ProjectMeshTheme
 import com.ustadmobile.meshrabiya.ext.bssidDataStore
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
@@ -44,6 +51,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.runInterruptible
+import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
 
 class MainActivity : ComponentActivity() {
 
@@ -65,12 +73,10 @@ class MainActivity : ComponentActivity() {
             PrototypePage()
         }
     }
-
-
     @Composable
     private fun PrototypePage()
     {
-        Column {
+        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
 
             var connectionState by remember { mutableStateOf<LocalNodeState?>(null) }
 
@@ -80,6 +86,18 @@ class MainActivity : ComponentActivity() {
             {
                 Text(text = "Connection state: ${connectionState?.wifiState}")
                 Text(text = "Join URI: ${connectionState?.connectUri}")
+
+                // Show QR Code
+                Image(
+                    painter = rememberQrBitmapPainter(
+                        content = connectionState?.connectUri.toString(),
+                        size = 300.dp,
+                        padding = 1.dp
+                    ),
+                    contentDescription = null
+                )
+
+
             }
 
             Button(content = {Text("Scan QR code")}, onClick = fun() {  })
@@ -87,8 +105,12 @@ class MainActivity : ComponentActivity() {
             val coroutineScope = rememberCoroutineScope()
             val hotspot: () -> Unit = {
                 coroutineScope.launch {
+                    // On start hotspot button click...
                     val connection = initMesh()
-                    if (connection != null) connectionState = connection
+                    if (connection != null)
+                    {
+                        connectionState = connection
+                    }
 
                 }
             }
@@ -139,4 +161,6 @@ class MainActivity : ComponentActivity() {
             return connectLink
         }
     }
+
+    
 }

@@ -29,6 +29,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,7 +41,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.greybox.projectmesh.ui.theme.ProjectMeshTheme
+import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.bssidDataStore
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.LocalNodeState
@@ -100,7 +103,7 @@ class MainActivity : ComponentActivity() {
 
             }
 
-            Button(content = {Text("Scan QR code")}, onClick = fun() {  })
+            Button(content = {Text("Scan QR code")}, onClick = fun() {  }) //thisNode.meshrabiyaWifiManager.connectToHotspot()
 
             val coroutineScope = rememberCoroutineScope()
             val hotspot: () -> Unit = {
@@ -117,8 +120,21 @@ class MainActivity : ComponentActivity() {
 
             Button(content = {Text("Start hotspot")}, onClick = hotspot)
 
+            val nodes by thisNode.state.collectAsState(LocalNodeState())
+            Text(text = "Other nodes:")
+            if (nodes.originatorMessages.isEmpty())
+            {
+                Text(text = "N/A")
+            }
+            else
+            {
+                nodes.originatorMessages.forEach {
+                    Text(  it.value.lastHopAddr.addressToDotNotation() + it.value.originatorMessage + it.value)
+                }
+            }
 
-            Text(text = "Other nodes\nblah\bblah\nblah")
+
+
             var chatLog by remember { mutableStateOf("") }
 
             Row {

@@ -22,9 +22,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,10 +36,12 @@ import androidx.compose.ui.unit.TextUnitType
 import com.greybox.projectmesh.ui.theme.ProjectMeshTheme
 import com.ustadmobile.meshrabiya.ext.bssidDataStore
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
+import com.ustadmobile.meshrabiya.vnet.LocalNodeState
 import com.ustadmobile.meshrabiya.vnet.wifi.ConnectBand
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.runInterruptible
 
@@ -67,11 +71,31 @@ class MainActivity : ComponentActivity() {
     private fun PrototypePage()
     {
         Column {
+
+            var connectionState by remember { mutableStateOf<LocalNodeState?>(null) }
+
             Text(text = "Project Mesh", fontSize = TextUnit(48f, TextUnitType.Sp))
             Text(text = "This device IP: ${thisNode.address}")
-            Text(text = "Connection status: ${thisNode.state}")
+            if (connectionState != null)
+            {
+                Text(text = "Connection state: ${connectionState?.wifiState}")
+                Text(text = "Join URI: ${connectionState?.connectUri}")
+            }
+
             Button(content = {Text("Scan QR code")}, onClick = fun() {  })
-            Button(content = {Text("Start hotspot")}, onClick = fun() { initMesh() })
+
+            val coroutineScope = rememberCoroutineScope()
+            val hotspot: () -> Unit = {
+                coroutineScope.launch {
+                    val connection = initMesh()
+                    if (connection != null) connectionState = connection
+
+                }
+            }
+
+            Button(content = {Text("Start hotspot")}, onClick = hotspot)
+
+
             Text(text = "Other nodes\nblah\bblah\nblah")
             var chatLog by remember { mutableStateOf("") }
 
@@ -98,28 +122,21 @@ class MainActivity : ComponentActivity() {
     }
     val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "meshr_settings")
     lateinit var thisNode: AndroidVirtualNode
-    private fun initMesh()
-    {
-        // Create DataStore for network
-        //val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "meshr_settings")
-
+    private suspend fun initMesh(): LocalNodeState? {
         // Enable hotspot
-        runBlocking {
-            thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_5GHZ)
-            // Report connect link
-            val connectLink = thisNode.state.filter { it.connectUri != null }.firstOrNull()
+        thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_5GHZ)
+        // Report connect link
+        val connectLink = thisNode.state.filter { it.connectUri != null }.firstOrNull()
 
-            if (connectLink == null)
-            {
-                Log.d("Network","failed to make hotspot")
-            }
-            else
-            {
-                Log.d("Network", "connect link: $connectLink")
-            }
+        if (connectLink == null)
+        {
+            Log.d("Network","failed to make hotspot")
+            return null
         }
-
-
-
+        else
+        {
+            Log.d("Network", "connect link: $connectLink")
+            return connectLink
+        }
     }
 }

@@ -75,4 +75,6 @@ dependencies {
     implementation (libs.material)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.github.yveskalume:compose-qrpainter:0.0.1")
+    implementation("com.journeyapps:zxing-android-embedded:4.2.0")
+    implementation("androidx.appcompat:appcompat:1.3.1")
 }

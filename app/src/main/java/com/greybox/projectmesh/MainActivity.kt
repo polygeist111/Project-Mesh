@@ -1,6 +1,7 @@
 package com.greybox.projectmesh
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Log
@@ -42,11 +43,13 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.zxing.integration.android.IntentIntegrator
 import com.greybox.projectmesh.ui.theme.ProjectMeshTheme
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.bssidDataStore
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.LocalNodeState
+import com.ustadmobile.meshrabiya.vnet.MeshrabiyaConnectLink
 import com.ustadmobile.meshrabiya.vnet.wifi.ConnectBand
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -55,9 +58,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.runInterruptible
 import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import java.lang.Exception
 
 class MainActivity : ComponentActivity() {
 
+    val qrIntent = IntentIntegrator(this) // For qr scanner
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -103,7 +110,13 @@ class MainActivity : ComponentActivity() {
 
             }
 
-            Button(content = {Text("Scan QR code")}, onClick = fun() {  }) //thisNode.meshrabiyaWifiManager.connectToHotspot()
+            Button(content = {Text("Scan QR code")}, onClick = {
+                // Open QR code scanner
+                qrIntent.setDesiredBarcodeFormats(listOf(IntentIntegrator.QR_CODE))
+                qrIntent.initiateScan()
+                // Then gets called by intent reciever
+
+            }) //thisNode.meshrabiyaWifiManager.connectToHotspot()
 
             val coroutineScope = rememberCoroutineScope()
             val hotspot: () -> Unit = {
@@ -175,6 +188,29 @@ class MainActivity : ComponentActivity() {
         {
             Log.d("Network", "connect link: $connectLink")
             return connectLink
+        }
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val res = IntentIntegrator.parseActivityResult(resultCode, data)
+
+        if (res?.contents != null)
+        {
+            // Try to connect
+            val connectConfig = MeshrabiyaConnectLink.parseUri(res.contents).hotspotConfig
+            if(connectConfig != null) {
+                GlobalScope.launch {
+                    try {
+                        thisNode.connectAsStation(connectConfig)
+                    } catch (e: Exception) {
+                        //Log(Log.ERROR,"Failed to connect ",e)
+                    }
+
+                }
+            }
         }
     }
 

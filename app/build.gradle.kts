@@ -71,10 +71,10 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation(libs.lib.meshrabiya)
+    implementation("com.github.UstadMobile.Meshrabiya:lib-meshrabiya:0.1d10-snapshot")
     implementation (libs.material)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.github.yveskalume:compose-qrpainter:0.0.1")
-    implementation("com.journeyapps:zxing-android-embedded:4.2.0")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("androidx.appcompat:appcompat:1.3.1")
 }

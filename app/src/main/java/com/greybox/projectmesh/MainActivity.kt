@@ -2,12 +2,16 @@ package com.greybox.projectmesh
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.wifi.p2p.WifiP2pManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
@@ -42,6 +46,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.zxing.integration.android.IntentIntegrator
 import com.greybox.projectmesh.ui.theme.ProjectMeshTheme
@@ -61,6 +67,12 @@ import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import java.lang.Exception
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import com.ustadmobile.meshrabiya.vnet.wifi.MeshrabiyaWifiManagerAndroid
+import com.ustadmobile.meshrabiya.vnet.wifi.state.MeshrabiyaWifiState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -68,39 +80,62 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Load layout
-        //setContentView(R.layout.activity_main)
+        // Request nearby devices permission
+        if (ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_DENIED)
+        {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            {
+                ActivityCompat.requestPermissions(this@MainActivity, arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), 2)
+            }
+        }
+
+        if (ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED)
+        {
+            ActivityCompat.requestPermissions(this@MainActivity, arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 2)
+        }
 
         // Initialise Meshrabiya
         //initMesh();
-        thisNode = AndroidVirtualNode(
-            appContext = applicationContext,
-            dataStore = applicationContext.dataStore
-        )
+        //thisNode = AndroidVirtualNode(
+        //    appContext = applicationContext,
+        //    dataStore = applicationContext.dataStore
+        //)
 
         // Load content
         setContent {
             PrototypePage()
         }
     }
+
+    lateinit var thisNodeForQr: AndroidVirtualNode
+    @OptIn(DelicateCoroutinesApi::class)
     @Composable
     private fun PrototypePage()
     {
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            val thisNode by remember { mutableStateOf<AndroidVirtualNode>( AndroidVirtualNode(
+                appContext = applicationContext,
+                dataStore = applicationContext.dataStore
+            ) ) }
+            val nodes by thisNode.state.collectAsState(LocalNodeState())
+            val wifimanager by thisNode.meshrabiyaWifiManager.state.collectAsState(
+                MeshrabiyaWifiState()
+            )
+            var connectLink by remember { mutableStateOf("")}
 
-            var connectionState by remember { mutableStateOf<LocalNodeState?>(null) }
+            //var connectionState by remember { mutableStateOf<LocalNodeState?>(null) }
 
             Text(text = "Project Mesh", fontSize = TextUnit(48f, TextUnitType.Sp))
-            Text(text = "This device IP: ${thisNode.address}")
-            if (connectionState != null)
+            Text(text = "This device IP: ${nodes.address.addressToDotNotation()}")
+            if (!nodes.connectUri.isNullOrEmpty())
             {
-                Text(text = "Connection state: ${connectionState?.wifiState}")
-                Text(text = "Join URI: ${connectionState?.connectUri}")
+                Text(text = "Connection state: ${nodes.wifiState}")
+                Text(text = "Join URI: ${nodes.connectUri}")
 
                 // Show QR Code
                 Image(
                     painter = rememberQrBitmapPainter(
-                        content = connectionState?.connectUri.toString(),
+                        content = nodes.connectUri!!,
                         size = 300.dp,
                         padding = 1.dp
                     ),
@@ -109,41 +144,66 @@ class MainActivity : ComponentActivity() {
 
 
             }
+            val coroutineScope = rememberCoroutineScope()
+            val qrScannerLauncher = rememberLauncherForActivityResult(contract = ScanContract()) {
+                result ->
+                val link = result.contents
+                if (link != null)
+                {
+                    val connectConfig = MeshrabiyaConnectLink.parseUri(link).hotspotConfig
+                    if(connectConfig != null) {
+                        val job = coroutineScope.launch {
+                            //try {
+                                thisNode.connectAsStation(connectConfig)
+                            //} catch (e: Exception) {
+                                //Log(Log.ERROR,"Failed to connect ",e)
+                            //}
+                        }
+                    }
+                }
+            }
 
             Button(content = {Text("Scan QR code")}, onClick = {
                 // Open QR code scanner
-                qrIntent.setDesiredBarcodeFormats(listOf(IntentIntegrator.QR_CODE))
-                qrIntent.initiateScan()
+                //thisNodeForQr = thisNode
+                //qrIntent.setDesiredBarcodeFormats(listOf(IntentIntegrator.QR_CODE))
+                //qrIntent.initiateScan()
                 // Then gets called by intent reciever
+
+                qrScannerLauncher.launch(ScanOptions().setOrientationLocked(false).setPrompt("Scan another device to join the Mesh").setBeepEnabled(false))
 
             }) //thisNode.meshrabiyaWifiManager.connectToHotspot()
 
-            val coroutineScope = rememberCoroutineScope()
+
+
             val hotspot: () -> Unit = {
                 coroutineScope.launch {
                     // On start hotspot button click...
-                    val connection = initMesh()
-                    if (connection != null)
-                    {
-                        connectionState = connection
-                    }
+                    // Stop any hotspots
+                    //thisNode.disconnectWifiStation()
+                    //thisNode.meshrabiyaWifiManager.deactivateHotspot()
 
+
+                    thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_5GHZ)
+                    // Report connect link
+                    connectLink = thisNode.state.filter { it.connectUri != null }.firstOrNull().toString()
                 }
             }
 
             Button(content = {Text("Start hotspot")}, onClick = hotspot)
 
-            val nodes by thisNode.state.collectAsState(LocalNodeState())
+
             Text(text = "Other nodes:")
-            if (nodes.originatorMessages.isEmpty())
-            {
-                Text(text = "N/A")
-            }
-            else
-            {
-                nodes.originatorMessages.forEach {
+            //nodes.originatorMessages.entries
+            //if (nodes.originatorMessages.isEmpty())
+            //{
+            //    Text(text = "N/A")
+            //}
+            //else
+
+                nodes.originatorMessages.entries.forEach {
                     Text(  it.value.lastHopAddr.addressToDotNotation() + it.value.originatorMessage + it.value)
-                }
+
             }
 
 
@@ -172,47 +232,8 @@ class MainActivity : ComponentActivity() {
 
     }
     val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "meshr_settings")
-    lateinit var thisNode: AndroidVirtualNode
-    private suspend fun initMesh(): LocalNodeState? {
-        // Enable hotspot
-        thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_5GHZ)
-        // Report connect link
-        val connectLink = thisNode.state.filter { it.connectUri != null }.firstOrNull()
+    //lateinit var thisNode: AndroidVirtualNode
 
-        if (connectLink == null)
-        {
-            Log.d("Network","failed to make hotspot")
-            return null
-        }
-        else
-        {
-            Log.d("Network", "connect link: $connectLink")
-            return connectLink
-        }
-    }
-
-    @OptIn(DelicateCoroutinesApi::class)
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        val res = IntentIntegrator.parseActivityResult(resultCode, data)
-
-        if (res?.contents != null)
-        {
-            // Try to connect
-            val connectConfig = MeshrabiyaConnectLink.parseUri(res.contents).hotspotConfig
-            if(connectConfig != null) {
-                GlobalScope.launch {
-                    try {
-                        thisNode.connectAsStation(connectConfig)
-                    } catch (e: Exception) {
-                        //Log(Log.ERROR,"Failed to connect ",e)
-                    }
-
-                }
-            }
-        }
-    }
 
     
 }

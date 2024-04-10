@@ -1,37 +1,23 @@
 package com.greybox.projectmesh
 
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.net.wifi.p2p.WifiP2pManager
 import android.os.Build
 import android.os.Bundle
+import android.os.StrictMode
+import android.os.StrictMode.ThreadPolicy
 import android.util.Log
-import android.widget.ImageView
-import android.widget.LinearLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,39 +27,36 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStore
 import com.google.zxing.integration.android.IntentIntegrator
-import com.greybox.projectmesh.ui.theme.ProjectMeshTheme
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
-import com.ustadmobile.meshrabiya.ext.bssidDataStore
+import com.ustadmobile.meshrabiya.ext.asInetAddress
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.LocalNodeState
 import com.ustadmobile.meshrabiya.vnet.MeshrabiyaConnectLink
 import com.ustadmobile.meshrabiya.vnet.wifi.ConnectBand
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.runInterruptible
+import com.ustadmobile.meshrabiya.vnet.wifi.HotspotType
+import com.ustadmobile.meshrabiya.vnet.wifi.state.MeshrabiyaWifiState
 import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
-import java.lang.Exception
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
-import com.ustadmobile.meshrabiya.vnet.wifi.HotspotType
-import com.ustadmobile.meshrabiya.vnet.wifi.MeshrabiyaWifiManagerAndroid
-import com.ustadmobile.meshrabiya.vnet.wifi.state.MeshrabiyaWifiState
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import java.io.PrintWriter
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.util.Scanner
+
 
 class MainActivity : ComponentActivity() {
 
@@ -106,6 +89,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             PrototypePage()
         }
+
+        // Allow networking on any port
+        val policy = ThreadPolicy.Builder().permitAll().build()
+        StrictMode.setThreadPolicy(policy)
     }
 
     lateinit var thisNodeForQr: AndroidVirtualNode
@@ -235,13 +222,44 @@ class MainActivity : ComponentActivity() {
 
                     chatLog += "You: $chatMessage\n"
                     // SEND TO NETWORK HERE
+                    for (originatorMessage in nodes.originatorMessages) {
+                        Log.d("DEBUG", "Sending '$chatMessage' to ${originatorMessage.value.lastHopAddr.addressToDotNotation()}")
+                        val address: InetAddress = originatorMessage.value.lastHopAddr.asInetAddress()
+                        val clientSocket = thisNode.socketFactory.createSocket(address,1337)
+                        clientSocket.getOutputStream().bufferedWriter().write("(${originatorMessage.value.lastHopAddr.addressToDotNotation()}) $chatMessage\n")
+                        clientSocket.close()
+                    }
                     chatMessage = ""
                 })
             }
 
             Text(text = chatLog)
-        }
 
+            // TCP Networking
+            // Add to chat when recieve data
+            LaunchedEffect(Unit) {
+                Log.d("DEBUG","Launchedeffect?")
+                //Runs once (like useEffect null in React)
+                // Thread that listens for TCP data on port 1337, prints to chat
+                Thread(Runnable {
+                    Log.d("DEBUG","TCP thread started")
+                    val serverSocket = ServerSocket(1337)
+
+                    while (true) {
+                        val socket = serverSocket.accept()
+                        Log.d("DEBUG","Incoming chat...")
+                        val scanner = Scanner(socket.getInputStream())
+                        while (scanner.hasNext())
+                        {
+                            val line = scanner.next()
+                            chatLog+= line + '\n'
+                            Log.d("DEBUG","Chat: $line")
+                        }
+                    }
+                }).start()
+            }
+
+        }
     }
     val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "meshr_settings")
     //lateinit var thisNode: AndroidVirtualNode

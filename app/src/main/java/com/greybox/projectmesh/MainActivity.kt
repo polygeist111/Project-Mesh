@@ -69,6 +69,7 @@ import kotlinx.coroutines.GlobalScope
 import java.lang.Exception
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.ustadmobile.meshrabiya.vnet.wifi.HotspotType
 import com.ustadmobile.meshrabiya.vnet.wifi.MeshrabiyaWifiManagerAndroid
 import com.ustadmobile.meshrabiya.vnet.wifi.state.MeshrabiyaWifiState
 import kotlinx.coroutines.CoroutineScope
@@ -176,7 +177,7 @@ class MainActivity : ComponentActivity() {
 
 
 
-            val hotspot: () -> Unit = {
+            val hotspot: (type: HotspotType) -> Unit = {
                 coroutineScope.launch {
                     // On start hotspot button click...
                     // Stop any hotspots
@@ -184,13 +185,15 @@ class MainActivity : ComponentActivity() {
                     //thisNode.meshrabiyaWifiManager.deactivateHotspot()
 
 
-                    thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_5GHZ)
+                    thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_5GHZ, hotspotType = it)
                     // Report connect link
                     connectLink = thisNode.state.filter { it.connectUri != null }.firstOrNull().toString()
                 }
             }
 
-            Button(content = {Text("Start hotspot")}, onClick = hotspot)
+            Button(content = {Text("Start hotspot (Auto)")}, onClick = {hotspot(HotspotType.AUTO)})
+            Button(content = {Text("Start hotspot (Wifi direct)")}, onClick = {hotspot(HotspotType.WIFIDIRECT_GROUP)})
+            Button(content = {Text("Start hotspot (Local only)")}, onClick = {hotspot(HotspotType.LOCALONLY_HOTSPOT)})
 
 
             Text(text = "Other nodes:")

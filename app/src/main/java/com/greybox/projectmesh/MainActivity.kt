@@ -131,17 +131,26 @@ class MainActivity : ComponentActivity() {
             if (!nodes.connectUri.isNullOrEmpty())
             {
                 Text(text = "Connection state: ${nodes.wifiState}")
-                Text(text = "Join URI: ${nodes.connectUri}")
 
-                // Show QR Code
-                Image(
-                    painter = rememberQrBitmapPainter(
-                        content = nodes.connectUri!!,
-                        size = 300.dp,
-                        padding = 1.dp
-                    ),
-                    contentDescription = null
-                )
+                if (nodes.wifiState.hotspotIsStarted)
+                {
+                    Text(text = "Join URI: ${nodes.connectUri}")
+
+                    // Show QR Code
+                    Image(
+                        painter = rememberQrBitmapPainter(
+                            content = nodes.connectUri!!,
+                            size = 300.dp,
+                            padding = 1.dp
+                        ),
+                        contentDescription = null
+                    )
+                }
+                else
+                {
+                    Text("Start a hotspot to show Connect Link and QR code")
+                }
+
 
 
             }

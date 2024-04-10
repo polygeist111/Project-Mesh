@@ -55,6 +55,7 @@ import java.io.PrintWriter
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
+import java.nio.charset.Charset
 import java.util.Scanner
 
 
@@ -226,7 +227,9 @@ class MainActivity : ComponentActivity() {
                         Log.d("DEBUG", "Sending '$chatMessage' to ${originatorMessage.value.lastHopAddr.addressToDotNotation()}")
                         val address: InetAddress = originatorMessage.value.lastHopAddr.asInetAddress()
                         val clientSocket = thisNode.socketFactory.createSocket(address,1337)
-                        clientSocket.getOutputStream().bufferedWriter().write("(${originatorMessage.value.lastHopAddr.addressToDotNotation()}) $chatMessage\n")
+                        clientSocket.getOutputStream().write(("(${originatorMessage.value.lastHopAddr.addressToDotNotation()}) $chatMessage\n").toByteArray(
+                            Charset.defaultCharset()) )
+                        //clientSocket.getOutputStream().bufferedWriter().flush()
                         clientSocket.close()
                     }
                     chatMessage = ""
@@ -248,13 +251,14 @@ class MainActivity : ComponentActivity() {
                     while (true) {
                         val socket = serverSocket.accept()
                         Log.d("DEBUG","Incoming chat...")
-                        val scanner = Scanner(socket.getInputStream())
-                        while (scanner.hasNext())
-                        {
-                            val line = scanner.next()
-                            chatLog+= line + '\n'
-                            Log.d("DEBUG","Chat: $line")
-                        }
+
+                        val msg = socket.getInputStream().readBytes().toString(
+                            Charset.defaultCharset())
+                        Log.d("DEBUG", "Message info: ${msg}")
+                        chatLog += msg + '\n'
+
+                        socket.close()
+                        Log.d("DEBUG","Closed connection")
                     }
                 }).start()
             }

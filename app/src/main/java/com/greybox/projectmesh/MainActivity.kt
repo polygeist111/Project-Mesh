@@ -36,6 +36,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.zxing.integration.android.IntentIntegrator
+import com.greybox.projectmesh.networking.HttpServer
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
@@ -51,17 +52,25 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import java.io.IOException
 import java.io.PrintWriter
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.nio.charset.Charset
+import java.time.Duration
 import java.util.Scanner
 
 
 class MainActivity : ComponentActivity() {
 
-    val qrIntent = IntentIntegrator(this) // For qr scanner
+    private val webServer = HttpServer()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -86,6 +95,9 @@ class MainActivity : ComponentActivity() {
         //    dataStore = applicationContext.dataStore
         //)
 
+        // Start HTTP
+        webServer.start()
+
         // Load content
         setContent {
             PrototypePage()
@@ -96,21 +108,27 @@ class MainActivity : ComponentActivity() {
         StrictMode.setThreadPolicy(policy)
     }
 
-    lateinit var thisNodeForQr: AndroidVirtualNode
-    @OptIn(DelicateCoroutinesApi::class)
+    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "project_mesh_libmeshrabiya")
+
     @Composable
     private fun PrototypePage()
     {
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            val thisNode by remember { mutableStateOf<AndroidVirtualNode>( AndroidVirtualNode(
+            val thisNode by remember { mutableStateOf( AndroidVirtualNode(
                 appContext = applicationContext,
                 dataStore = applicationContext.dataStore
             ) ) }
             val nodes by thisNode.state.collectAsState(LocalNodeState())
-            val wifimanager by thisNode.meshrabiyaWifiManager.state.collectAsState(
-                MeshrabiyaWifiState()
-            )
             var connectLink by remember { mutableStateOf("")}
+
+            val okHttp by remember { mutableStateOf(
+                OkHttpClient().newBuilder()
+                    .socketFactory(thisNode.socketFactory)
+                    .connectTimeout(Duration.ofSeconds(30))
+                    .readTimeout(Duration.ofSeconds(30))
+                    .writeTimeout(Duration.ofSeconds(30))
+                    .build()
+            )}
 
             //var connectionState by remember { mutableStateOf<LocalNodeState?>(null) }
 
@@ -171,6 +189,28 @@ class MainActivity : ComponentActivity() {
                 qrScannerLauncher.launch(ScanOptions().setOrientationLocked(false).setPrompt("Scan another device to join the Mesh").setBeepEnabled(false))
 
             }) //thisNode.meshrabiyaWifiManager.connectToHotspot()
+
+            Button(content = {Text("HTTP Test")}, onClick = {
+                val payload = "test payload"
+
+                val requestBody = payload.toRequestBody()
+                val request = Request.Builder()
+                    .post(requestBody)
+                    .url("http://${nodes.originatorMessages.entries.first().value.lastHopAddr.addressToDotNotation()}:8080/hello")
+                    .build()
+                Log.d("DEBUG","Trying to request ${request.url}")
+                okHttp.newCall(request).enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        // Handle this
+                        Log.d("DEBUG","DIDNT GOT WEB")
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        // Handle this
+                        Log.d("DEBUG","GOT WEB: ${response.body} ${response.code}")
+                    }
+                })
+            })
 
 
 
@@ -265,7 +305,7 @@ class MainActivity : ComponentActivity() {
 
         }
     }
-    val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "meshr_settings")
+
     //lateinit var thisNode: AndroidVirtualNode
 
 

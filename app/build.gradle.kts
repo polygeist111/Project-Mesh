@@ -78,6 +78,4 @@ dependencies {
     implementation("com.github.yveskalume:compose-qrpainter:0.0.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("androidx.appcompat:appcompat:1.3.1")
-    implementation ("com.squareup.okhttp3:okhttp:4.10.0")
-    implementation ("org.nanohttpd:nanohttpd:2.3.1")
 }

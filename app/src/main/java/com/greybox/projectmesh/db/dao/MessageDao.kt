@@ -2,6 +2,7 @@ package com.greybox.projectmesh.db.dao
 
 import androidx.room.Dao
 import androidx.room.Delete
+import androidx.room.DeleteTable
 import androidx.room.Insert
 import androidx.room.Query
 import com.greybox.projectmesh.db.entities.Message
@@ -21,4 +22,8 @@ interface MessageDao {
 
     @Delete
     fun delete(m: Message)
+
+    @Delete
+    suspend fun deleteAll(messages: List<Message>)
+
 }

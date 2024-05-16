@@ -262,6 +262,12 @@ class MainActivity : ComponentActivity() {
                 Text("(${m.sender.addressToDotNotation()}) ${m.content}")
             }
 
+            Button(content = {Text("Delete message history")}, onClick = fun() {
+              coroutineScope.launch {
+                  messageDao.deleteAll(messages)
+              }
+            })
+
             // TCP Networking
             // Add to chat when recieve data
             LaunchedEffect(Unit) {

@@ -42,6 +42,8 @@ import com.google.zxing.integration.android.IntentIntegrator
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.db.dao.MessageDao
 import com.greybox.projectmesh.db.entities.Message
+import com.greybox.projectmesh.debug.CrashHandler
+import com.greybox.projectmesh.debug.CrashScreenActivity
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
@@ -88,6 +90,9 @@ class MainActivity : ComponentActivity() {
         {
             ActivityCompat.requestPermissions(this@MainActivity, arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 2)
         }
+
+        // crash screen
+        CrashHandler.init(applicationContext,CrashScreenActivity::class.java)
 
         // Initialise Meshrabiya
         //initMesh();
@@ -174,6 +179,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+
+            // Crash button for testing the crash handler
+            //Button(content = {Text("die")}, onClick = { throw Error("Crash and burn") } )
 
             Button(content = {Text("Scan QR code")}, onClick = {
                 // Open QR code scanner

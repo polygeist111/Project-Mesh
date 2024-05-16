@@ -1,7 +1,9 @@
 package com.greybox.projectmesh
 
+import android.content.ContentQueryMap
 import android.content.Context
 import android.content.pm.PackageManager
+import android.icu.util.Calendar
 import android.os.Build
 import android.os.Bundle
 import android.os.StrictMode
@@ -35,11 +37,16 @@ import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.room.Room
 import com.google.zxing.integration.android.IntentIntegrator
+import com.greybox.projectmesh.db.MeshDatabase
+import com.greybox.projectmesh.db.dao.MessageDao
+import com.greybox.projectmesh.db.entities.Message
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.asInetAddress
+import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.LocalNodeState
 import com.ustadmobile.meshrabiya.vnet.MeshrabiyaConnectLink
@@ -48,6 +55,8 @@ import com.ustadmobile.meshrabiya.vnet.wifi.HotspotType
 import com.ustadmobile.meshrabiya.vnet.wifi.state.MeshrabiyaWifiState
 import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -59,6 +68,7 @@ import java.net.ServerSocket
 import java.nio.charset.Charset
 import java.time.Duration
 import java.util.Scanner
+import java.util.Date
 
 
 class MainActivity : ComponentActivity() {
@@ -86,6 +96,10 @@ class MainActivity : ComponentActivity() {
         //    dataStore = applicationContext.dataStore
         //)
 
+        // Init db
+        db = Room.databaseBuilder(applicationContext,MeshDatabase::class.java,"project-mesh-db").build()
+        messageDao = db.messageDao()
+
         // Load content
         setContent {
             PrototypePage()
@@ -95,6 +109,9 @@ class MainActivity : ComponentActivity() {
         val policy = ThreadPolicy.Builder().permitAll().build()
         StrictMode.setThreadPolicy(policy)
     }
+
+    private lateinit var db: MeshDatabase
+    private lateinit var messageDao: MessageDao
 
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "project_mesh_libmeshrabiya")
 
@@ -203,7 +220,7 @@ class MainActivity : ComponentActivity() {
 
 
 
-            var chatLog by remember { mutableStateOf("") }
+            //var chatLog by remember { mutableStateOf("") }
 
             Row {
                 var chatMessage by remember { mutableStateOf("") }
@@ -215,8 +232,11 @@ class MainActivity : ComponentActivity() {
                     label = { Text("Message") }
                 )
                 Button(content = {Text("Send")}, onClick = fun() {
+                    val newMessage = Message(content="You: $chatMessage\n", sender=0, dateReceived = System.currentTimeMillis(), id=0 )
+                    coroutineScope.launch {
+                        messageDao.addMessage(newMessage)
+                    }
 
-                    chatLog += "You: $chatMessage\n"
                     // SEND TO NETWORK HERE
                     for (originatorMessage in nodes.originatorMessages) {
                         Log.d("DEBUG", "Sending '$chatMessage' to ${originatorMessage.value.lastHopAddr.addressToDotNotation()}")
@@ -231,7 +251,16 @@ class MainActivity : ComponentActivity() {
                 })
             }
 
-            Text(text = chatLog)
+            //Text(text = chatLog)
+
+            // Watch db for chat messages
+            val messages by messageDao.getAllFlow().collectAsState(ArrayList<Message>())
+
+            // Display
+            for (m in messages)
+            {
+                Text("(${m.sender.addressToDotNotation()}) ${m.content}")
+            }
 
             // TCP Networking
             // Add to chat when recieve data
@@ -249,8 +278,15 @@ class MainActivity : ComponentActivity() {
 
                         val msg = socket.getInputStream().readBytes().toString(
                             Charset.defaultCharset())
-                        Log.d("DEBUG", "Message info: ${msg}")
-                        chatLog += msg + '\n'
+                        Log.d("DEBUG", "Message info: $msg")
+
+                        // Write into DB
+                        val newMessage = Message(content=msg, sender=socket.localAddress.requireAddressAsInt(), dateReceived = System.currentTimeMillis(), id=0 )
+                        coroutineScope.launch {
+                            messageDao.addMessage(newMessage)
+                        }
+
+                        //chatLog += msg + '\n'
 
                         socket.close()
                         Log.d("DEBUG","Closed connection")

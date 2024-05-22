@@ -36,6 +36,9 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.google.zxing.integration.android.IntentIntegrator
@@ -62,7 +65,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.time.delay
 import java.io.IOException
 import java.io.PrintWriter
@@ -73,7 +78,7 @@ import java.nio.charset.Charset
 import java.time.Duration
 import java.util.Scanner
 import java.util.Date
-
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -107,6 +112,19 @@ class MainActivity : ComponentActivity() {
         db = Room.databaseBuilder(applicationContext,MeshDatabase::class.java,"project-mesh-db").build()
         messageDao = db.messageDao()
 
+        // UUID
+        val sharedPrefs = getSharedPreferences("project-mesh-uuid", Context.MODE_PRIVATE)
+
+        // Read UUID, if not exists then generate one.
+        if (!sharedPrefs.contains("UUID")) {
+            // If it doesn't exist, add the string value
+            val editor = sharedPrefs.edit()
+            editor.putString("UUID", UUID.randomUUID().toString())
+            editor.apply()
+        }
+        thisIDString = sharedPrefs.getString("UUID",null) ?: "ERROR"
+
+
         // Load content
         setContent {
             PrototypePage()
@@ -119,6 +137,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var db: MeshDatabase
     private lateinit var messageDao: MessageDao
+    private lateinit var thisIDString: String
 
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "project_mesh_libmeshrabiya")
 
@@ -137,6 +156,7 @@ class MainActivity : ComponentActivity() {
 
             Text(text = "Project Mesh", fontSize = TextUnit(48f, TextUnitType.Sp))
             Text(text = "This device IP: ${nodes.address.addressToDotNotation()}")
+            Text(text = "This device UUID: ${thisIDString}")
             if (!nodes.connectUri.isNullOrEmpty())
             {
                 Text(text = "Connection state: ${nodes.wifiState}")

@@ -229,6 +229,12 @@ class MainActivity : ComponentActivity() {
 
             val startHotspot: () -> Unit = {
                 coroutineScope.launch {
+                    thisNode.disconnectWifiStation()
+                    thisNode = AndroidVirtualNode(
+                        appContext = applicationContext,
+                        dataStore = applicationContext.dataStore
+                    )
+
                     // Try AUTO
                     hotspot(HotspotType.AUTO)
 
@@ -252,9 +258,10 @@ class MainActivity : ComponentActivity() {
                 startHotspot()
             }
 
-            Button(content = {Text("Start hotspot (Auto)")}, onClick = {hotspot(HotspotType.AUTO)})
-            Button(content = {Text("Start hotspot (Wifi direct)")}, onClick = {hotspot(HotspotType.WIFIDIRECT_GROUP)})
-            Button(content = {Text("Start hotspot (Local only)")}, onClick = {hotspot(HotspotType.LOCALONLY_HOTSPOT)})
+            Button(content = {Text("Restart hotspot")}, onClick = {startHotspot()})
+            //Button(content = {Text("Start hotspot (Auto)")}, onClick = {hotspot(HotspotType.AUTO)})
+            //Button(content = {Text("Start hotspot (Wifi direct)")}, onClick = {hotspot(HotspotType.WIFIDIRECT_GROUP)})
+            //Button(content = {Text("Start hotspot (Local only)")}, onClick = {hotspot(HotspotType.LOCALONLY_HOTSPOT)})
 
             Text(text = "Other nodes:")
             //nodes.originatorMessages.entries

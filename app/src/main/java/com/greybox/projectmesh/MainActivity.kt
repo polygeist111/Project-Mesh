@@ -58,10 +58,12 @@ import com.ustadmobile.meshrabiya.vnet.wifi.state.MeshrabiyaWifiState
 import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.time.delay
 import java.io.IOException
 import java.io.PrintWriter
 import java.net.InetAddress
@@ -124,7 +126,7 @@ class MainActivity : ComponentActivity() {
     private fun PrototypePage()
     {
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            val thisNode by remember { mutableStateOf( AndroidVirtualNode(
+            var thisNode by remember { mutableStateOf( AndroidVirtualNode(
                 appContext = applicationContext,
                 dataStore = applicationContext.dataStore
             ) ) }
@@ -201,17 +203,58 @@ class MainActivity : ComponentActivity() {
                     //thisNode.disconnectWifiStation()
                     //thisNode.meshrabiyaWifiManager.deactivateHotspot()
 
+                    // Try 5GHz
+                    try
+                    {
+                        thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_5GHZ, hotspotType = it)
+                    }
+                    catch (e: Exception)
+                    {
+                        // Try 2.5GHz
+                        try {
+                            thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = com.ustadmobile.meshrabiya.vnet.wifi.ConnectBand.BAND_2GHZ, hotspotType = it)
+                        }
+                        catch (e: Exception)
+                        {
 
-                    thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_5GHZ, hotspotType = it)
+                        }
+                    }
+
+
+
                     // Report connect link
                     connectLink = thisNode.state.filter { it.connectUri != null }.firstOrNull().toString()
                 }
             }
 
+            val startHotspot: () -> Unit = {
+                coroutineScope.launch {
+                    // Try AUTO
+                    hotspot(HotspotType.AUTO)
+
+                    // Wait 5 sec...
+                    delay(5000)
+
+                    if (!nodes.wifiState.hotspotIsStarted)
+                    {
+                        // Recreate node
+                        thisNode.disconnectWifiStation()
+                        thisNode = AndroidVirtualNode(
+                            appContext = applicationContext,
+                            dataStore = applicationContext.dataStore
+                        )
+                        hotspot(HotspotType.LOCALONLY_HOTSPOT)
+                    }
+                }
+            }
+
+            LaunchedEffect(Unit) {
+                startHotspot()
+            }
+
             Button(content = {Text("Start hotspot (Auto)")}, onClick = {hotspot(HotspotType.AUTO)})
             Button(content = {Text("Start hotspot (Wifi direct)")}, onClick = {hotspot(HotspotType.WIFIDIRECT_GROUP)})
             Button(content = {Text("Start hotspot (Local only)")}, onClick = {hotspot(HotspotType.LOCALONLY_HOTSPOT)})
-
 
             Text(text = "Other nodes:")
             //nodes.originatorMessages.entries

@@ -51,6 +51,7 @@ import com.greybox.projectmesh.db.dao.MessageDao
 import com.greybox.projectmesh.db.dao.UserDao
 import com.greybox.projectmesh.db.entities.Message
 import com.greybox.projectmesh.db.entities.User
+import com.greybox.projectmesh.db.entities.UserMessage
 import com.greybox.projectmesh.debug.CrashHandler
 import com.greybox.projectmesh.debug.CrashScreenActivity
 import com.journeyapps.barcodescanner.ScanContract
@@ -84,9 +85,11 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.nio.charset.Charset
+import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.Scanner
 import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 class MainActivity : ComponentActivity() {
@@ -374,12 +377,17 @@ class MainActivity : ComponentActivity() {
 
             // Watch db for chat messages
             val messages by messageDao.getAllFlow().collectAsState(ArrayList<Message>())
+            val messageUsers by userDao.messagesFromAllUsers().collectAsState(ArrayList<UserMessage>())
 
             // Display
             Text("Messages:", fontWeight = FontWeight.Bold)
-            for (m in messages)
+            for (m in messageUsers)
             {
-                Text("{${m.sender}}: ${m.content}")
+                // nicen the date
+                val dateFormat = SimpleDateFormat("MM/dd/yyyy hh:mm", Locale.getDefault())
+                val date = Date(m.dateReceived)
+
+                Text("[${dateFormat.format(date)}] ${m.name}: ${m.content}")
             }
 
             Button(content = {Text("Delete message history")}, onClick = fun() {

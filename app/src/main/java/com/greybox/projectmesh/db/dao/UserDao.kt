@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.greybox.projectmesh.db.entities.User
+import com.greybox.projectmesh.db.entities.UserMessage
 import kotlinx.coroutines.flow.Flow
 
 
@@ -32,4 +33,11 @@ interface UserDao {
     //@Update(entity = User::class)
     @Query("UPDATE user SET name = :newName WHERE uuid = :uuid")
     fun updateName(uuid: String,newName: String)
+
+    // Get all messages from said user.
+    @Query("SELECT user.uuid as uuid, user.name as name, message.content as content, message.dateReceived as dateReceived FROM user JOIN message ON user.uuid = message.sender WHERE user.uuid = :id")
+    fun messagesFromUser(id: String): Flow<List<UserMessage>>
+
+    @Query("SELECT user.uuid as uuid, user.name as name, message.content as content, message.dateReceived as dateReceived FROM user JOIN message")
+    fun messagesFromAllUsers(): Flow<List<UserMessage>>
 }

@@ -35,9 +35,9 @@ interface UserDao {
     fun updateName(uuid: String,newName: String)
 
     // Get all messages from said user.
-    @Query("SELECT user.uuid as uuid, user.name as name, message.content as content, message.dateReceived as dateReceived FROM user JOIN message ON user.uuid = message.sender WHERE user.uuid = :id")
+    @Query("SELECT user.uuid as uuid, user.name as name, message.content as content, message.dateReceived as dateReceived FROM user JOIN message ON user.uuid = message.sender WHERE user.uuid = :id ORDER BY dateReceived ASC")
     fun messagesFromUser(id: String): Flow<List<UserMessage>>
 
-    @Query("SELECT user.uuid as uuid, user.name as name, message.content as content, message.dateReceived as dateReceived FROM user JOIN message")
+    @Query("SELECT user.uuid as uuid, user.name as name, message.content as content, message.dateReceived as dateReceived FROM user JOIN message ORDER BY dateReceived ASC")
     fun messagesFromAllUsers(): Flow<List<UserMessage>>
 }

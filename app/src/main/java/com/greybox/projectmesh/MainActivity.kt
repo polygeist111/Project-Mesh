@@ -29,6 +29,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
@@ -111,9 +113,10 @@ class MainActivity : ComponentActivity() {
         //)
 
         // Init db
-        db = Room.databaseBuilder(applicationContext,MeshDatabase::class.java,"project-mesh-db").build()
+        db = Room.databaseBuilder(applicationContext,MeshDatabase::class.java,"project-mesh-db").allowMainThreadQueries().build()
         messageDao = db.messageDao()
         userDao = db.userDao()
+
 
         // UUID
         val sharedPrefs = getSharedPreferences("project-mesh-uuid", Context.MODE_PRIVATE)
@@ -127,6 +130,11 @@ class MainActivity : ComponentActivity() {
         }
         thisIDString = sharedPrefs.getString("UUID",null) ?: "ERROR"
 
+        // Init self user
+        if (!userDao.hasWithID(thisIDString))
+        {
+            userDao.initSelf( User(uuid=thisIDString,"Default name",0,0) )
+        }
 
         // Load content
         setContent {
@@ -303,6 +311,19 @@ class MainActivity : ComponentActivity() {
 
 
             //var chatLog by remember { mutableStateOf("") }
+            Row {
+                var newName by remember { mutableStateOf("") }
+                TextField(
+                    value = newName,
+                    onValueChange = { newName = it},
+                    label = { Text("Profile name") }
+                )
+                Button(content = {Text("Update")}, onClick = fun() {
+                    coroutineScope.launch {
+                        userDao.updateName(thisIDString,newName)
+                    }
+                })
+            }
 
             Row {
                 var chatMessage by remember { mutableStateOf("") }
@@ -340,16 +361,17 @@ class MainActivity : ComponentActivity() {
             val users by userDao.getAllFlow().collectAsState(ArrayList<User>())
 
             // Display
-            Text("Users DB:")
+            Text("Users DB:", fontWeight = FontWeight.Bold)
             for (u in users)
             {
-                Text("{${u.uuid},${u.name},${u.address.addressToDotNotation()},${(System.currentTimeMillis() - u.lastSeen)/1000}s")
+                Text("${u.uuid},${u.name},${u.address.addressToDotNotation()},${(System.currentTimeMillis() - u.lastSeen)/1000}s")
             }
 
             // Watch db for chat messages
             val messages by messageDao.getAllFlow().collectAsState(ArrayList<Message>())
 
             // Display
+            Text("Messages:", fontWeight = FontWeight.Bold)
             for (m in messages)
             {
                 Text("{${m.sender}}: ${m.content}")

@@ -44,7 +44,9 @@ import androidx.room.Room
 import com.google.zxing.integration.android.IntentIntegrator
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.db.dao.MessageDao
+import com.greybox.projectmesh.db.dao.UserDao
 import com.greybox.projectmesh.db.entities.Message
+import com.greybox.projectmesh.db.entities.User
 import com.greybox.projectmesh.debug.CrashHandler
 import com.greybox.projectmesh.debug.CrashScreenActivity
 import com.journeyapps.barcodescanner.ScanContract
@@ -111,6 +113,7 @@ class MainActivity : ComponentActivity() {
         // Init db
         db = Room.databaseBuilder(applicationContext,MeshDatabase::class.java,"project-mesh-db").build()
         messageDao = db.messageDao()
+        userDao = db.userDao()
 
         // UUID
         val sharedPrefs = getSharedPreferences("project-mesh-uuid", Context.MODE_PRIVATE)
@@ -137,6 +140,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var db: MeshDatabase
     private lateinit var messageDao: MessageDao
+    private lateinit var userDao: UserDao
     private lateinit var thisIDString: String
 
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "project_mesh_libmeshrabiya")
@@ -310,7 +314,7 @@ class MainActivity : ComponentActivity() {
                     label = { Text("Message") }
                 )
                 Button(content = {Text("Send")}, onClick = fun() {
-                    val newMessage = Message(content="You: $chatMessage\n", sender=0, dateReceived = System.currentTimeMillis(), id=0 )
+                    val newMessage = Message(content="You: $chatMessage\n", dateReceived = System.currentTimeMillis(), id=0, sender=thisIDString )
                     coroutineScope.launch {
                         messageDao.addMessage(newMessage)
                     }
@@ -320,7 +324,8 @@ class MainActivity : ComponentActivity() {
                         Log.d("DEBUG", "Sending '$chatMessage' to ${originatorMessage.value.lastHopAddr.addressToDotNotation()}")
                         val address: InetAddress = originatorMessage.value.lastHopAddr.asInetAddress()
                         val clientSocket = thisNode.socketFactory.createSocket(address,1337)
-                        clientSocket.getOutputStream().write(("(${originatorMessage.value.lastHopAddr.addressToDotNotation()}) $chatMessage\n").toByteArray(
+                        // Send the UUID string and the message together.
+                        clientSocket.getOutputStream().write(("$thisIDString$chatMessage").toByteArray(
                             Charset.defaultCharset()) )
                         //clientSocket.getOutputStream().bufferedWriter().flush()
                         clientSocket.close()
@@ -331,13 +336,23 @@ class MainActivity : ComponentActivity() {
 
             //Text(text = chatLog)
 
+            // Watch db for profiles
+            val users by userDao.getAllFlow().collectAsState(ArrayList<User>())
+
+            // Display
+            Text("Users DB:")
+            for (u in users)
+            {
+                Text("{${u.uuid},${u.name},${u.address.addressToDotNotation()},${(System.currentTimeMillis() - u.lastSeen)/1000}s")
+            }
+
             // Watch db for chat messages
             val messages by messageDao.getAllFlow().collectAsState(ArrayList<Message>())
 
             // Display
             for (m in messages)
             {
-                Text("(${m.sender.addressToDotNotation()}) ${m.content}")
+                Text("{${m.sender}}: ${m.content}")
             }
 
             Button(content = {Text("Delete message history")}, onClick = fun() {
@@ -362,10 +377,17 @@ class MainActivity : ComponentActivity() {
 
                         val msg = socket.getInputStream().readBytes().toString(
                             Charset.defaultCharset())
-                        Log.d("DEBUG", "Message info: $msg")
+
+                        // The first 36 characters are the UUID - the rest are content.
+                        val uuid = msg.substring(0, 36)
+                        val content = msg.substring(36)
+
+                        Log.d("DEBUG", "Message raw: $msg")
+                        Log.d("DEBUG", "Message uuid: $uuid")
+                        Log.d("DEBUG", "Message content: $content")
 
                         // Write into DB
-                        val newMessage = Message(content=msg, sender=socket.localAddress.requireAddressAsInt(), dateReceived = System.currentTimeMillis(), id=0 )
+                        val newMessage = Message(content=content, sender=uuid, dateReceived = System.currentTimeMillis(), id=0 )
                         coroutineScope.launch {
                             messageDao.addMessage(newMessage)
                         }

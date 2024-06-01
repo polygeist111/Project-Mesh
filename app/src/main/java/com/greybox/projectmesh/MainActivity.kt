@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.icu.util.Calendar
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.StrictMode
 import android.os.StrictMode.ThreadPolicy
 import android.util.Log
@@ -73,6 +75,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.time.delay
+import kotlinx.serialization.SerializationStrategy
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.io.PrintWriter
 import java.net.InetAddress
@@ -383,14 +388,56 @@ class MainActivity : ComponentActivity() {
               }
             })
 
+            // Broadcast profile info every 10 seconds.
+            // val jsonString = Json.encodeToString(myObject)
+
             // TCP Networking
             // Add to chat when recieve data
             LaunchedEffect(Unit) {
                 Log.d("DEBUG","Launchedeffect?")
                 //Runs once (like useEffect null in React)
-                // Thread that listens for TCP data on port 1337, prints to chat
+
+                val mainHandler = Handler(Looper.getMainLooper())
+
+                mainHandler.post(object : Runnable {
+                    override fun run() {
+
+                        coroutineScope.launch {
+                            // Make sure our user object is up to date.
+                            var thisUser = userDao.getID(thisIDString)
+                            thisUser.lastSeen = System.currentTimeMillis()
+                            thisUser.address = thisNode.addressAsInt
+                            userDao.update(thisUser)
+
+                            // Send to everyone
+                            for (originatorMessage in nodes.originatorMessages) {
+                                try {
+                                    val address: InetAddress =
+                                        originatorMessage.value.lastHopAddr.asInetAddress()
+                                    val clientSocket =
+                                        thisNode.socketFactory.createSocket(address, 1338)
+                                    // Send the UUID string and the message together.
+                                    clientSocket.getOutputStream().write(
+                                        (Json.encodeToString(thisUser)).toByteArray(
+                                            Charset.defaultCharset()
+                                        )
+                                    )
+                                    //clientSocket.getOutputStream().bufferedWriter().flush()
+                                    clientSocket.close()
+                                } catch (_: Exception) {}
+
+                            }
+                        }
+
+                        mainHandler.postDelayed(this, 1000 * 10)
+                    }
+                })
+
+                // Thread for CHAT messages
+                // Port: 1337
+                // Receives: 36 char UUID then message content
                 Thread(Runnable {
-                    Log.d("DEBUG","TCP thread started")
+                    Log.d("DEBUG","TCP message thread started")
                     val serverSocket = ServerSocket(1337)
 
                     while (true) {
@@ -417,7 +464,35 @@ class MainActivity : ComponentActivity() {
                         //chatLog += msg + '\n'
 
                         socket.close()
-                        Log.d("DEBUG","Closed connection")
+                        Log.d("DEBUG","Closed message connection")
+                    }
+                }).start()
+
+                // Thread for USER messages
+                // Port: 1338
+                // Receives: 36 char UUID then message content
+                Thread(Runnable {
+                    Log.d("DEBUG","TCP profile thread started")
+                    val serverSocket = ServerSocket(1338)
+
+                    while (true) {
+                        val socket = serverSocket.accept()
+                        Log.d("DEBUG","Incoming user profile...")
+
+                        val msg = socket.getInputStream().readBytes().toString(
+                            Charset.defaultCharset())
+                        Log.d("DEBUG","Profile JSON: $msg")
+                        val user = Json.decodeFromString<User>(msg)
+
+                        // Write into DB
+                        coroutineScope.launch {
+                            userDao.update(user)
+                        }
+
+                        //chatLog += msg + '\n'
+
+                        socket.close()
+                        Log.d("DEBUG","Closed profile connection")
                     }
                 }).start()
             }

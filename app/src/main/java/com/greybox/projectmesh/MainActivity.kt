@@ -45,6 +45,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
+import coil.compose.rememberImagePainter
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.db.dao.MessageDao
 import com.greybox.projectmesh.db.dao.UserDao
@@ -436,6 +437,12 @@ class MainActivity : ComponentActivity() {
 
             }
 
+            sentImageUri?.let { uri ->
+                Image(
+                    painter = rememberImagePainter(uri),
+                    contentDescription = "Sent Image"
+                )
+            }
 
             Button(content = {Text("Delete message history")}, onClick = fun() {
                 coroutineScope.launch {
@@ -631,7 +638,6 @@ class MainActivity : ComponentActivity() {
         }
 
     }
-
     private var sentImageUri by mutableStateOf<Uri?>(null)
     //lateinit var thisNode: AndroidVirtualNode
 

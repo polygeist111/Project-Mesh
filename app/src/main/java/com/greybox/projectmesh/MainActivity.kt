@@ -354,6 +354,7 @@ class MainActivity : ComponentActivity() {
                         sendFile(context, uri, nodes, thisNode, selectedFileName)
                     }
                 }
+
             })
 
 
@@ -401,8 +402,11 @@ class MainActivity : ComponentActivity() {
                         clientSocket.close()
                     }
                     chatMessage = ""
+
+
                 })
             }
+
 
             //Text(text = chatLog)
 
@@ -429,7 +433,9 @@ class MainActivity : ComponentActivity() {
                 val date = Date(m.dateReceived)
 
                 Text("[${dateFormat.format(date)}] ${m.name}: ${m.content}")
+
             }
+
 
             Button(content = {Text("Delete message history")}, onClick = fun() {
                 coroutineScope.launch {
@@ -568,6 +574,12 @@ class MainActivity : ComponentActivity() {
 
                         Log.d("DEBUG", "Received file: $fileName")
 
+                        runOnUiThread {
+                            val fileUri  = Uri.fromFile(file)
+                            sentImageUri = fileUri
+                            Log.d("DEBUG", "displayed file: $sentImageUri")
+                        }
+
                         socket.close()
                         Log.d("DEBUG","Closed profile connection")
                     }
@@ -576,7 +588,10 @@ class MainActivity : ComponentActivity() {
 
         }
     }
+
+
     //at the bottom
+    //you're out of touch, I'm out of time~
     private fun sendFile(
         context: Context,
         fileUri: Uri,
@@ -588,17 +603,25 @@ class MainActivity : ComponentActivity() {
         val inputStream = context.contentResolver.openInputStream(fileUri)
         val fileBytes = inputStream?.readBytes() ?: return
 
+        //czech if image
+        val isImage = context.contentResolver.getType(fileUri)?.startsWith("image/") ?: false
+
+
         //send to the entire hood
         for (originatorMessage in nodes.originatorMessages) {
             try {
                 val address: InetAddress = originatorMessage.value.lastHopAddr.asInetAddress()
                 Log.d("DEBUG", "Sending file to ${address.hostAddress}")
                 val clientSocket = thisNode.socketFactory.createSocket(address, 1339)
+                Log.d("DEBUG", "port opened $clientSocket")
                 //send filename and content
                 clientSocket.getOutputStream().write((selectedFileName + "\n").toByteArray(Charset.defaultCharset()))
                 clientSocket.getOutputStream().write(fileBytes)
                 clientSocket.close()
                 Log.d("DEBUG", "File sent to ${address.hostAddress}")
+
+                sentImageUri = fileUri
+
             }
 
             catch (e: Exception) {
@@ -609,7 +632,9 @@ class MainActivity : ComponentActivity() {
 
     }
 
+    private var sentImageUri by mutableStateOf<Uri?>(null)
     //lateinit var thisNode: AndroidVirtualNode
+
 
 
 

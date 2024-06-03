@@ -3,7 +3,6 @@ package com.greybox.projectmesh.db.entities
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import kotlinx.serialization.Serializable
 
 @Entity
 data class UserMessage (
@@ -11,6 +10,6 @@ data class UserMessage (
     @PrimaryKey val uuid: String,
     @ColumnInfo(name = "name") var name: String,
     @ColumnInfo(name = "content") var content: String,
-    @ColumnInfo(name = "dateReceived") val dateReceived: Long
-
+    @ColumnInfo(name = "dateReceived") val dateReceived: Long,
+    @ColumnInfo(name = "imageUri") val imageUri: String? // Nullable string for image URI
 )

@@ -82,6 +82,7 @@ dependencies {
     implementation("com.github.yveskalume:compose-qrpainter:0.0.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("androidx.appcompat:appcompat:1.3.1")
+    implementation ("io.coil-kt:coil-compose:1.4.0")
 
     val room_version = "2.6.1"
 

@@ -1,9 +1,10 @@
 package com.greybox.projectmesh
 
-import android.content.ContentQueryMap
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
-import android.icu.util.Calendar
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -14,6 +15,8 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,7 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
@@ -40,12 +43,9 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
-import com.google.zxing.integration.android.IntentIntegrator
+//import coil.compose.rememberImagePainter
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.db.dao.MessageDao
 import com.greybox.projectmesh.db.dao.UserDao
@@ -58,43 +58,50 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.asInetAddress
-import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.LocalNodeState
 import com.ustadmobile.meshrabiya.vnet.MeshrabiyaConnectLink
 import com.ustadmobile.meshrabiya.vnet.wifi.ConnectBand
 import com.ustadmobile.meshrabiya.vnet.wifi.HotspotType
-import com.ustadmobile.meshrabiya.vnet.wifi.state.MeshrabiyaWifiState
 import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.time.delay
-import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.IOException
-import java.io.PrintWriter
+import java.io.BufferedReader
+import java.io.File
+import java.io.InputStreamReader
 import java.net.InetAddress
-import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.nio.charset.Charset
 import java.text.SimpleDateFormat
-import java.time.Duration
-import java.util.Scanner
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
 class MainActivity : ComponentActivity() {
+    private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
+    private var selectedFileUri: Uri? = null
+    private var selectedFileName: String = ""
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        filePickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    selectedFileUri = uri
+                    selectedFileName = uri.lastPathSegment ?: "Unknown file"
+                    Log.d("FileSelection", "Selected file URI: $selectedFileUri")
+                    Log.d("FileSelection", "Selected file name: $selectedFileName")
+                }
+            }
+
+            else {
+                Log.e("FileSelection", "File selection canceled or failed")
+            }
+        }
 
         // Request nearby devices permission
         if (ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_DENIED)
@@ -121,7 +128,14 @@ class MainActivity : ComponentActivity() {
         //)
 
         // Init db
-        db = Room.databaseBuilder(applicationContext,MeshDatabase::class.java,"project-mesh-db").allowMainThreadQueries().build()
+        db = Room.databaseBuilder(
+            applicationContext,
+            MeshDatabase::class.java,
+            "project-mesh-db"
+        )
+            .fallbackToDestructiveMigration()  //add this line to handle migrations destructively lol - giving me a headache
+            .allowMainThreadQueries()          //this should generally be avoided for production apps
+            .build()
         messageDao = db.messageDao()
         userDao = db.userDao()
 
@@ -164,6 +178,11 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun PrototypePage()
     {
+
+        val context = LocalContext.current
+        val coroutineScope = rememberCoroutineScope()
+//        val FILE_TRANSFER_PORT = 1339
+
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             var thisNode by remember { mutableStateOf( AndroidVirtualNode(
                 appContext = applicationContext,
@@ -205,18 +224,18 @@ class MainActivity : ComponentActivity() {
             }
             val coroutineScope = rememberCoroutineScope()
             val qrScannerLauncher = rememberLauncherForActivityResult(contract = ScanContract()) {
-                result ->
+                    result ->
                 val link = result.contents
                 if (link != null)
                 {
                     val connectConfig = MeshrabiyaConnectLink.parseUri(link).hotspotConfig
                     if(connectConfig != null) {
                         val job = coroutineScope.launch {
-                            //try {
-                                thisNode.connectAsStation(connectConfig)
-                            //} catch (e: Exception) {
-                                //Log(Log.ERROR,"Failed to connect ",e)
-                            //}
+                            try {
+                            thisNode.connectAsStation(connectConfig)
+                            }
+                            catch (e: Exception) {
+                            }
                         }
                     }
                 }
@@ -246,7 +265,7 @@ class MainActivity : ComponentActivity() {
                     // Try 5GHz
                     try
                     {
-                        thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_5GHZ, hotspotType = it)
+                        thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_2GHZ, hotspotType = it)
                     }
                     catch (e: Exception)
                     {
@@ -313,8 +332,31 @@ class MainActivity : ComponentActivity() {
 
                 nodes.originatorMessages.entries.forEach {
                     Text(  it.value.lastHopAddr.addressToDotNotation() + it.value.originatorMessage + it.value + "Other IP: \n" + it.value.originatorMessage.connectConfig?.nodeVirtualAddr?.addressToDotNotation() + "\n---\n")
-
             }
+
+
+            //check not sending filename/content
+            Button(content = { Text("Select File") }, onClick = {
+                // Use an intent to select a file
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                }
+
+                filePickerLauncher.launch(intent)
+            })
+
+
+            //check this it's not working
+            Button(content = { Text("Send File") }, onClick = {
+                selectedFileUri?.let { uri ->
+                    coroutineScope.launch {
+                        sendFile(context, uri, nodes, thisNode, selectedFileName)
+                    }
+                }
+
+            })
+
 
 
 
@@ -361,8 +403,11 @@ class MainActivity : ComponentActivity() {
                         clientSocket.close()
                     }
                     chatMessage = ""
+
+
                 })
             }
+
 
             //Text(text = chatLog)
 
@@ -371,9 +416,8 @@ class MainActivity : ComponentActivity() {
 
             // Display
             Text("Users DB:", fontWeight = FontWeight.Bold)
-            for (u in users)
-            {
-                Text("${u.uuid},${u.name},${u.address.addressToDotNotation()},${(System.currentTimeMillis() - u.lastSeen)/1000}s")
+            users.forEach {
+                Text("${it.uuid},${it.name},${it.address.addressToDotNotation()},${(System.currentTimeMillis() - it.lastSeen)/1000}s")
             }
 
             // Watch db for chat messages
@@ -382,19 +426,25 @@ class MainActivity : ComponentActivity() {
 
             // Display
             Text("Messages:", fontWeight = FontWeight.Bold)
-            for (m in messageUsers)
-            {
+            messageUsers.forEach {
                 // nicen the date
                 val dateFormat = SimpleDateFormat("MM/dd/yyyy hh:mm", Locale.getDefault())
-                val date = Date(m.dateReceived)
+                val date = Date(it.dateReceived)
+                Text("[${dateFormat.format(date)}] ${it.name}: ${it.content}")
 
-                Text("[${dateFormat.format(date)}] ${m.name}: ${m.content}")
             }
+            // check this
+//            sentImageUri?.let { uri ->
+//                Image(
+//                    painter = rememberImagePainter(uri),
+//                    contentDescription = "Sent Image"
+//                )
+//            }
 
             Button(content = {Text("Delete message history")}, onClick = fun() {
-              coroutineScope.launch {
-                  messageDao.deleteAll(messages)
-              }
+                coroutineScope.launch {
+                    messageDao.deleteAll(messages)
+                }
             })
 
             // Broadcast profile info every 10 seconds.
@@ -503,13 +553,91 @@ class MainActivity : ComponentActivity() {
                         Log.d("DEBUG","Closed profile connection")
                     }
                 }).start()
+
+                Thread(Runnable {
+                    Log.d("DEBUG", "TCP file transfer thread started")
+                    val serverSocket = ServerSocket(1339)
+
+                    while (true) {
+                        val socket = serverSocket.accept()
+                        Log.d("DEBUG", "Incoming file...")
+
+                        val inputStream = socket.getInputStream()
+                        val reader = BufferedReader(InputStreamReader(inputStream))
+
+                        // Read file name (first line)
+                        val fileName = reader.readLine()
+
+                        // Read the remaining bytes (file content)
+                        val fileBytes = inputStream.readBytes()
+
+                        // Save the file
+                        val file = File(context.filesDir, fileName)
+                        file.writeBytes(fileBytes)
+
+                        Log.d("DEBUG", "Received file: $fileName")
+
+                        runOnUiThread {
+                            val fileUri  = Uri.fromFile(file)
+                            sentImageUri = fileUri
+                            Log.d("DEBUG", "displayed file: $sentImageUri")
+                        }
+
+                        socket.close()
+                        Log.d("DEBUG","Closed profile connection")
+                    }
+                }).start()
             }
 
         }
     }
 
+
+    //at the bottom
+    //you're out of touch, I'm out of time~
+    private fun sendFile(
+        context: Context,
+        fileUri: Uri,
+        nodes: LocalNodeState,
+        thisNode: AndroidVirtualNode,
+        selectedFileName: String
+    ) {
+        Log.d("DEBUG", "sendfile called")
+        val inputStream = context.contentResolver.openInputStream(fileUri)
+        val fileBytes = inputStream?.readBytes() ?: return
+
+        //czech if image
+        val isImage = context.contentResolver.getType(fileUri)?.startsWith("image/") ?: false
+
+
+        //send to the entire hood
+        for (originatorMessage in nodes.originatorMessages) {
+            try {
+                val address: InetAddress = originatorMessage.value.lastHopAddr.asInetAddress()
+                Log.d("DEBUG", "Sending file to ${address.hostAddress}")
+                val clientSocket = thisNode.socketFactory.createSocket(address, 1339)
+                Log.d("DEBUG", "port opened $clientSocket")
+                //send filename and content
+                clientSocket.getOutputStream().write((selectedFileName + "\n").toByteArray(Charset.defaultCharset()))
+                clientSocket.getOutputStream().write(fileBytes)
+                clientSocket.close()
+                Log.d("DEBUG", "File sent to ${address.hostAddress}")
+
+                sentImageUri = fileUri
+
+            }
+
+            catch (e: Exception) {
+                val address: InetAddress = originatorMessage.value.lastHopAddr.asInetAddress()
+                Log.e("FileTransfer", "Failed to send file to ${address.hostAddress}", e)
+            }
+        }
+
+    }
+    private var sentImageUri by mutableStateOf<Uri?>(null)
     //lateinit var thisNode: AndroidVirtualNode
 
 
-    
+
+
 }

@@ -416,9 +416,8 @@ class MainActivity : ComponentActivity() {
 
             // Display
             Text("Users DB:", fontWeight = FontWeight.Bold)
-            for (u in users)
-            {
-                Text("${u.uuid},${u.name},${u.address.addressToDotNotation()},${(System.currentTimeMillis() - u.lastSeen)/1000}s")
+            users.forEach {
+                Text("${it.uuid},${it.name},${it.address.addressToDotNotation()},${(System.currentTimeMillis() - it.lastSeen)/1000}s")
             }
 
             // Watch db for chat messages
@@ -427,13 +426,11 @@ class MainActivity : ComponentActivity() {
 
             // Display
             Text("Messages:", fontWeight = FontWeight.Bold)
-            for (m in messageUsers)
-            {
+            messageUsers.forEach {
                 // nicen the date
                 val dateFormat = SimpleDateFormat("MM/dd/yyyy hh:mm", Locale.getDefault())
-                val date = Date(m.dateReceived)
-
-                Text("[${dateFormat.format(date)}] ${m.name}: ${m.content}")
+                val date = Date(it.dateReceived)
+                Text("[${dateFormat.format(date)}] ${it.name}: ${it.content}")
 
             }
             // check this

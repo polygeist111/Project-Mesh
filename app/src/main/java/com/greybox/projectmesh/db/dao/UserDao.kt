@@ -38,6 +38,6 @@ interface UserDao {
     @Query("SELECT user.uuid as uuid, user.name as name, message.content as content, message.dateReceived as dateReceived FROM user JOIN message ON user.uuid = message.sender WHERE user.uuid = :id ORDER BY dateReceived ASC")
     fun messagesFromUser(id: String): Flow<List<UserMessage>>
 
-    @Query("SELECT user.uuid as uuid, user.name as name, message.content as content, message.dateReceived as dateReceived FROM user JOIN message ORDER BY dateReceived ASC")
+    @Query("SELECT user.uuid as uuid, user.name as name, message.content as content, message.dateReceived as dateReceived FROM user JOIN message ON user.uuid = message.sender ORDER BY dateReceived ASC")
     fun messagesFromAllUsers(): Flow<List<UserMessage>>
 }

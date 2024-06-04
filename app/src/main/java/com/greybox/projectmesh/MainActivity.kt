@@ -45,7 +45,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
-import coil.compose.rememberImagePainter
+//import coil.compose.rememberImagePainter
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.db.dao.MessageDao
 import com.greybox.projectmesh.db.dao.UserDao
@@ -231,11 +231,11 @@ class MainActivity : ComponentActivity() {
                     val connectConfig = MeshrabiyaConnectLink.parseUri(link).hotspotConfig
                     if(connectConfig != null) {
                         val job = coroutineScope.launch {
-                            //try {
+                            try {
                             thisNode.connectAsStation(connectConfig)
-                            //} catch (e: Exception) {
-                            //Log(Log.ERROR,"Failed to connect ",e)
-                            //}
+                            }
+                            catch (e: Exception) {
+                            }
                         }
                     }
                 }
@@ -265,7 +265,7 @@ class MainActivity : ComponentActivity() {
                     // Try 5GHz
                     try
                     {
-                        thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_5GHZ, hotspotType = it)
+                        thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_2GHZ, hotspotType = it)
                     }
                     catch (e: Exception)
                     {
@@ -436,13 +436,13 @@ class MainActivity : ComponentActivity() {
                 Text("[${dateFormat.format(date)}] ${m.name}: ${m.content}")
 
             }
-
-            sentImageUri?.let { uri ->
-                Image(
-                    painter = rememberImagePainter(uri),
-                    contentDescription = "Sent Image"
-                )
-            }
+            // check this
+//            sentImageUri?.let { uri ->
+//                Image(
+//                    painter = rememberImagePainter(uri),
+//                    contentDescription = "Sent Image"
+//                )
+//            }
 
             Button(content = {Text("Delete message history")}, onClick = fun() {
                 coroutineScope.launch {

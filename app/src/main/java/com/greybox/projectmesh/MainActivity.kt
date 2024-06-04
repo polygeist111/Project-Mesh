@@ -312,7 +312,7 @@ class MainActivity : ComponentActivity() {
             //else
 
                 nodes.originatorMessages.entries.forEach {
-                    Text(  it.value.lastHopAddr.addressToDotNotation() + it.value.originatorMessage + it.value)
+                    Text(  it.value.lastHopAddr.addressToDotNotation() + it.value.originatorMessage + it.value + "Other IP: \n" + it.value.originatorMessage.connectConfig?.nodeVirtualAddr?.addressToDotNotation() + "\n---\n")
 
             }
 
@@ -343,7 +343,7 @@ class MainActivity : ComponentActivity() {
                     label = { Text("Message") }
                 )
                 Button(content = {Text("Send")}, onClick = fun() {
-                    val newMessage = Message(content="You: $chatMessage\n", dateReceived = System.currentTimeMillis(), id=0, sender=thisIDString )
+                    val newMessage = Message(content=chatMessage, dateReceived = System.currentTimeMillis(), id=0, sender=thisIDString )
                     coroutineScope.launch {
                         messageDao.addMessage(newMessage)
                     }
@@ -351,7 +351,8 @@ class MainActivity : ComponentActivity() {
                     // SEND TO NETWORK HERE
                     for (originatorMessage in nodes.originatorMessages) {
                         Log.d("DEBUG", "Sending '$chatMessage' to ${originatorMessage.value.lastHopAddr.addressToDotNotation()}")
-                        val address: InetAddress = originatorMessage.value.lastHopAddr.asInetAddress()
+                        //val address: InetAddress = originatorMessage.value.lastHopAddr.asInetAddress()
+                        val address: InetAddress = originatorMessage.value.originatorMessage.connectConfig?.nodeVirtualAddr?.asInetAddress() ?: continue
                         val clientSocket = thisNode.socketFactory.createSocket(address,1337)
                         // Send the UUID string and the message together.
                         clientSocket.getOutputStream().write(("$thisIDString$chatMessage").toByteArray(
@@ -420,8 +421,7 @@ class MainActivity : ComponentActivity() {
                             // Send to everyone
                             for (originatorMessage in nodes.originatorMessages) {
                                 try {
-                                    val address: InetAddress =
-                                        originatorMessage.value.lastHopAddr.asInetAddress()
+                                    val address: InetAddress = originatorMessage.value.originatorMessage.connectConfig?.nodeVirtualAddr?.asInetAddress() ?: continue
                                     val clientSocket =
                                         thisNode.socketFactory.createSocket(address, 1338)
                                     // Send the UUID string and the message together.

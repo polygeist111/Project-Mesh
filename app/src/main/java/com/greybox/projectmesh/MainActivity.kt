@@ -1,6 +1,7 @@
 package com.greybox.projectmesh
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -11,6 +12,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.StrictMode
 import android.os.StrictMode.ThreadPolicy
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -85,6 +87,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
     private var selectedFileUri: Uri? = null
     private var selectedFileName: String = ""
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -112,10 +116,45 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        if (ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED)
+        // Need fine location
+        val locationPermissionRequest = registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+            when {
+                permissions.getOrDefault(android.Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
+                    // Precise location access granted.
+
+                    // Load content
+                    setContent {
+                        PrototypePage()
+                    }
+                } else -> {
+                    // No location access granted.
+                    val builder = AlertDialog.Builder(this)
+                    builder.setTitle("Permission needed")
+                        .setMessage("Fine location access is required. Please enable it in Settings > Permissions > Location > Allow only while using the app")
+                        .setPositiveButton("Exit") { _, _ ->
+                            // Go to settings page
+                            val intent: Intent =
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            val uri = Uri.fromParts("package", packageName, null)
+                            intent.setData(uri)
+                            startActivity(intent)
+                            finishAffinity()
+                        }
+                        .setCancelable(false)
+                        .show()
+                }
+            }
+        }
+        locationPermissionRequest.launch(arrayOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION))
+
+        /*if (ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED)
         {
             ActivityCompat.requestPermissions(this@MainActivity, arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 2)
-        }
+        }*/
 
         // crash screen
         CrashHandler.init(applicationContext,CrashScreenActivity::class.java)
@@ -158,14 +197,11 @@ class MainActivity : ComponentActivity() {
             userDao.initSelf( User(uuid=thisIDString,"Default name",0,0) )
         }
 
-        // Load content
-        setContent {
-            PrototypePage()
-        }
-
         // Allow networking on any port
         val policy = ThreadPolicy.Builder().permitAll().build()
         StrictMode.setThreadPolicy(policy)
+
+        // The UI will be launched once location access given.
     }
 
     private lateinit var db: MeshDatabase
@@ -262,21 +298,14 @@ class MainActivity : ComponentActivity() {
                     //thisNode.disconnectWifiStation()
                     //thisNode.meshrabiyaWifiManager.deactivateHotspot()
 
-                    // Try 5GHz
+                    // Try to create hotspot
                     try
                     {
                         thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = ConnectBand.BAND_2GHZ, hotspotType = it)
                     }
                     catch (e: Exception)
                     {
-                        // Try 2.5GHz
-                        try {
-                            thisNode.setWifiHotspotEnabled(enabled=true, preferredBand = com.ustadmobile.meshrabiya.vnet.wifi.ConnectBand.BAND_2GHZ, hotspotType = it)
-                        }
-                        catch (e: Exception)
-                        {
-
-                        }
+                        
                     }
 
 

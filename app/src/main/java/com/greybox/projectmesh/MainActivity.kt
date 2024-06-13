@@ -20,8 +20,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -35,7 +39,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
@@ -46,7 +52,12 @@ import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.createGraph
 import androidx.room.Room
+import coil.compose.rememberImagePainter
 //import coil.compose.rememberImagePainter
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.db.dao.MessageDao
@@ -70,6 +81,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.BufferedReader
@@ -211,21 +223,38 @@ class MainActivity : ComponentActivity() {
 
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "project_mesh_libmeshrabiya")
 
+
+
+    @Composable
+    private fun ConnectPage() {
+        Text("Test - connect page")
+    }
+
     @Composable
     private fun PrototypePage()
     {
-
+        // Global to each sub page
+        var thisNode by remember { mutableStateOf( AndroidVirtualNode(
+            appContext = applicationContext,
+            dataStore = applicationContext.dataStore
+        ) ) }
+        val nodes by thisNode.state.collectAsState(LocalNodeState())
+        var connectLink by remember { mutableStateOf("")}
         val context = LocalContext.current
         val coroutineScope = rememberCoroutineScope()
-//        val FILE_TRANSFER_PORT = 1339
+
+        // Threads
+
+        // NAVIGATION
+        /*val navController = rememberNavController()
+        val navGraph = navController.createGraph(startDestination = "connect") {
+            composable(route = "connect") { ConnectPage( /* ... */ ) }
+        }
+        NavHost(navController, navGraph)*/
+
 
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            var thisNode by remember { mutableStateOf( AndroidVirtualNode(
-                appContext = applicationContext,
-                dataStore = applicationContext.dataStore
-            ) ) }
-            val nodes by thisNode.state.collectAsState(LocalNodeState())
-            var connectLink by remember { mutableStateOf("")}
+
 
             //var connectionState by remember { mutableStateOf<LocalNodeState?>(null) }
 
@@ -234,11 +263,9 @@ class MainActivity : ComponentActivity() {
             Text(text = "This device UUID: ${thisIDString}")
             if (!nodes.connectUri.isNullOrEmpty())
             {
-                Text(text = "Connection state: ${nodes.wifiState}")
-
                 if (nodes.wifiState.hotspotIsStarted)
                 {
-                    Text(text = "Join URI: ${nodes.connectUri}")
+                    //Text(text = "Join URI: ${nodes.connectUri}")
 
                     // Show QR Code
                     Image(
@@ -252,13 +279,12 @@ class MainActivity : ComponentActivity() {
                 }
                 else
                 {
-                    Text("Start a hotspot to show Connect Link and QR code")
+                    Text("Ready to scan other devices. Generating this device's QR code...")
                 }
 
 
 
             }
-            val coroutineScope = rememberCoroutineScope()
             val qrScannerLauncher = rememberLauncherForActivityResult(contract = ScanContract()) {
                     result ->
                 val link = result.contents
@@ -351,7 +377,10 @@ class MainActivity : ComponentActivity() {
             //Button(content = {Text("Start hotspot (Wifi direct)")}, onClick = {hotspot(HotspotType.WIFIDIRECT_GROUP)})
             //Button(content = {Text("Start hotspot (Local only)")}, onClick = {hotspot(HotspotType.LOCALONLY_HOTSPOT)})
 
-            Text(text = "Other nodes:")
+            // Status message for mesh
+            Text(text = "Other devices: ${nodes.originatorMessages.entries.count()}")
+
+            /*Text(text = "Other nodes:")
             //nodes.originatorMessages.entries
             //if (nodes.originatorMessages.isEmpty())
             //{
@@ -361,7 +390,7 @@ class MainActivity : ComponentActivity() {
 
                 nodes.originatorMessages.entries.forEach {
                     Text(  it.value.lastHopAddr.addressToDotNotation() + it.value.originatorMessage + it.value + "Other IP: \n" + it.value.originatorMessage.connectConfig?.nodeVirtualAddr?.addressToDotNotation() + "\n---\n")
-            }
+            }*/
 
 
             //check not sending filename/content
@@ -404,6 +433,10 @@ class MainActivity : ComponentActivity() {
                 })
             }
 
+            // Target
+            var targetUserIP by remember { mutableStateOf(0)}
+            var targetUserName by remember { mutableStateOf("everyone")}
+
             Row {
                 var chatMessage by remember { mutableStateOf("") }
 
@@ -411,9 +444,10 @@ class MainActivity : ComponentActivity() {
                 TextField(
                     value = chatMessage,
                     onValueChange = { chatMessage = it},
-                    label = { Text("Message") }
+                    label = { Text("Message ($targetUserName)") }
                 )
                 Button(content = {Text("Send")}, onClick = fun() {
+                    if (targetUserIP == 0) chatMessage = "[BROADCAST] $chatMessage"
                     val newMessage = Message(content=chatMessage, dateReceived = System.currentTimeMillis(), id=0, sender=thisIDString )
                     coroutineScope.launch {
                         messageDao.addMessage(newMessage)
@@ -421,9 +455,13 @@ class MainActivity : ComponentActivity() {
 
                     // SEND TO NETWORK HERE
                     for (originatorMessage in nodes.originatorMessages) {
+                        // Check address is target
+                        val address: InetAddress = originatorMessage.value.originatorMessage.connectConfig?.nodeVirtualAddr?.asInetAddress() ?: continue
+
+                        if (targetUserIP != 0 && targetUserIP != originatorMessage.value.originatorMessage.connectConfig?.nodeVirtualAddr) continue
+
                         Log.d("DEBUG", "Sending '$chatMessage' to ${originatorMessage.value.lastHopAddr.addressToDotNotation()}")
                         //val address: InetAddress = originatorMessage.value.lastHopAddr.asInetAddress()
-                        val address: InetAddress = originatorMessage.value.originatorMessage.connectConfig?.nodeVirtualAddr?.asInetAddress() ?: continue
                         val clientSocket = thisNode.socketFactory.createSocket(address,1337)
                         // Send the UUID string and the message together.
                         clientSocket.getOutputStream().write(("$thisIDString$chatMessage").toByteArray(
@@ -444,9 +482,78 @@ class MainActivity : ComponentActivity() {
             val users by userDao.getAllFlow().collectAsState(ArrayList<User>())
 
             // Display
-            Text("Users DB:", fontWeight = FontWeight.Bold)
-            users.forEach {
-                Text("${it.uuid},${it.name},${it.address.addressToDotNotation()},${(System.currentTimeMillis() - it.lastSeen)/1000}s")
+            Text("Contacts:", fontWeight = FontWeight.Bold)
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp))
+            {
+                users.forEach {
+                    //Text("${it.uuid},${it.name},${it.address.addressToDotNotation()},${(System.currentTimeMillis() - it.lastSeen)/1000}s")
+                    if (it.uuid != thisIDString) {
+                        // Online / offline status
+                        var online = false
+                        nodes.originatorMessages.entries.forEach()
+                        { msg ->
+                            //if (it.value.originatorMessage.connectConfig?.nodeVirtualAddr? == it.name)
+                            if (msg.value.originatorMessage.connectConfig?.nodeVirtualAddr == it.address) online =
+                                true;
+                        }
+                        Box(modifier = Modifier.background(color = ( if (online) Color.Green else Color.LightGray) ))
+                        {
+                            Column {
+                                Text(it.name)
+
+                                fun formatDuration(totalSeconds: Long): String {
+                                    val days = totalSeconds / 3600 / 24
+                                    val hours = totalSeconds / 3600
+                                    val minutes = (totalSeconds % 3600) / 60
+                                    val seconds = totalSeconds % 60
+
+                                    return when {
+                                        days > 0 -> "$days day(s) $hours hour(s) ${
+                                            minutes.toString().padStart(2, '0')
+                                        } minute(s) ${
+                                            seconds.toString().padStart(2, '0')
+                                        } second(s)"
+
+                                        hours > 0 -> "$hours hour(s) ${
+                                            minutes.toString().padStart(2, '0')
+                                        } minute(s) ${
+                                            seconds.toString().padStart(2, '0')
+                                        } second(s)"
+
+                                        minutes > 0 -> "$minutes minute(s) ${
+                                            seconds.toString().padStart(2, '0')
+                                        } second(s)"
+
+                                        else -> "$seconds second(s)"
+                                    }
+                                }
+
+                                if (!online) Text("Offline - Last seen " + formatDuration((System.currentTimeMillis() - it.lastSeen) / 1000) + "s ago")
+                                else Text("Online")
+
+                                // DM button
+                                if (online)
+                                {
+                                    Button(
+                                        onClick = {
+                                            targetUserName = it.name; targetUserIP = it.address
+                                        },
+                                    ) {
+                                        Text("Select")
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+
+            // DM all button
+            Button(
+                onClick = { targetUserName = "everyone"; targetUserIP = 0},
+            ) {
+                Text("Select everyone")
             }
 
             // Watch db for chat messages
@@ -462,13 +569,14 @@ class MainActivity : ComponentActivity() {
                 Text("[${dateFormat.format(date)}] ${it.name}: ${it.content}")
 
             }
+
             // check this
-//            sentImageUri?.let { uri ->
-//                Image(
-//                    painter = rememberImagePainter(uri),
-//                    contentDescription = "Sent Image"
-//                )
-//            }
+            sentImageUri?.let { uri ->
+                Image(
+                    painter = rememberImagePainter(uri),
+                    contentDescription = "Sent Image"
+                )
+            }
 
             Button(content = {Text("Delete message history")}, onClick = fun() {
                 coroutineScope.launch {

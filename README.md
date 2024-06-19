@@ -1,4 +1,4 @@
-Project Mesh
+# Project Mesh
 -------------------
 Grey-box.ca
 New version by wil-mesh-rmit
@@ -15,5 +15,7 @@ The Android app runs independently of an internet connection. The APK needs to b
 
 
 Credential info: N/A
+
 GitHub URL: https://github.com/grey-box/Project-Mesh
+
 Deployment URL: N/A

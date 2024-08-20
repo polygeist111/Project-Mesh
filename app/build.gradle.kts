@@ -53,7 +53,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -64,8 +63,8 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.material)
-    implementation(libs.androidx.datastore.core)
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation("androidx.datastore:datastore-core:1.1.1")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.datastore.preferences.core)
     implementation(libs.androidx.activity)
@@ -82,8 +81,18 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.github.yveskalume:compose-qrpainter:0.0.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
-    implementation("androidx.appcompat:appcompat:1.3.1")
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation ("io.coil-kt:coil-compose:1.4.0")
+    implementation("androidx.compose.material3:material3:1.2.1")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+//    // Core Kodein DI dependency
+//    implementation ("org.kodein.di:kodein-di:7.20.2") // or latest version
+//
+//    // For Android-specific features
+//    implementation ("org.kodein.di:kodein-di-framework-android-x:7.20.2")
+//
+//    // For Jetpack Compose support
+//    implementation ("org.kodein.di:kodein-di-compose:7.10.0")
 
     val room_version = "2.6.1"
 
@@ -91,7 +100,7 @@ dependencies {
     annotationProcessor("androidx.room:room-compiler:$room_version")
 
     // To use Kotlin annotation processing tool (kapt)
-    //kapt("androidx.room:room-compiler:$room_version")
+    // kapt("androidx.room:room-compiler:$room_version")
     // To use Kotlin Symbol Processing (KSP)
     ksp("androidx.room:room-compiler:$room_version")
 
@@ -114,7 +123,7 @@ dependencies {
     implementation("androidx.room:room-paging:$room_version")
 
     // for crash scren
-    implementation("com.google.code.gson:gson:2.9.1")
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // For JSON serialisation
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")

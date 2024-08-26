@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.greybox.projectmesh.style.WhiteButton
+import com.greybox.projectmesh.buttonStyle.WhiteButton
 
 @Composable
 fun SendScreen() {

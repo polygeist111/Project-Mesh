@@ -1,7 +1,8 @@
 package com.greybox.projectmesh.views
 
-import android.content.Context
-import com.greybox.projectmesh.style.WhiteButton
+import android.Manifest
+import android.os.Build
+import com.greybox.projectmesh.buttonStyle.WhiteButton
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -26,73 +26,141 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStore
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.greybox.projectmesh.NEARBY_WIFI_PERMISSION_NAME
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
-import kotlinx.coroutines.launch
 import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.MeshrabiyaConnectLink
-//import com.greybox.projectmesh.model.HomeScreenModel
-//import com.greybox.projectmesh.viewModel.HomeScreenViewModel
+import com.greybox.projectmesh.model.HomeScreenModel
+import com.greybox.projectmesh.viewModel.HomeScreenViewModel
 import com.journeyapps.barcodescanner.BarcodeEncoder
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
-import com.ustadmobile.meshrabiya.vnet.LocalNodeState
 import com.ustadmobile.meshrabiya.vnet.VirtualNode
+import org.kodein.di.compose.localDI
+import org.kodein.di.direct
+import org.kodein.di.instance
+import com.greybox.projectmesh.ViewModelFactory
+import com.greybox.projectmesh.components.ConnectWifiLauncherStatus
+import com.greybox.projectmesh.components.meshrabiyaConnectLauncher
+import com.greybox.projectmesh.components.ConnectWifiLauncherResult
+import com.greybox.projectmesh.hasBluetoothConnectPermission
+import com.greybox.projectmesh.hasNearbyWifiDevicesOrLocationPermission
 
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "project_mesh_libmeshrabiya")
 @Composable
-fun HomeScreen(){
-    // val uiState: HomeScreenModel by viewModel.uiState.collectAsState(initial = HomeScreenModel())
+fun HomeScreen(viewModel: HomeScreenViewModel = viewModel(
+    factory = ViewModelFactory(
+        di = localDI(),
+        owner = LocalSavedStateRegistryOwner.current,
+        vmFactory = { HomeScreenViewModel(it) },
+        defaultArgs = null)))
+{
+    val di = localDI()
+    val uiState: HomeScreenModel by viewModel.uiState.collectAsState(initial = HomeScreenModel())
+    val node: VirtualNode by di.instance()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // Request bluetooth permission
     val requestBluetoothPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ){}
+    ){granted -> if (granted){
+        viewModel.onSetIncomingConnectionsEnabled(true)
+    } }
 
     // Request nearby wifi permission
     val requestNearbyWifiPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ){}
+    ){ granted -> if (granted){
+        if(context.hasBluetoothConnectPermission()){
+            viewModel.onSetIncomingConnectionsEnabled(true)
+        }
+        else if(Build.VERSION.SDK_INT >= 31){
+            requestBluetoothPermission.launch(Manifest.permission.BLUETOOTH_CONNECT)
+        }
+    } }
 
-    // Request location permission
-    val requestLocationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ){}
+    HomeScreenView(
+        uiState = uiState,
+        node = node as AndroidVirtualNode,
+        onConnectWifiLauncherResult = { result ->
+            if (result.hotspotConfig != null) {
+                viewModel.onConnectWifi(result.hotspotConfig)
+            }
+        },
+        onSetIncomingConnectionsEnabled = {enabled ->
+            if(enabled && !context.hasNearbyWifiDevicesOrLocationPermission()){
+                requestNearbyWifiPermissionLauncher.launch(NEARBY_WIFI_PERMISSION_NAME)
+            }
+            else if(enabled && !context.hasBluetoothConnectPermission() && Build.VERSION.SDK_INT >= 31){
+                requestBluetoothPermission.launch(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+            else{
+                viewModel.onSetIncomingConnectionsEnabled(enabled)
+            }
+        }
+    )
+}
 
-    // Request fine location permission
-    val requestFineLocationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ){}
-    val context = LocalContext.current
-    var thisNode by remember { mutableStateOf( AndroidVirtualNode(
-        appContext = context.applicationContext,
-        dataStore = context.applicationContext.dataStore
-    ) ) }
-    val nodes by thisNode.state.collectAsState(LocalNodeState())
-    var connectLink by remember { mutableStateOf("")}
-
-    val barcodeEncoder = remember {
-        BarcodeEncoder()
+@Composable
+fun HomeScreenView(
+    uiState: HomeScreenModel,
+    node: AndroidVirtualNode,
+    onConnectWifiLauncherResult: (ConnectWifiLauncherResult) -> Unit,
+    onSetIncomingConnectionsEnabled: (Boolean) -> Unit = { },
+){
+    var connectLauncherState by remember {
+        mutableStateOf(ConnectWifiLauncherStatus.INACTIVE)
     }
+    val di = localDI()
+    val barcodeEncoder = remember { BarcodeEncoder() }
     val coroutineScope = rememberCoroutineScope()
     //myNode.setWifiHotspotEnabled(enabled = true, preferredBand = ConnectBand.BAND_5GHZ)
     var displayQrcode by remember { mutableStateOf(false) }
+    val connectLauncher = meshrabiyaConnectLauncher(
+        node = node,
+        onStatusChange = {connectLauncherState = it},
+        onResult = onConnectWifiLauncherResult
+    )
+    // initialize the QR code scanner
+    val qrScannerLauncher = rememberLauncherForActivityResult(contract = ScanContract()) {
+            result ->
+        // Get the contents of the QR code
+        val link = result.contents
+        if (link != null) {
+            try{
+                // Parse the link, get the wifi connect configuration.
+                val hotSpot = MeshrabiyaConnectLink.parseUri(
+                    uri=link,
+                    json=di.direct.instance()
+                ).hotspotConfig
+                // if the configuration is valid, connect to the device.
+                if (hotSpot != null){
+                    connectLauncher.launch(hotSpot)
+                }
+                else{
+                    // Link doesn't have a connect config
+                }
+            }
+            catch (e: Exception) {
+                // Invalid Link
+            }
+        }
+    }
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-        // var connectionState by remember { mutableStateOf<LocalNodeState?>(null) }
         Column {
             Text(
-                text = "Device IP: ${nodes.address.addressToDotNotation()}",
+                text = "Device IP: ${uiState.localAddress.addressToDotNotation()}",
                 style = TextStyle(fontSize = 15.sp)
             )
 //            Spacer(modifier = Modifier.height(6.dp))
 //            Text(
-//                text = "Device UUID: ${thisIDString}",
+//                text = "Device UUID: ${uiState.wifiState?.connectConfig}",
 //                style = TextStyle(fontSize = 15.sp)
 //            )
             Spacer(modifier = Modifier.height(12.dp))
@@ -104,44 +172,27 @@ fun HomeScreen(){
                     modifier = Modifier.padding(4.dp),
                     text = if (displayQrcode) "Stop Hotspot" else "Start Hotspot",
                     enabled = true)
+                if (displayQrcode){
+                    onSetIncomingConnectionsEnabled(true)
+                }
+                else{
+                    onSetIncomingConnectionsEnabled(false)
+                }
             }
+
             // Generating QR CODE
-            val connectUri = nodes.connectUri
+            val connectUri = uiState.connectUri
             if (connectUri != null && displayQrcode) {
                 Spacer(modifier = Modifier.height(16.dp))
                 QRCodeView(
                     connectUri,
-                    nodes.wifiState.connectConfig?.ssid,
-                    nodes.wifiState.connectConfig?.passphrase,
-                    nodes.wifiState.connectConfig?.bssid,
-                    nodes.wifiState.connectConfig?.port.toString())
-            }
-
-            // initialize the QR code scanner
-            val qrScannerLauncher = rememberLauncherForActivityResult(contract = ScanContract()) {
-                    result ->
-                val link = result.contents
-                if (link != null) {
-                    try{
-                        val connectConfig = MeshrabiyaConnectLink.parseUri(link).hotspotConfig
-                        if (connectConfig != null){
-                            coroutineScope.launch {
-                                try {
-                                    thisNode.connectAsStation(connectConfig)
-                                }
-                                catch (e: Exception) {
-                                    // Link doesn't have wifi configuration
-                                }
-                            }
-                        }
-                    }
-                    catch (e: Exception) {
-                        // Invalid Link
-                    }
-                }
+                    uiState.wifiState?.connectConfig?.ssid,
+                    uiState.wifiState?.connectConfig?.passphrase,
+                    uiState.wifiState?.connectConfig?.bssid,
+                    uiState.wifiState?.connectConfig?.port.toString())
             }
             // Scan the QR CODE
-            val stationState = nodes.wifiState.wifiStationState
+            val stationState = uiState.wifiState?.wifiStationState
             if (stationState != null){
                 Column (modifier = Modifier.fillMaxWidth()){
                     Spacer(modifier = Modifier.height(12.dp))

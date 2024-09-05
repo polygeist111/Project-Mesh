@@ -21,34 +21,43 @@ initialize global variables and DI(dependency injection) container
 why use DI?
 All dependencies are defined in one place, which makes it easier to manage and test.
  */
-class App : Application(), DIAware {
-    private val ADDRESS_KEY = intPreferencesKey("virtual_node_address")
-
+class GlobalApp : Application(), DIAware {
+    // it is an instance of Preferences.key<Int>, used to interact with "DataStore"
+    private val addressKey = intPreferencesKey("virtual_node_address")
     private val diModule = DI.Module("project_mesh") {
+        // create a single instance of "InetAddress" for the entire lifetime of the application
         bind<InetAddress>(tag=TAG_VIRTUAL_ADDRESS) with singleton {
             // fetch an IP address from the data store or generate a random one
+            // Run a coroutine in a blocking way, it will block the main thread
             runBlocking {
-                val address = applicationContext.dataStore.data.map { preferences ->
-                    preferences[ADDRESS_KEY] ?: 0
+                // fetch the address from the data store
+                val address = applicationContext.networkDataStore.data.map { preference ->
+                    preference[addressKey] ?: 0
                 }.first()
 
+                // if the address is not 0, converted to an IP address
                 if(address != 0) {
                     address.asInetAddress()
                 }
                 else{
+                    // if not, generate a random one,
+                    // store it in the data store and converted to IP address
                     randomApipaAddr().also {
-                        randomAddress -> applicationContext.dataStore.edit {
-                            it[ADDRESS_KEY] = randomAddress
+                        randomAddress -> applicationContext.networkDataStore.edit {
+                            // "it" used to access the 'Preferences' object
+                            it[addressKey] = randomAddress
                         }
                     }.asInetAddress()
                 }
             }
         }
         bind<AndroidVirtualNode>() with singleton {
+            // initialize the AndroidVirtualNode Constructor
             AndroidVirtualNode(
                 appContext = applicationContext,
+                // inject the "InetAddress" instance
                 address = instance(tag = TAG_VIRTUAL_ADDRESS),
-                dataStore = applicationContext.dataStore
+                dataStore = applicationContext.networkDataStore
             )
         }
 
@@ -58,6 +67,7 @@ class App : Application(), DIAware {
     override val di: DI by DI.lazy {
         import(diModule)
     }
+
     companion object {
         const val TAG_VIRTUAL_ADDRESS = "virtual_address"
     }

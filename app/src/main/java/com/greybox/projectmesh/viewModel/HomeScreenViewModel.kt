@@ -1,5 +1,8 @@
 package com.greybox.projectmesh.viewModel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.greybox.projectmesh.model.HomeScreenModel
@@ -34,7 +37,8 @@ class HomeScreenViewModel(di: DI): ViewModel(){
                         wifiState = it.wifiState,
                         connectUri = it.connectUri,
                         localAddress = it.address,
-                        bluetoothState = it.bluetoothState
+                        hotspotStatus = it.wifiState.hotspotIsStarted,
+                        wifiConnectionsEnabled = (it.wifiState.connectConfig != null)
                     ) } } }
     }
 
@@ -55,6 +59,13 @@ class HomeScreenViewModel(di: DI): ViewModel(){
     ){
         viewModelScope.launch {
             node.connectAsStation(hotSpotConfig)
+        }
+    }
+
+    // disconnect the wifi station
+    fun onClickDisconnectStation(){
+        viewModelScope.launch {
+            node.disconnectWifiStation()
         }
     }
 }

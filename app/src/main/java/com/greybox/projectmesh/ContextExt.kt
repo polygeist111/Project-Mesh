@@ -1,11 +1,8 @@
 package com.greybox.projectmesh
 
 import android.Manifest
-import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
 import android.content.pm.PackageManager
-import android.net.wifi.WifiManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
@@ -46,4 +43,4 @@ fun Context.hasBluetoothConnectPermission(): Boolean {
 }
 
 // create a DataStore instance that Meshrabiya can use to remember networks
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "meshr_settings")
+val Context.networkDataStore: DataStore<Preferences> by preferencesDataStore(name = "meshr_settings")

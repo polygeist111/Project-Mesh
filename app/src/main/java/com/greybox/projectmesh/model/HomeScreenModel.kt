@@ -8,8 +8,9 @@ data class HomeScreenModel(
     val wifiState: MeshrabiyaWifiState? = null,
     val connectUri: String? = null,
     val localAddress: Int = 0,
-    val band: ConnectBand = ConnectBand.BAND_2GHZ,
+    val band: ConnectBand = ConnectBand.BAND_UNKNOWN,
     val hotspotTypeToCreate: HotspotType = HotspotType.AUTO,
     val hotspotStatus: Boolean = false,
     val wifiConnectionsEnabled: Boolean = false,
+    var isWifiConnected: Boolean = false,
 ){}

@@ -1,5 +1,6 @@
 package com.greybox.projectmesh.views
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -31,12 +32,14 @@ fun NetworkScreen(viewModel: NetworkScreenViewModel = viewModel(
         defaultArgs = null))
 ) {
     val uiState: NetworkScreenModel by viewModel.uiState.collectAsState(initial = NetworkScreenModel())
+
+    // display all the wifi nodes
     LazyColumn{
         items(
             items = uiState.nodes.entries.toList(),
             key = {it.key}
         ){ eachItem ->
-            WifiListItem(eachItem.key, eachItem.value)
+            WifiListItem(eachItem.key, eachItem.value, onClick = {})
         }
     }
 }
@@ -45,11 +48,13 @@ fun NetworkScreen(viewModel: NetworkScreenViewModel = viewModel(
 fun WifiListItem(
     wifiAddress: Int,
     wifiEntry: VirtualNode.LastOriginatorMessage,
+    onClick: () -> Unit,
 ){
     ListItem(
+        modifier = Modifier.clickable { onClick() },
         headlineContent = { Text(wifiAddress.addressToDotNotation()) },
         supportingContent = {
-            Text("Ping ${wifiEntry.originatorMessage.pingTimeSum}ms " +
+            Text("Ping: ${wifiEntry.originatorMessage.pingTimeSum}ms " +
             "Hops: ${wifiEntry.hopCount} ")
         },
     )

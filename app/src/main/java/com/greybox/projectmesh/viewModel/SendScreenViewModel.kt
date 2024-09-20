@@ -14,8 +14,11 @@ import org.kodein.di.DI
 import org.kodein.di.instance
 
 class SendScreenViewModel(di: DI): ViewModel() {
+    // _uiState will be updated whenever there is a change in the UI state
     private val _uiState = MutableStateFlow(SendScreenModel())
+    // uiState is a read-only property that shows the current UI state
     val uiState: Flow<SendScreenModel> = _uiState.asStateFlow()
+    // di is used to get the AndroidVirtualNode instance
     private val node: AndroidVirtualNode by di.instance()
 
     init {
@@ -31,9 +34,9 @@ class SendScreenViewModel(di: DI): ViewModel() {
         }
     }
 
-//    fun onFileChosen(uri: Uri?){
-//        if (uri != null){
-//            uiState.
-//        }
-//    }
+    fun onFileChosen(uri: Uri?){
+        if (uri != null){
+            _uiState.value = _uiState.value.copy(fileUri = uri)
+        }
+    }
 }

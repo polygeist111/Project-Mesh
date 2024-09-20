@@ -79,7 +79,6 @@ fun HomeScreen(viewModel: HomeScreenViewModel = viewModel(
     val node: VirtualNode by di.instance()
     val context = LocalContext.current
 
-
     // Request nearby wifi permission
     val requestNearbyWifiPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -89,16 +88,10 @@ fun HomeScreen(viewModel: HomeScreenViewModel = viewModel(
         }
     } }
 
-    HomeScreen(
+    // Launch the home screen
+    StartHomeScreen(
         uiState = uiState,
         node = node as AndroidVirtualNode,
-        // Connect wifi thru hot spot configuration obtaining from QR code scanning
-//        onConnectWifiLauncherResult = { result ->
-//            if (result.hotspotConfig != null) {
-//                viewModel.onConnectWifi(result.hotspotConfig)
-//            }
-//            uiState.isWifiConnected = result.isWifiConnected
-//        },
         onSetIncomingConnectionsEnabled = {enabled ->
             if(enabled && !context.hasNearbyWifiDevicesOrLocationPermission()){
                 requestNearbyWifiPermissionLauncher.launch(NEARBY_WIFI_PERMISSION_NAME)
@@ -111,23 +104,15 @@ fun HomeScreen(viewModel: HomeScreenViewModel = viewModel(
     )
 }
 
+// Display the home screen
 @Composable
-fun HomeScreen(
+fun StartHomeScreen(
     uiState: HomeScreenModel,
     node: AndroidVirtualNode,
     onSetIncomingConnectionsEnabled: (Boolean) -> Unit = { },
     onClickDisconnectWifiStation: () -> Unit = { },
     viewModel: HomeScreenViewModel = viewModel(),
-    //onConnectWifiLauncherResult: (ConnectWifiLauncherResult) -> Unit,
 ){
-//    var connectLauncherState by remember {
-//        mutableStateOf(ConnectWifiLauncherStatus.INACTIVE)
-//    }
-//    val connectLauncher = meshrabiyaConnectLauncher(
-//        node = node,
-//        onStatusChange = {connectLauncherState = it},
-//        onResult = onConnectWifiLauncherResult
-//    )
     val di = localDI()
     val barcodeEncoder = remember { BarcodeEncoder() }
     // initialize the QR code scanner
@@ -143,8 +128,7 @@ fun HomeScreen(
                 ).hotspotConfig
                 // if the configuration is valid, connect to the device.
                 if (hotSpot != null) {
-                    // prompt user to connect the specific wifi (show the SSID of the host)
-                    // connectLauncher.launch(hotSpot)
+                    // Connect device thru wifi connection
                     viewModel.onConnectWifi(hotSpot)
                 } else {
                     // Link doesn't have a connect config
@@ -156,11 +140,13 @@ fun HomeScreen(
     }
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
         Column {
+            // Display the device IP
             Text(
                 text = "Device IP: ${uiState.localAddress.addressToDotNotation()}",
                 style = TextStyle(fontSize = 15.sp)
             )
             Spacer(modifier = Modifier.height(12.dp))
+            // Display the "Start Hotspot" button
             if (!uiState.wifiConnectionsEnabled) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -174,6 +160,7 @@ fun HomeScreen(
                     )
                 }
             }
+            // Display the "Stop Hotspot" button
             else{
                 Row(
                     modifier = Modifier.fillMaxWidth(),

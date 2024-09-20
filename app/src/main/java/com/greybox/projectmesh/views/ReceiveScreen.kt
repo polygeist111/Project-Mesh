@@ -10,7 +10,5 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun ReceiveScreen() {
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(16.dp)) {
-        Text(text = "Receive Screen")
-    }
+
 }

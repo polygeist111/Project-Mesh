@@ -9,6 +9,7 @@ import com.ustadmobile.meshrabiya.vnet.randomApipaAddr
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.bind
@@ -51,10 +52,16 @@ class GlobalApp : Application(), DIAware {
                 }
             }
         }
+        bind <Json>() with singleton {
+            Json {
+                encodeDefaults = true
+            }
+        }
         bind<AndroidVirtualNode>() with singleton {
             // initialize the AndroidVirtualNode Constructor
             AndroidVirtualNode(
                 appContext = applicationContext,
+                json = instance(),
                 // inject the "InetAddress" instance
                 address = instance(tag = TAG_VIRTUAL_ADDRESS),
                 dataStore = applicationContext.networkDataStore

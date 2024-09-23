@@ -12,4 +12,5 @@ data class HomeScreenModel(
     val hotspotTypeToCreate: HotspotType = HotspotType.AUTO,
     val hotspotStatus: Boolean = false,
     val wifiConnectionsEnabled: Boolean = false,
-){}
+    var isWifiConnected: Boolean = false,
+)

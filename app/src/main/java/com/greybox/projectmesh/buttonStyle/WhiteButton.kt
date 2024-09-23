@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+// This is a pre-defined button with white background and black text
 @Composable
 fun WhiteButton(
     onClick: () -> Unit,

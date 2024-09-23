@@ -50,6 +50,7 @@ import com.greybox.projectmesh.buttonStyle.WhiteButton
 //import com.greybox.projectmesh.components.ConnectWifiLauncherStatus
 //import com.greybox.projectmesh.components.meshrabiyaConnectLauncher
 import com.greybox.projectmesh.hasNearbyWifiDevicesOrLocationPermission
+import com.greybox.projectmesh.hasStaApConcurrency
 import com.greybox.projectmesh.model.HomeScreenModel
 import com.greybox.projectmesh.viewModel.HomeScreenViewModel
 import com.journeyapps.barcodescanner.BarcodeEncoder
@@ -147,6 +148,7 @@ fun StartHomeScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
             // Display the "Start Hotspot" button
+            val stationState = uiState.wifiState?.wifiStationState
             if (!uiState.wifiConnectionsEnabled) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -156,7 +158,10 @@ fun StartHomeScreen(
                         onClick = { onSetIncomingConnectionsEnabled(true) },
                         modifier = Modifier.padding(4.dp),
                         text = "Start Hotspot",
-                        enabled = true
+                        // If not connected to a WiFi, enable the button
+                        // Else, check if the device supports WiFi STA/AP Concurrency
+                        // If it does, enable the button. Otherwise, disable it
+                        enabled = if(stationState == null || stationState.status == WifiStationState.Status.INACTIVE) true else LocalContext.current.hasStaApConcurrency()
                     )
                 }
             }
@@ -188,7 +193,6 @@ fun StartHomeScreen(
                     uiState.wifiState?.connectConfig?.port.toString())
             }
             // Scan the QR CODE
-            val stationState = uiState.wifiState?.wifiStationState
             // If the stationState is not null and its status is INACTIVE,
             // It will display the option to connect via a QR code scan.
             if (stationState != null){
@@ -207,7 +211,11 @@ fun StartHomeScreen(
                                 )},
                                 modifier = Modifier.padding(4.dp),
                                 text = "Connect via QR Code Scan",
-                                enabled = true)
+                                // If the hotspot isn't started, enable the button
+                                // Else, check if the device supports WiFi STA/AP Concurrency
+                                // If it does, enable the button. Otherwise, disable it
+                                enabled = if(!uiState.hotspotStatus) true else LocalContext.current.hasStaApConcurrency()
+                            )
                         }
                     }
                 }
@@ -252,9 +260,9 @@ fun StartHomeScreen(
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
-            // add a Hot Spot status indicator
+            // add a Hotspot status indicator
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "Hot Spot Status: ${if (uiState.hotspotStatus) "Online" else "Offline"}")
+                Text(text = "Hotspot Status: ${if (uiState.hotspotStatus) "Online" else "Offline"}")
                 Spacer(modifier = Modifier.width(8.dp)) // Adds some space between text and dot
                 Box(
                     modifier = Modifier

@@ -1,6 +1,7 @@
 package com.greybox.projectmesh
 
 import android.Manifest
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.wifi.WifiManager
@@ -49,4 +50,8 @@ val Context.networkDataStore: DataStore<Preferences> by preferencesDataStore(nam
 // Check if the device supports WiFi STA/AP Concurrency
 fun Context.hasStaApConcurrency(): Boolean {
     return Build.VERSION.SDK_INT >= 30 && getSystemService(WifiManager::class.java).isStaApConcurrencySupported
+}
+
+fun Context.getClipboardManager(): ClipboardManager {
+    return getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 }

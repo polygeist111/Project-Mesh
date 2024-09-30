@@ -44,8 +44,9 @@ fun NetworkScreen(viewModel: NetworkScreenViewModel = viewModel(
         di = localDI(),
         owner = LocalSavedStateRegistryOwner.current,
         vmFactory = { NetworkScreenViewModel(it) },
-        defaultArgs = null))
-) {
+        defaultArgs = null
+    )
+)) {
     // declare the UI state, we can use the uiState to access the current state of the viewModel
     val uiState: NetworkScreenModel by viewModel.uiState.collectAsState(initial = NetworkScreenModel())
 

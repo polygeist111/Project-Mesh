@@ -51,7 +51,3 @@ val Context.networkDataStore: DataStore<Preferences> by preferencesDataStore(nam
 fun Context.hasStaApConcurrency(): Boolean {
     return Build.VERSION.SDK_INT >= 30 && getSystemService(WifiManager::class.java).isStaApConcurrencySupported
 }
-
-fun Context.getClipboardManager(): ClipboardManager {
-    return getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-}

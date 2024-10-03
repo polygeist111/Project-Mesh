@@ -1,7 +1,6 @@
 package com.greybox.projectmesh.views
 
-import android.content.ClipData
-import android.content.ClipboardManager
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -46,12 +45,12 @@ import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.zxing.BarcodeFormat
 import com.greybox.projectmesh.NEARBY_WIFI_PERMISSION_NAME
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.WhiteButton
-import com.greybox.projectmesh.getClipboardManager
 //import com.greybox.projectmesh.components.ConnectWifiLauncherResult
 //import com.greybox.projectmesh.components.ConnectWifiLauncherStatus
 //import com.greybox.projectmesh.components.meshrabiyaConnectLauncher
@@ -201,14 +200,22 @@ fun StartHomeScreen(
                     uiState.wifiState?.connectConfig?.port.toString())
                 // Display connectUri
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "Connect URI: $connectUri")
+                Text(text = "To share the connect URI:\n" +
+                        "1. Make sure Bluetooth is enabled on this device.\n" +
+                        "2. Click \"Share connect URI\"\n" +
+                        "3. Select Quick Share\n" +
+                        "4. Choose a nearby device you want to share the URI with")
                 Button(onClick = {
-                    val clipboardManager: ClipboardManager = context.getClipboardManager()
-                    // Creates a new text clip to put on the clipboard.
-                    val clip: ClipData = ClipData.newPlainText("Connect URI", connectUri)
-                    clipboardManager.setPrimaryClip(clip)
+                    val sendIntent: Intent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, connectUri)
+                        type = "text/plain"
+                    }
+
+                    val shareIntent = Intent.createChooser(sendIntent, null)
+                    context.startActivity(shareIntent)
                 }, modifier = Modifier.padding(4.dp), enabled = true) {
-                    Text("Copy connect URI to clipboard")
+                   Text("Share connect URI")
                 }
             }
             // Scan the QR CODE
@@ -237,6 +244,13 @@ fun StartHomeScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
+                        Text(text = "Or, enter the connect URI below:\n" +
+                                "1. Make sure Bluetooth is enabled\n" +
+                                "2. Allow everyone to share data via Quick Share\n" +
+                                "3. After getting the URI, click copy\n" +
+                                "4. Paste the URI into the text field below\n" +
+                                "5. Click \"Connect via Entering Connect URI\"")
+                        Spacer(modifier = Modifier.height(4.dp))
                         TextField(
                             value = userEnteredConnectUri,
                             onValueChange = {

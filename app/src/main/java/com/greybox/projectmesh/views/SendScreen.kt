@@ -1,11 +1,13 @@
 package com.greybox.projectmesh.views
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,19 +26,20 @@ import org.kodein.di.compose.localDI
 
 @Composable
 fun SendScreen(
+    onSwitchToSelectDestNode: (Uri) -> Unit,
     viewModel: SendScreenViewModel = viewModel(
         factory = ViewModelFactory(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
-            vmFactory = { SendScreenViewModel(it) },
-            defaultArgs = null,)
-    )
-)
-{
+            vmFactory = { SendScreenViewModel(it, onSwitchToSelectDestNode) },
+            defaultArgs = null,
+        )
+    ),
+) {
     // declare the UI state
-    val uiState: SendScreenModel by viewModel.uiState.collectAsState(initial = SendScreenModel())
+    val uiState: SendScreenModel by viewModel.uiState.collectAsState(SendScreenModel())
     // indicate a file has been chosen
-    var isFileChosen = uiState.fileUri != null
+    // var isFileChosen = uiState.fileUri != null
     // File picker launcher
     val openDocumentLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -46,47 +49,51 @@ fun SendScreen(
         }
     }
 
-    if (!isFileChosen){
-        Row(modifier = Modifier.fillMaxSize()) {
-            WhiteButton(onClick = {
-                openDocumentLauncher.launch(arrayOf("*/*"))
-                isFileChosen = true
-            },
-                modifier = Modifier.align(Alignment.Bottom).padding(16.dp),
-                text = "Send File",
-                enabled = true)
-        }
-
+    Row(modifier = Modifier.fillMaxSize()) {
+        WhiteButton(onClick = {
+            openDocumentLauncher.launch(arrayOf("*/*"))
+            //isFileChosen = true
+        },
+            modifier = Modifier.align(Alignment.Bottom).padding(16.dp),
+            text = "Send File",
+            enabled = true)
     }
-    else{
-        Row(modifier = Modifier.fillMaxSize().padding(16.dp)){
-            Text("Who do you want to send to?")
-            // display all the available nodes
-            //displayNodes()
-
-        }
-    }
-
+    DisplayAllPendingTransfers(uiState)
 }
 
-//@Composable
-//// Display all the available nodes
-//fun displayNodes(
-//    uiState: SendScreenModel,
-//){
-//    LazyColumn {
-//        items(
-//            items = uiState.pendingTransfers,
-//            key = { it.id }
-//        ) {transfer ->
-//            ListItem(
-//                headlineContent = {
-//                    Text("${transfer.name} -> ${transfer.toHost.hostAddress}")
-//                },
-//                supportingContent = {
-//                    Text("Status: ${transfer.status} Sent ${transfer.transferred} / ${transfer.size}")
-//                }
-//            )
-//        }
-//    }
-//}
+@Composable
+// Display all the pending transfers
+fun DisplayAllPendingTransfers(
+    uiState: SendScreenModel,
+){
+    LazyColumn {
+        items(
+            items = uiState.outgoingTransfers,
+            key = { it.id }
+        ) {transfer ->
+            ListItem(
+                headlineContent = {
+                    Text("${transfer.name} -> ${transfer.toHost.hostAddress}")
+                },
+                supportingContent = {
+                    val byteTransferred: Int = transfer.transferred
+                    val byteSize: Int = transfer.size
+                    Text("Status: ${transfer.status} Sent " +
+                            "${autoConvertByte(byteTransferred)} / ${autoConvertByte(byteSize)}")
+                }
+            )
+        }
+    }
+}
+
+fun autoConvertByte(byteSize: Int): String{
+    val kb = Math.round(byteSize / 1024.0 * 100) / 100.0
+    val mb = Math.round((byteSize / (1024.0 * 1024.0) * 100) / 100.0)
+    if (byteSize == 0){
+        return "0B"
+    }
+    else if (mb < 1){
+        return "${kb}KB"
+    }
+    return "${mb}MB"
+}

@@ -18,10 +18,13 @@ import com.greybox.projectmesh.views.HomeScreen
 import com.greybox.projectmesh.views.InfoScreen
 import com.greybox.projectmesh.views.NetworkScreen
 import com.greybox.projectmesh.views.ReceiveScreen
+import com.greybox.projectmesh.views.SelectDestNodeScreen
 import com.greybox.projectmesh.views.SendScreen
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.android.closestDI
+import org.kodein.di.compose.withDI
+import java.net.URLEncoder
 
 class MainActivity : ComponentActivity(), DIAware {
     override val di by closestDI()
@@ -36,7 +39,7 @@ class MainActivity : ComponentActivity(), DIAware {
 }
 
 @Composable
-fun BottomNavApp(di: DI){
+fun BottomNavApp(di: DI) = withDI(di){
     val navController = rememberNavController()
     Scaffold(
         bottomBar = { BottomNavigationBar(navController) }
@@ -45,7 +48,17 @@ fun BottomNavApp(di: DI){
         {
             composable(BottomNavItem.Home.route) { HomeScreen() }
             composable(BottomNavItem.Network.route) { NetworkScreen() }
-            composable(BottomNavItem.Send.route) { SendScreen() }
+            composable(BottomNavItem.Send.route) { SendScreen(onSwitchToSelectDestNode = { uri ->
+                navController.navigate("selectDestNode/${URLEncoder.encode(uri.toString(), "UTF-8")}")
+            }) }
+            composable("selectDestNode/{sendUri}"){ entry ->
+                val sendUri = entry.arguments?.getString("sendUri")
+                    ?: throw IllegalArgumentException("No Valid Uri")
+                SelectDestNodeScreen(
+                    uri = sendUri,
+                    popBackWhenDone = {navController.popBackStack()},
+                )
+            }
             composable(BottomNavItem.Receive.route) { ReceiveScreen() }
             composable(BottomNavItem.Info.route) { InfoScreen() }
         }

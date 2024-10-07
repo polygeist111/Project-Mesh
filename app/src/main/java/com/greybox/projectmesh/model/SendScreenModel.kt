@@ -1,8 +1,7 @@
 package com.greybox.projectmesh.model
 
-import android.net.Uri
+import com.greybox.projectmesh.server.AppServer
 
 data class SendScreenModel(
-    val fileUri: Uri? = null,
-    val statusMsg: String? = null,
+    val outgoingTransfers: List<AppServer.OutgoingTransferInfo> = emptyList()
 )

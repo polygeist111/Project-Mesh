@@ -3,6 +3,8 @@ package com.greybox.projectmesh
 import android.app.Application
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import com.greybox.projectmesh.server.AppServer
+import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.asInetAddress
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.randomApipaAddr
@@ -10,12 +12,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.bind
 import org.kodein.di.instance
 import org.kodein.di.singleton
+import java.io.File
 import java.net.InetAddress
+import java.time.Duration
 
 /*
 initialize global variables and DI(dependency injection) container
@@ -57,6 +62,21 @@ class GlobalApp : Application(), DIAware {
                 encodeDefaults = true
             }
         }
+        /*
+        Ensuring a directory named "www" was created
+        */
+        bind<File>(tag = TAG_WWW_DIR) with singleton {
+            File(filesDir, "www").also{
+                if(!it.exists()) {
+                    it.mkdirs()
+                }
+            }
+        }
+
+        bind<File>(tag = TAG_RECEIVE_DIR) with singleton {
+            File(filesDir, "receive")
+        }
+
         bind<AndroidVirtualNode>() with singleton {
             // initialize the AndroidVirtualNode Constructor
             AndroidVirtualNode(
@@ -67,6 +87,37 @@ class GlobalApp : Application(), DIAware {
                 dataStore = applicationContext.networkDataStore
             )
         }
+        // The OkHttpClient will be created only once and shared across the app when needed
+        bind<OkHttpClient>() with singleton {
+            val node: AndroidVirtualNode = instance()
+            OkHttpClient.Builder()
+                .socketFactory(node.socketFactory)
+                // The maximum time to wait for a connection to be established
+                .connectTimeout(Duration.ofSeconds(30))
+                // The maximum time to wait for data to be read from the server
+                .readTimeout(Duration.ofSeconds(30))
+                // The maximum time to wait for data to be written to the server
+                .writeTimeout(Duration.ofSeconds(30))
+                .build()
+        }
+
+        bind<AppServer>() with singleton {
+            val node: AndroidVirtualNode = instance()
+            AppServer(
+                appContext = applicationContext,
+                httpClient = instance(),
+                port = AppServer.DEFAULT_PORT,
+                name = node.addressAsInt.addressToDotNotation(),
+                localVirtualAddr = node.address,
+                receiveDir = instance(tag = TAG_RECEIVE_DIR),
+                json = instance()
+            )
+        }
+
+        onReady {
+            instance<AppServer>().start()
+        }
+
 
     }
 
@@ -77,5 +128,7 @@ class GlobalApp : Application(), DIAware {
 
     companion object {
         const val TAG_VIRTUAL_ADDRESS = "virtual_address"
+        const val TAG_RECEIVE_DIR = "receive_dir"
+        const val TAG_WWW_DIR = "www_dir"
     }
 }

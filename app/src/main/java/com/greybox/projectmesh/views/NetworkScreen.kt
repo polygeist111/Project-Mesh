@@ -44,9 +44,8 @@ fun NetworkScreen(viewModel: NetworkScreenViewModel = viewModel(
         di = localDI(),
         owner = LocalSavedStateRegistryOwner.current,
         vmFactory = { NetworkScreenViewModel(it) },
-        defaultArgs = null
-    )
-)) {
+        defaultArgs = null))
+) {
     // declare the UI state, we can use the uiState to access the current state of the viewModel
     val uiState: NetworkScreenModel by viewModel.uiState.collectAsState(initial = NetworkScreenModel())
 
@@ -62,10 +61,11 @@ fun NetworkScreen(viewModel: NetworkScreenViewModel = viewModel(
             // You can uncomment this line to test Network Screen ui
             // items = testWifiCollection.toList()
             items = uiState.allNodes.entries.toList(),
+            key = {it.key}
         ){ eachItem ->
             // You can uncomment this line to test Network Screen ui
             // WifiListItem(eachItem.first, eachItem.second, onClick = {})
-            WifiListItem(eachItem.key, eachItem.value, onClick = {})
+            WifiListItem(eachItem.key, eachItem.value)
         }
     }
 }
@@ -78,22 +78,29 @@ fun WifiListItem(
 //    wifiEntry: TestWifiState,
     wifiAddress: Int,
     wifiEntry: VirtualNode.LastOriginatorMessage,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
 ){
     ListItem(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier.fillMaxWidth().let{
+            if(onClick != null){
+                it.clickable(onClick = onClick)
+            }
+            else{
+                it
+            }
+        },
         leadingContent = {
             // The image icon on the left side
             Icon(
                 // replace this image with a custom icon or image
                 imageVector = Icons.Default.Image,
                 contentDescription = "Profile Picture",
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(28.dp)
             )
         },
         headlineContent = {
             // We can obtain the Device ID or Name from the WifiEntry(If possible)
-            Text(text = "Device Id", fontWeight = FontWeight.Bold)
+            Text(text = "Device Name", fontWeight = FontWeight.Bold)
         },
         supportingContent = {
             // You can uncomment this line to test Network Screen ui
@@ -116,7 +123,7 @@ fun WifiListItem(
                     Spacer(modifier = Modifier.width(4.dp))
                     // You can uncomment these two line to test Network Screen ui
                     //Text("Ping: ${wifiEntry.pingTimeSum}ms "
-                            //+ "Hops: ${wifiEntry.hopCount} ")
+                    //+ "Hops: ${wifiEntry.hopCount} ")
                     Text("Ping: ${wifiEntry.originatorMessage.pingTimeSum}ms "
                             + "Hops: ${wifiEntry.hopCount} ")
                 }

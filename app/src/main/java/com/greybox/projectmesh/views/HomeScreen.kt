@@ -1,5 +1,6 @@
 package com.greybox.projectmesh.views
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -20,17 +21,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +45,7 @@ import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.zxing.BarcodeFormat
 import com.greybox.projectmesh.NEARBY_WIFI_PERMISSION_NAME
@@ -116,6 +121,8 @@ fun StartHomeScreen(
 ){
     val di = localDI()
     val barcodeEncoder = remember { BarcodeEncoder() }
+    val context = LocalContext.current
+    var userEnteredConnectUri by rememberSaveable { mutableStateOf("") }
     // initialize the QR code scanner
     val qrScannerLauncher = rememberLauncherForActivityResult(contract = ScanContract()) { result ->
         // Get the contents of the QR code
@@ -161,7 +168,7 @@ fun StartHomeScreen(
                         // If not connected to a WiFi, enable the button
                         // Else, check if the device supports WiFi STA/AP Concurrency
                         // If it does, enable the button. Otherwise, disable it
-                        enabled = if(stationState == null || stationState.status == WifiStationState.Status.INACTIVE) true else LocalContext.current.hasStaApConcurrency()
+                        enabled = if(stationState == null || stationState.status == WifiStationState.Status.INACTIVE) true else context.hasStaApConcurrency()
                     )
                 }
             }
@@ -191,6 +198,25 @@ fun StartHomeScreen(
                     uiState.wifiState?.connectConfig?.passphrase,
                     uiState.wifiState?.connectConfig?.bssid,
                     uiState.wifiState?.connectConfig?.port.toString())
+                // Display connectUri
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = "To share the connect URI:\n" +
+                        "1. Make sure Bluetooth is enabled on this device.\n" +
+                        "2. Click \"Share connect URI\"\n" +
+                        "3. Select Quick Share\n" +
+                        "4. Choose a nearby device you want to share the URI with")
+                Button(onClick = {
+                    val sendIntent: Intent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, connectUri)
+                        type = "text/plain"
+                    }
+
+                    val shareIntent = Intent.createChooser(sendIntent, null)
+                    context.startActivity(shareIntent)
+                }, modifier = Modifier.padding(4.dp), enabled = true) {
+                   Text("Share connect URI")
+                }
             }
             // Scan the QR CODE
             // If the stationState is not null and its status is INACTIVE,
@@ -214,9 +240,51 @@ fun StartHomeScreen(
                                 // If the hotspot isn't started, enable the button
                                 // Else, check if the device supports WiFi STA/AP Concurrency
                                 // If it does, enable the button. Otherwise, disable it
-                                enabled = if(!uiState.hotspotStatus) true else LocalContext.current.hasStaApConcurrency()
+                                enabled = if(!uiState.hotspotStatus) true else context.hasStaApConcurrency()
                             )
                         }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(text = "Or, enter the connect URI below:\n" +
+                                "1. Make sure Bluetooth is enabled\n" +
+                                "2. Allow everyone to share data via Quick Share\n" +
+                                "3. After getting the URI, click copy\n" +
+                                "4. Paste the URI into the text field below\n" +
+                                "5. Click \"Connect via Entering Connect URI\"")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        TextField(
+                            value = userEnteredConnectUri,
+                            onValueChange = {
+                                userEnteredConnectUri = it
+                            },
+                            label = { Text("Enter Connect URI (Starts with \"meshrabiya://\")") }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        WhiteButton(
+                            onClick = {
+                                try {
+                                    // Parse the link, get the wifi connect configuration.
+                                    val hotSpot = MeshrabiyaConnectLink.parseUri(
+                                        uri = userEnteredConnectUri,
+                                        json = di.direct.instance()
+                                    ).hotspotConfig
+                                    // if the configuration is valid, connect to the device.
+                                    if (hotSpot != null) {
+                                        // Connect device thru wifi connection
+                                        viewModel.onConnectWifi(hotSpot)
+                                    } else {
+                                        // Link doesn't have a connect config
+                                    }
+                                } catch (e: Exception) {
+                                    // Invalid Link
+                                }
+                            },
+                            modifier = Modifier.padding(4.dp),
+                            text = "Connect via Entering Connect URI",
+                            // If the hotspot isn't started, enable the button
+                            // Else, check if the device supports WiFi STA/AP Concurrency
+                            // If it does, enable the button. Otherwise, disable it
+                            enabled = if (!uiState.hotspotStatus) true else context.hasStaApConcurrency()
+                        )
                     }
                 }
                 // If the stationState is not INACTIVE, it displays a ListItem that represents

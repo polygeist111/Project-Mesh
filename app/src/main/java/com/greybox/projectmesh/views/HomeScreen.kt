@@ -46,10 +46,14 @@ import com.google.zxing.BarcodeFormat
 import com.greybox.projectmesh.NEARBY_WIFI_PERMISSION_NAME
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.WhiteButton
+import com.greybox.projectmesh.components.ConnectWifiLauncherResult
+import com.greybox.projectmesh.components.ConnectWifiLauncherStatus
+import com.greybox.projectmesh.components.meshrabiyaConnectLauncher
 //import com.greybox.projectmesh.components.ConnectWifiLauncherResult
 //import com.greybox.projectmesh.components.ConnectWifiLauncherStatus
 //import com.greybox.projectmesh.components.meshrabiyaConnectLauncher
 import com.greybox.projectmesh.hasNearbyWifiDevicesOrLocationPermission
+import com.greybox.projectmesh.hasStaApConcurrency
 import com.greybox.projectmesh.model.HomeScreenModel
 import com.greybox.projectmesh.viewModel.HomeScreenViewModel
 import com.journeyapps.barcodescanner.BarcodeEncoder
@@ -61,6 +65,7 @@ import com.ustadmobile.meshrabiya.vnet.MeshrabiyaConnectLink
 import com.ustadmobile.meshrabiya.vnet.VirtualNode
 import com.ustadmobile.meshrabiya.vnet.wifi.state.WifiStationState
 import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
+import kotlinx.coroutines.launch
 import org.kodein.di.compose.localDI
 import org.kodein.di.direct
 import org.kodein.di.instance
@@ -100,6 +105,11 @@ fun HomeScreen(viewModel: HomeScreenViewModel = viewModel(
                 viewModel.onSetIncomingConnectionsEnabled(enabled)
             }
         },
+        onConnectWifiLauncherResult = { result ->
+            if(result.hotspotConfig != null) {
+                viewModel.onConnectWifi(result.hotspotConfig)
+            }
+        },
         onClickDisconnectWifiStation = viewModel::onClickDisconnectStation,
     )
 }
@@ -112,9 +122,20 @@ fun StartHomeScreen(
     onSetIncomingConnectionsEnabled: (Boolean) -> Unit = { },
     onClickDisconnectWifiStation: () -> Unit = { },
     viewModel: HomeScreenViewModel = viewModel(),
+    onConnectWifiLauncherResult: (ConnectWifiLauncherResult) -> Unit
 ){
     val di = localDI()
     val barcodeEncoder = remember { BarcodeEncoder() }
+    var connectLauncherState by remember {
+        mutableStateOf(ConnectWifiLauncherStatus.INACTIVE)
+    }
+    val connectLauncher = meshrabiyaConnectLauncher(
+        onStatusChange = {
+            connectLauncherState = it
+        },
+        node = node,
+        onResult = onConnectWifiLauncherResult
+    )
     // initialize the QR code scanner
     val qrScannerLauncher = rememberLauncherForActivityResult(contract = ScanContract()) { result ->
         // Get the contents of the QR code
@@ -129,7 +150,8 @@ fun StartHomeScreen(
                 // if the configuration is valid, connect to the device.
                 if (hotSpot != null) {
                     // Connect device thru wifi connection
-                    viewModel.onConnectWifi(hotSpot)
+                    connectLauncher.launch(hotSpot)
+                    //viewModel.onConnectWifi(hotSpot)
                 } else {
                     // Link doesn't have a connect config
                 }
@@ -141,12 +163,14 @@ fun StartHomeScreen(
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
         Column {
             // Display the device IP
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Device IP: ${uiState.localAddress.addressToDotNotation()}",
                 style = TextStyle(fontSize = 15.sp)
             )
             Spacer(modifier = Modifier.height(12.dp))
             // Display the "Start Hotspot" button
+            val stationState = uiState.wifiState?.wifiStationState
             if (!uiState.wifiConnectionsEnabled) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -156,7 +180,13 @@ fun StartHomeScreen(
                         onClick = { onSetIncomingConnectionsEnabled(true) },
                         modifier = Modifier.padding(4.dp),
                         text = "Start Hotspot",
-                        enabled = true
+                        // If not connected to a WiFi, enable the button
+                        // Else, check if the device supports WiFi STA/AP Concurrency
+                        // If it does, enable the button. Otherwise, disable it
+                        enabled = if(
+                            stationState == null || stationState.status == WifiStationState.Status.INACTIVE
+                            ) true else
+                                LocalContext.current.hasStaApConcurrency()
                     )
                 }
             }
@@ -188,7 +218,6 @@ fun StartHomeScreen(
                     uiState.wifiState?.connectConfig?.port.toString())
             }
             // Scan the QR CODE
-            val stationState = uiState.wifiState?.wifiStationState
             // If the stationState is not null and its status is INACTIVE,
             // It will display the option to connect via a QR code scan.
             if (stationState != null){

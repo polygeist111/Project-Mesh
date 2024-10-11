@@ -3,7 +3,6 @@ package com.greybox.projectmesh.server
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import android.widget.Toast
 import com.greybox.projectmesh.extension.updateItem
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback
 import com.ustadmobile.meshrabiya.util.FileSerializer
@@ -47,6 +46,8 @@ class AppServer(
     private val receiveDir: File,   // Directory for receiving files
     private val json: Json,
 ) : NanoHTTPD(port), Closeable {
+
+    private val logPrefix: String = "[AppServer - $name] "
 
     private val scope = CoroutineScope(Dispatchers.IO + Job())
 
@@ -152,7 +153,6 @@ class AppServer(
     override fun serve(session: IHTTPSession): Response {
         // Extracts the URI from the session, which is the path of the request
         val path = session.uri
-        Toast.makeText(appContext, "path: $path", Toast.LENGTH_SHORT).show()
         // check if the path is for download, indicating the request wants to download a file
         if(path.startsWith("/download/")) {
             // Extracts the transfer ID (Integer)from the path by taking the last part of the path
@@ -315,6 +315,9 @@ class AppServer(
         // customized extension function of ContentResolver
         val nameAndSize = appContext.contentResolver.getUriNameAndSize(uri)
         val validName = nameAndSize.name ?: "unknown"
+        Log.d("AppServer", "$logPrefix adding outgoing transfer of $uri " +
+                "(name=${nameAndSize.name} size=${nameAndSize.size} to $toNode:$toPort")
+
         // create an OutgoingTransferInfo object with all transfer information
         val outgoingTransfer = OutgoingTransferInfo(
             id = transferId,
@@ -327,17 +330,15 @@ class AppServer(
         val request = Request.Builder().url("http://${toNode.hostAddress}:$toPort/" +
                 "send?id=$transferId&filename=${URLEncoder.encode(validName, "UTF-8")}" +
                 "&size=${nameAndSize.size}&from=${localVirtualAddr.hostAddress}")
-            //.addHeader("connection", "close")
+//            .addHeader("connection", "close")
             .build()
+        Log.d("Appserver", "$logPrefix notifying $toNode of incoming transfer")
         Log.d("AppServer", "request: $request")
-        val duration = Toast.LENGTH_SHORT
-
-        Toast.makeText(appContext, "request: $request", duration).show() // in Activity
 
         // Send the request to the other side using OkHttp3
         val response = httpClient.newCall(request).execute()
         val serverResponse = response.body?.string()
-        Toast.makeText(appContext, "serverResponse: $serverResponse", duration).show() // in Activity
+        Log.d("AppServer", "$logPrefix - received response: $serverResponse")
         /*
          Update the _outgoingTransfers list with the new transfer
          Add the new transfer to the beginning of the list, then append the existing list
@@ -385,7 +386,7 @@ class AppServer(
             /*
             Download file,Writes it to destFile, and reports progress every 500 ms
              */
-            val totalTransfered = response.body?.byteStream()?.use { responseIn ->
+            val totalTransferred = response.body?.byteStream()?.use { responseIn ->
                 FileOutputStream(destFile).use { fileOut ->
                     responseIn.copyToWithProgressCallback(
                         out = fileOut,
@@ -419,13 +420,13 @@ class AppServer(
                     function = { item ->
                         item.copy(
                             transferTime = transferDurationMs,
-                            status = if(totalTransfered == fileSize) {
+                            status = if(totalTransferred == fileSize) {
                                 Status.COMPLETED
                             }else {
                                 Status.FAILED
                             },
                             file = destFile,
-                            transferred = totalTransfered?.toInt() ?: item.transferred
+                            transferred = totalTransferred?.toInt() ?: item.transferred
                         )
                     }
                 )

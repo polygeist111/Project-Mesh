@@ -1,6 +1,7 @@
 package com.greybox.projectmesh.viewModel
 
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.greybox.projectmesh.model.SelectDestNodeScreenModel
@@ -66,6 +67,7 @@ class SelectDestNodeScreenViewModel(
                     )
                 }
                 catch (e: Exception){
+                    Log.e("AppServer", "Exception attempting to send to destination", e)
                     null
                 }
             }

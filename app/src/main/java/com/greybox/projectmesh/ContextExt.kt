@@ -3,12 +3,12 @@ package com.greybox.projectmesh
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.wifi.WifiManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
-import android.net.wifi.WifiManager
 
 /*
 context is a class that provides access to application-specific resources and classes.
@@ -43,12 +43,10 @@ fun Context.hasBluetoothConnectPermission(): Boolean {
     }
 }
 
-// Check if the device supports WiFi STA/AP Concurrency
-fun Context.hasStaApConcurrency(): Boolean {
-    return Build.VERSION.SDK_INT >= 30 &&
-            getSystemService(WifiManager::class.java).isStaApConcurrencySupported
-}
-
 // create a DataStore instance that Meshrabiya can use to remember networks
 val Context.networkDataStore: DataStore<Preferences> by preferencesDataStore(name = "meshr_settings")
 
+// Check if the device supports WiFi STA/AP Concurrency
+fun Context.hasStaApConcurrency(): Boolean {
+    return Build.VERSION.SDK_INT >= 30 && getSystemService(WifiManager::class.java).isStaApConcurrencySupported
+}

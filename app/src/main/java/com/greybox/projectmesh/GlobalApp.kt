@@ -1,8 +1,7 @@
 package com.greybox.projectmesh
 
 import android.app.Application
-import android.content.Context
-import android.widget.Toast
+import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import com.greybox.projectmesh.server.AppServer
@@ -10,7 +9,6 @@ import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.asInetAddress
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.randomApipaAddr
-import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
@@ -33,9 +31,27 @@ All dependencies are defined in one place, which makes it easier to manage and t
 class GlobalApp : Application(), DIAware {
     // it is an instance of Preferences.key<Int>, used to interact with "DataStore"
     private val addressKey = intPreferencesKey("virtualaddr")
-    private val diModule = DI.Module("project_mesh-module") {
+    data object DeviceInfoManager {
+        // Global HashMap to store IP-DeviceName mapping
+        val deviceNameMap = HashMap<String, String?>()
+
+        // Helper method to add/update a device name
+        fun addDevice(ipAddress: String, name: String?) {
+            deviceNameMap[ipAddress] = name
+        }
+
+        fun removeDevice(ipAddress: String) {
+            deviceNameMap.remove(ipAddress)
+        }
+
+        // Helper method to get a device name by IP
+        fun getDeviceName(ipAddress: String): String? {
+            return deviceNameMap[ipAddress]
+        }
+    }
+    private val diModule = DI.Module("project_mesh") {
         // create a single instance of "InetAddress" for the entire lifetime of the application
-        bind<InetAddress>(tag=TAG_VIRTUAL_ADDRESS) with singleton() {
+        bind<InetAddress>(tag=TAG_VIRTUAL_ADDRESS) with singleton {
             // fetch an IP address from the data store or generate a random one
             // Run a coroutine in a blocking way, it will block the main thread
             runBlocking {
@@ -52,10 +68,10 @@ class GlobalApp : Application(), DIAware {
                     // if not, generate a random one,
                     // store it in the data store and converted to IP address
                     randomApipaAddr().also {
-                        randomAddress -> applicationContext.networkDataStore.edit {
-                            // "it" used to access the 'Preferences' object
-                            it[addressKey] = randomAddress
-                        }
+                            randomAddress -> applicationContext.networkDataStore.edit {
+                        // "it" used to access the 'Preferences' object
+                        it[addressKey] = randomAddress
+                    }
                     }.asInetAddress()
                 }
             }
@@ -67,7 +83,7 @@ class GlobalApp : Application(), DIAware {
         }
         /*
         Ensuring a directory named "www" was created
-         */
+        */
         bind<File>(tag = TAG_WWW_DIR) with singleton {
             File(filesDir, "www").also{
                 if(!it.exists()) {
@@ -90,7 +106,6 @@ class GlobalApp : Application(), DIAware {
                 dataStore = applicationContext.networkDataStore
             )
         }
-
         // The OkHttpClient will be created only once and shared across the app when needed
         bind<OkHttpClient>() with singleton {
             val node: AndroidVirtualNode = instance()
@@ -120,7 +135,10 @@ class GlobalApp : Application(), DIAware {
 
         onReady {
             instance<AppServer>().start()
+            Log.d("AppServer", "Server started successfully on port: ${AppServer.DEFAULT_PORT}")
         }
+
+
     }
 
     // DI container and its bindings are only set up when they are first needed

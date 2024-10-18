@@ -48,11 +48,9 @@ fun BottomNavApp(di: DI) = withDI(di){
         {
             composable(BottomNavItem.Home.route) { HomeScreen() }
             composable(BottomNavItem.Network.route) { NetworkScreen() }
-            composable(BottomNavItem.Send.route) {
-                SendScreen(onSwitchToSelectDestNode = { uri ->
-                    navController.navigate("selectDestNode/${URLEncoder.encode(uri.toString(), "UTF-8")}")
-                })
-            }
+            composable(BottomNavItem.Send.route) { SendScreen(onSwitchToSelectDestNode = { uri ->
+                navController.navigate("selectDestNode/${URLEncoder.encode(uri.toString(), "UTF-8")}")
+            }) }
             composable("selectDestNode/{sendUri}"){ entry ->
                 val sendUri = entry.arguments?.getString("sendUri")
                     ?: throw IllegalArgumentException("No Valid Uri")

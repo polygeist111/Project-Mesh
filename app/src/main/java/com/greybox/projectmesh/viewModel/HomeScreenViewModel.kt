@@ -1,11 +1,10 @@
 package com.greybox.projectmesh.viewModel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.greybox.projectmesh.model.HomeScreenModel
+import com.greybox.projectmesh.server.AppServer
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.wifi.WifiConnectConfig
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +23,7 @@ class HomeScreenViewModel(di: DI): ViewModel(){
     val uiState: Flow<HomeScreenModel> = _uiState.asStateFlow()
     // di is used to get the AndroidVirtualNode instance
     private val node: AndroidVirtualNode by di.instance()
+    private val appServer: AppServer by di.instance()
     init {
         // launch a coroutine
         viewModelScope.launch {
@@ -33,13 +33,14 @@ class HomeScreenViewModel(di: DI): ViewModel(){
                 _uiState.update {
                     // Creates a new instance of the state,
                     // copying the existing properties and updating only the ones specified.
-                    prev -> prev.copy(
-                        wifiState = it.wifiState,
-                        connectUri = it.connectUri,
-                        localAddress = it.address,
-                        hotspotStatus = it.wifiState.hotspotIsStarted,
-                        wifiConnectionsEnabled = (it.wifiState.connectConfig != null)
-                    ) } } }
+                        prev -> prev.copy(
+                    wifiState = it.wifiState,
+                    connectUri = it.connectUri,
+                    localAddress = it.address,
+                    hotspotStatus = it.wifiState.hotspotIsStarted,
+                    wifiConnectionsEnabled = (it.wifiState.connectConfig != null),
+                    bluetoothState = it.bluetoothState,
+                ) } } }
     }
 
     // This function is responsible for enabling or disabling the hotspot
@@ -54,11 +55,14 @@ class HomeScreenViewModel(di: DI): ViewModel(){
     }
 
     // This function is responsible for connecting to a wifi network as a station (Client Mode)
-    fun onConnectWifi(
-        hotSpotConfig: WifiConnectConfig
-    ){
+    fun onConnectWifi(hotSpotConfig: WifiConnectConfig){
         viewModelScope.launch {
-            node.connectAsStation(hotSpotConfig)
+            try{
+                node.connectAsStation(hotSpotConfig)
+            }
+            catch (e: Exception){
+                Log.e("HomeScreenViewModel", "onConnectWifi: ${e.message}")
+            }
         }
     }
 

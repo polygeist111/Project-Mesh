@@ -5,7 +5,10 @@
     <uses-feature android:name="android.software.companion_device_setup" />
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> <!-- Required to create local only hotspot, use wifimanager, etc -->
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Required to create local only hotspot, use wifimanager, etc -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
@@ -14,7 +17,8 @@
     https://developer.android.com/guide/topics/connectivity/localonlyhotspot
     -->
     <!-- required for wifi performance lock -->
-    <uses-permission android:name="android.permission.WAKE_LOCK" /> <!-- For QR code scanning -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- For QR code scanning -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
@@ -25,7 +29,8 @@
  If your app targets Android 13 (API level 33)
           or higher, you must declare the NEARBY_WIFI_DEVICES permission.
     -->
-    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" /> <!-- android:usesPermissionFlags="neverForLocation" if API level 33 -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <!-- android:usesPermissionFlags="neverForLocation" if API level 33 -->
     <uses-permission
         android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission
@@ -46,13 +51,11 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:usesCleartextTraffic="true"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat"
         tools:targetApi="31">
-<!--        <service-->
-<!--            android:name=".MainActivity"-->
-<!--            android:foregroundServiceType="location"/>-->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -64,6 +67,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.greybox.projectmesh.fileprovider"
+            android:grantUriPermissions="true"
+            android:exported="false">
+
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/filepaths"/>
+        </provider>
         <activity
             android:name="com.journeyapps.barcodescanner.CaptureActivity"
             android:screenOrientation="portrait"

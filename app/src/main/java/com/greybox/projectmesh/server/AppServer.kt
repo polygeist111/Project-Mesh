@@ -2,8 +2,9 @@ package com.greybox.projectmesh.server
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.util.Log
-import android.widget.Toast
+import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.extension.updateItem
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback
 import com.ustadmobile.meshrabiya.util.FileSerializer
@@ -30,7 +31,6 @@ import java.io.Closeable
 import java.io.File
 import java.io.FileOutputStream
 import java.net.InetAddress
-import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import com.greybox.projectmesh.extension.getUriNameAndSize
 
@@ -47,6 +47,7 @@ class AppServer(
     private val receiveDir: File,   // Directory for receiving files
     private val json: Json,
 ) : NanoHTTPD(port), Closeable {
+    private val logPrefix: String = "[AppServer - $name] "
 
     private val scope = CoroutineScope(Dispatchers.IO + Job())
 
@@ -87,6 +88,7 @@ class AppServer(
         val requestReceivedTime: Long = System.currentTimeMillis(),
         @Serializable(with = InetAddressSerializer::class)
         val fromHost: InetAddress,  // Address of the sender
+        val deviceName: String = "Unknown Device",
         val name: String,   // Name of the file being received
         val status: Status = Status.PENDING,
         val size: Int,  // size of the file in byte
@@ -146,13 +148,13 @@ class AppServer(
         }
     }
 
+
     /*
     This is a crucial function that implement an HTTP Server
      */
     override fun serve(session: IHTTPSession): Response {
         // Extracts the URI from the session, which is the path of the request
         val path = session.uri
-        Toast.makeText(appContext, "path: $path", Toast.LENGTH_SHORT).show()
         // check if the path is for download, indicating the request wants to download a file
         if(path.startsWith("/download/")) {
             // Extracts the transfer ID (Integer)from the path by taking the last part of the path
@@ -246,6 +248,7 @@ class AppServer(
             // if size is missing or invalid, then defaults to -1
             val size = searchParams["size"]?.toInt() ?: -1
             val fromAddr = searchParams["from"]
+            val devicename = fromAddr?.let { GlobalApp.DeviceInfoManager.getDeviceName(it) }
 
             // if everything is ready, create a new incomingTransferInfo object that contains all the
             // info extract from the query parameters
@@ -254,7 +257,8 @@ class AppServer(
                     id = id.toInt(),
                     fromHost = InetAddress.getByName(fromAddr),
                     name = filename,
-                    size = size
+                    size = size,
+                    deviceName = devicename ?: ""
                 )
                 /*
                  update the _incomingTransfers list with the new incoming transfer
@@ -292,13 +296,47 @@ class AppServer(
             }
             // return "OK", indicating the decline request has been handled
             return newFixedLengthResponse("OK")
-        }else {
+        }
+        else if(path.startsWith("/getDeviceName")){
+            Log.d("AppServer", "local ip address: ${localVirtualAddr.hostAddress}")
+            return newFixedLengthResponse(Build.MODEL)
+        }
+        else{
             // Returns a NOT_FOUND response indicating that the requested path could not be found.
             return newFixedLengthResponse(
                 Response.Status.NOT_FOUND, "text/plain", "not found: $path"
             )
         }
     }
+
+    fun sendDeviceName(wifiAddress: InetAddress, port: Int = 4242) {
+        scope.launch {
+            try {
+                Log.d("AppServer", "wifiAddress: $wifiAddress")
+                // Send local device's name to the remote device
+                val uri = "http://${wifiAddress.hostAddress}:$port/getDeviceName"
+                Log.d("AppServer", "URI: $uri")
+                val request = Request.Builder().url(uri).build()
+                Log.d("AppServer", "Request: $request")
+                val response = httpClient.newCall(request).execute()
+                Log.d("AppServer", "Response: $response")
+                // Get the remote device's name
+                val remoteDeviceName = response.body?.string()
+                Log.d("AppServer", "Remote device name: $remoteDeviceName")
+
+                if (remoteDeviceName != null) {
+                    wifiAddress.hostAddress?.let { GlobalApp.DeviceInfoManager.addDevice(it, remoteDeviceName) }
+                }
+            }
+            catch (e: Exception) {
+                e.printStackTrace()
+                Log.e("AppServer", "Failed to get device name from " +
+                        wifiAddress.hostAddress
+                )
+            }
+        }
+    }
+
 
     /**
      * Add an outgoing transfer. This is done using a Uri so that we don't have to make our own
@@ -315,29 +353,28 @@ class AppServer(
         // customized extension function of ContentResolver
         val nameAndSize = appContext.contentResolver.getUriNameAndSize(uri)
         val validName = nameAndSize.name ?: "unknown"
+        Log.d("AppServer", "$logPrefix adding outgoing transfer of $uri " +
+                "(name=${nameAndSize.name} size=${nameAndSize.size} to $toNode:$toPort")
+
         // create an OutgoingTransferInfo object with all transfer information
         val outgoingTransfer = OutgoingTransferInfo(
             id = transferId,
             name = validName,
-            uri = uri ,
+            uri = uri,
             toHost = toNode,
             size = nameAndSize.size.toInt(),
         )
         // Build the request to tell the other side about the transfer
         val request = Request.Builder().url("http://${toNode.hostAddress}:$toPort/" +
-                "send?id=$transferId&filename=${URLEncoder.encode(validName, "UTF-8")}" +
-                "&size=${nameAndSize.size}&from=${localVirtualAddr.hostAddress}")
-            //.addHeader("connection", "close")
-            .build()
+                "send?id=$transferId&filename=${Uri.encode(validName)}" +
+                "&size=${nameAndSize.size}&from=${localVirtualAddr.hostAddress}").build()
+        Log.d("Appserver", "$logPrefix notifying $toNode of incoming transfer")
         Log.d("AppServer", "request: $request")
-        val duration = Toast.LENGTH_SHORT
-
-        Toast.makeText(appContext, "request: $request", duration).show() // in Activity
 
         // Send the request to the other side using OkHttp3
         val response = httpClient.newCall(request).execute()
         val serverResponse = response.body?.string()
-        Toast.makeText(appContext, "serverResponse: $serverResponse", duration).show() // in Activity
+        Log.d("AppServer", "$logPrefix - received response: $serverResponse")
         /*
          Update the _outgoingTransfers list with the new transfer
          Add the new transfer to the beginning of the list, then append the existing list
@@ -366,8 +403,8 @@ class AppServer(
             prev.updateItem(
                 condition = { it.id == transfer.id },
                 function = { item -> item.copy(
-                        status = Status.IN_PROGRESS,
-                    )
+                    status = Status.IN_PROGRESS,
+                )
                 }
             )
         }
@@ -385,7 +422,7 @@ class AppServer(
             /*
             Download file,Writes it to destFile, and reports progress every 500 ms
              */
-            val totalTransfered = response.body?.byteStream()?.use { responseIn ->
+            val totalTransferred = response.body?.byteStream()?.use { responseIn ->
                 FileOutputStream(destFile).use { fileOut ->
                     responseIn.copyToWithProgressCallback(
                         out = fileOut,
@@ -419,13 +456,13 @@ class AppServer(
                     function = { item ->
                         item.copy(
                             transferTime = transferDurationMs,
-                            status = if(totalTransfered == fileSize) {
+                            status = if(totalTransferred == fileSize) {
                                 Status.COMPLETED
                             }else {
                                 Status.FAILED
                             },
                             file = destFile,
-                            transferred = totalTransfered?.toInt() ?: item.transferred
+                            transferred = totalTransferred?.toInt() ?: item.transferred
                         )
                     }
                 )
@@ -447,9 +484,9 @@ class AppServer(
                 prev.updateItem(
                     condition = { it.id == transfer.id },
                     function = { item -> item.copy(
-                            transferred = destFile.length().toInt(),
-                            status = Status.FAILED,
-                        )
+                        transferred = destFile.length().toInt(),
+                        status = Status.FAILED,
+                    )
                     }
                 )
             }

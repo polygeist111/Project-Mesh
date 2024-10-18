@@ -109,7 +109,6 @@ fun HomeScreen(viewModel: HomeScreenViewModel = viewModel(
             }
         },
         onClickDisconnectWifiStation = viewModel::onClickDisconnectStation,
-        context = context,
     )
 }
 
@@ -121,10 +120,10 @@ fun StartHomeScreen(
     onSetIncomingConnectionsEnabled: (Boolean) -> Unit = { },
     onClickDisconnectWifiStation: () -> Unit = { },
     viewModel: HomeScreenViewModel = viewModel(),
-    context: Context
 ){
     val di = localDI()
     val barcodeEncoder = remember { BarcodeEncoder() }
+    val context = LocalContext.current
     var userEnteredConnectUri by rememberSaveable { mutableStateOf("") }
     // initialize the QR code scanner
     val qrScannerLauncher = rememberLauncherForActivityResult(contract = ScanContract()) { result ->

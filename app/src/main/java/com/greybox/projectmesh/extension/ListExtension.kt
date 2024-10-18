@@ -17,7 +17,7 @@ inline fun <T> List<T>.updateItem(
     // Otherwise, create a new list with the element at the found index updated using the provided function
     else{
         toMutableList().also {
-            newList -> newList[index] = function(this[index])
+                newList -> newList[index] = function(this[index])
         }.toList()
     }
 }

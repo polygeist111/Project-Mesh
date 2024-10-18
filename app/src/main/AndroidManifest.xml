@@ -3,8 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-feature android:name="android.software.companion_device_setup" />
+
     <uses-permission android:name="android.permission.INTERNET" />
+
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Required to create local only hotspot, use wifimanager, etc -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
@@ -53,9 +56,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat"
         tools:targetApi="31">
-        <!--        <service-->
-        <!--            android:name=".MainActivity"-->
-        <!--            android:foregroundServiceType="location"/>-->
+<!--        <service-->
+<!--            android:name=".MainActivity"-->
+<!--            android:foregroundServiceType="location"/>-->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -67,16 +70,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="com.greybox.projectmesh.fileprovider"
-            android:grantUriPermissions="true"
-            android:exported="false">
-
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/filepaths"/>
-        </provider>
         <activity
             android:name="com.journeyapps.barcodescanner.CaptureActivity"
             android:screenOrientation="portrait"

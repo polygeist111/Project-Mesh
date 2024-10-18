@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
@@ -140,8 +141,7 @@ fun HandleIncomingTransfers(
                 trailingContent = {
                     if(transfer.status == AppServer.Status.COMPLETED){
                         IconButton(onClick = {onDelete(transfer)}) {
-                            Icon(imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete")
+                            Icon(Icons.Default.Delete, contentDescription = "Delete")
                         }
                     }
                 }

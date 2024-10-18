@@ -34,6 +34,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,11 +53,15 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.zxing.BarcodeFormat
 import com.greybox.projectmesh.NEARBY_WIFI_PERMISSION_NAME
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.WhiteButton
+//import com.greybox.projectmesh.components.ConnectWifiLauncherResult
+//import com.greybox.projectmesh.components.ConnectWifiLauncherStatus
+//import com.greybox.projectmesh.components.meshrabiyaConnectLauncher
 import com.greybox.projectmesh.hasNearbyWifiDevicesOrLocationPermission
 import com.greybox.projectmesh.hasStaApConcurrency
 import com.greybox.projectmesh.model.HomeScreenModel
@@ -69,6 +74,7 @@ import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.MeshrabiyaConnectLink
 import com.ustadmobile.meshrabiya.vnet.VirtualNode
 import com.ustadmobile.meshrabiya.vnet.wifi.state.WifiStationState
+import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
 import org.kodein.di.compose.localDI
 import org.kodein.di.direct
 import org.kodein.di.instance
@@ -129,22 +135,23 @@ fun StartHomeScreen(
     val qrScannerLauncher = rememberLauncherForActivityResult(contract = ScanContract()) { result ->
         // Get the contents of the QR code
         val link = result.contents
-        try {
-            // Parse the link, get the wifi connect configuration.
-            val hotSpot = MeshrabiyaConnectLink.parseUri(
-                uri = link,
-                json = di.direct.instance()
-            ).hotspotConfig
-
-            // if the configuration is valid, connect to the device.
-            if (hotSpot != null) {
-                // Connect device thru wifi connection
-                viewModel.onConnectWifi(hotSpot)
-            } else {
-                // Link doesn't have a connect config
+        if (link != null) {
+            try {
+                // Parse the link, get the wifi connect configuration.
+                val hotSpot = MeshrabiyaConnectLink.parseUri(
+                    uri = link,
+                    json = di.direct.instance()
+                ).hotspotConfig
+                // if the configuration is valid, connect to the device.
+                if (hotSpot != null) {
+                    // Connect device thru wifi connection
+                    viewModel.onConnectWifi(hotSpot)
+                } else {
+                    // Link doesn't have a connect config
+                }
+            } catch (e: Exception) {
+                // Invalid Link
             }
-        } catch (e: Exception) {
-            // Invalid Link
         }
     }
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -209,8 +216,7 @@ fun StartHomeScreen(
                     uiState.wifiState?.connectConfig?.ssid,
                     uiState.wifiState?.connectConfig?.passphrase,
                     uiState.wifiState?.connectConfig?.bssid,
-                    uiState.wifiState?.connectConfig?.port.toString()
-                )
+                    uiState.wifiState?.connectConfig?.port.toString())
                 // Display connectUri
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(text = "To share the connect URI:\n" +

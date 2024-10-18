@@ -30,7 +30,7 @@ All dependencies are defined in one place, which makes it easier to manage and t
  */
 class GlobalApp : Application(), DIAware {
     // it is an instance of Preferences.key<Int>, used to interact with "DataStore"
-    private val addressKey = intPreferencesKey("virtualaddr")
+    private val addressKey = intPreferencesKey("virtual_node_address")
     data object DeviceInfoManager {
         // Global HashMap to store IP-DeviceName mapping
         val deviceNameMap = HashMap<String, String?>()
@@ -147,7 +147,7 @@ class GlobalApp : Application(), DIAware {
     }
 
     companion object {
-        const val TAG_VIRTUAL_ADDRESS = "virtual_add"
+        const val TAG_VIRTUAL_ADDRESS = "virtual_address"
         const val TAG_RECEIVE_DIR = "receive_dir"
         const val TAG_WWW_DIR = "www_dir"
     }

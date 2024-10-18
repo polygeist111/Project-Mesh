@@ -40,6 +40,8 @@ fun SendScreen(
 ) {
     // declare the UI state
     val uiState: SendScreenModel by viewModel.uiState.collectAsState(SendScreenModel())
+    // indicate a file has been chosen
+    // var isFileChosen = uiState.fileUri != null
     // File picker launcher
     val openDocumentLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -52,6 +54,7 @@ fun SendScreen(
     Row(modifier = Modifier.fillMaxSize()) {
         WhiteButton(onClick = {
             openDocumentLauncher.launch(arrayOf("*/*"))
+            //isFileChosen = true
         },
             modifier = Modifier
                 .align(Alignment.Bottom)

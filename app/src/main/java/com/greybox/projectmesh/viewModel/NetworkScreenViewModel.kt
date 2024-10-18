@@ -2,6 +2,7 @@ package com.greybox.projectmesh.viewModel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.greybox.projectmesh.views.NetworkScreen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,10 +48,12 @@ class NetworkScreenViewModel(di:DI): ViewModel() {
             }
         }
     }
+
     fun getDeviceName(wifiAddress: Int){
         viewModelScope.launch {
             val inetAddress = InetAddress.getByAddress(wifiAddress.addressToByteArray())
             appServer.sendDeviceName(inetAddress)
         }
     }
+
 }

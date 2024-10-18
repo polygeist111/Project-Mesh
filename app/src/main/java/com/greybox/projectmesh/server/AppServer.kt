@@ -31,6 +31,7 @@ import java.io.Closeable
 import java.io.File
 import java.io.FileOutputStream
 import java.net.InetAddress
+import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import com.greybox.projectmesh.extension.getUriNameAndSize
 
@@ -47,6 +48,7 @@ class AppServer(
     private val receiveDir: File,   // Directory for receiving files
     private val json: Json,
 ) : NanoHTTPD(port), Closeable {
+
     private val logPrefix: String = "[AppServer - $name] "
 
     private val scope = CoroutineScope(Dispatchers.IO + Job())
@@ -147,7 +149,6 @@ class AppServer(
             }
         }
     }
-
 
     /*
     This is a crucial function that implement an HTTP Server
@@ -301,7 +302,7 @@ class AppServer(
             Log.d("AppServer", "local ip address: ${localVirtualAddr.hostAddress}")
             return newFixedLengthResponse(Build.MODEL)
         }
-        else{
+        else {
             // Returns a NOT_FOUND response indicating that the requested path could not be found.
             return newFixedLengthResponse(
                 Response.Status.NOT_FOUND, "text/plain", "not found: $path"
@@ -337,7 +338,6 @@ class AppServer(
         }
     }
 
-
     /**
      * Add an outgoing transfer. This is done using a Uri so that we don't have to make our own
      * copy of the file the user wants to transfer.
@@ -360,14 +360,16 @@ class AppServer(
         val outgoingTransfer = OutgoingTransferInfo(
             id = transferId,
             name = validName,
-            uri = uri,
+            uri = uri ,
             toHost = toNode,
             size = nameAndSize.size.toInt(),
         )
         // Build the request to tell the other side about the transfer
         val request = Request.Builder().url("http://${toNode.hostAddress}:$toPort/" +
-                "send?id=$transferId&filename=${Uri.encode(validName)}" +
-                "&size=${nameAndSize.size}&from=${localVirtualAddr.hostAddress}").build()
+                "send?id=$transferId&filename=${URLEncoder.encode(validName, "UTF-8")}" +
+                "&size=${nameAndSize.size}&from=${localVirtualAddr.hostAddress}")
+//            .addHeader("connection", "close")
+            .build()
         Log.d("Appserver", "$logPrefix notifying $toNode of incoming transfer")
         Log.d("AppServer", "request: $request")
 
@@ -571,5 +573,3 @@ class AppServer(
         const val DEFAULT_PORT = 4242
     }
 }
-
-

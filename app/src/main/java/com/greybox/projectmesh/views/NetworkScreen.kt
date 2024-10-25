@@ -40,7 +40,9 @@ import org.kodein.di.compose.localDI
 //)
 
 @Composable
-fun NetworkScreen(viewModel: NetworkScreenViewModel = viewModel(
+fun NetworkScreen(
+    onClickNetworkNode: ((nodeAddress: String) -> Unit)? = null,
+    viewModel: NetworkScreenViewModel = viewModel(
     factory = ViewModelFactory(
         di = localDI(),
         owner = LocalSavedStateRegistryOwner.current,
@@ -69,7 +71,7 @@ fun NetworkScreen(viewModel: NetworkScreenViewModel = viewModel(
             if (!GlobalApp.DeviceInfoManager.deviceNameMap.containsKey(eachItem.key.addressToDotNotation())) {
                 viewModel.getDeviceName(eachItem.key)
             }
-            WifiListItem(eachItem.key, eachItem.value)
+            WifiListItem(eachItem.key, eachItem.value, onClickNetworkNode)
         }
     }
 }
@@ -82,13 +84,15 @@ fun WifiListItem(
 //    wifiEntry: TestWifiState,
     wifiAddress: Int,
     wifiEntry: VirtualNode.LastOriginatorMessage,
-    onClick: (() -> Unit)? = null,
+    onClick: ((nodeAddress: String) -> Unit)? = null,
 ){
     val wifiAddressDotNotation = wifiAddress.addressToDotNotation()
     ListItem(
         modifier = Modifier.fillMaxWidth().let{
             if(onClick != null){
-                it.clickable(onClick = onClick)
+                it.clickable(onClick = {
+                    onClick(wifiAddressDotNotation)
+                })
             }
             else{
                 it

@@ -17,6 +17,7 @@ import com.greybox.projectmesh.navigation.BottomNavigationBar
 import com.greybox.projectmesh.views.HomeScreen
 import com.greybox.projectmesh.views.InfoScreen
 import com.greybox.projectmesh.views.NetworkScreen
+import com.greybox.projectmesh.views.PingScreen
 import com.greybox.projectmesh.views.ReceiveScreen
 import com.greybox.projectmesh.views.SelectDestNodeScreen
 import com.greybox.projectmesh.views.SendScreen
@@ -24,6 +25,7 @@ import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.android.closestDI
 import org.kodein.di.compose.withDI
+import java.net.InetAddress
 import java.net.URLEncoder
 
 class MainActivity : ComponentActivity(), DIAware {
@@ -47,7 +49,18 @@ fun BottomNavApp(di: DI) = withDI(di){
         NavHost(navController, startDestination = BottomNavItem.Home.route, Modifier.padding(innerPadding))
         {
             composable(BottomNavItem.Home.route) { HomeScreen() }
-            composable(BottomNavItem.Network.route) { NetworkScreen() }
+            composable(BottomNavItem.Network.route) { NetworkScreen(
+                onClickNetworkNode = { nodeAddress ->
+                    navController.navigate("pingScreen/${nodeAddress}")
+                }
+            ) }
+            composable("pingScreen/{ip}"){ entry ->
+                val ip = entry.arguments?.getString("ip")
+                    ?: throw IllegalArgumentException("Invalid address")
+                PingScreen(
+                    virtualAddress = InetAddress.getByName(ip)
+                )
+            }
             composable(BottomNavItem.Send.route) { SendScreen(onSwitchToSelectDestNode = { uri ->
                 navController.navigate("selectDestNode/${URLEncoder.encode(uri.toString(), "UTF-8")}")
             }) }

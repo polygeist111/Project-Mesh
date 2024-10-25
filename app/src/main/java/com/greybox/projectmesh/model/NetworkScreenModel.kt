@@ -1,8 +1,6 @@
 package com.greybox.projectmesh.model
-import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
-import com.ustadmobile.meshrabiya.vnet.VirtualNode
-import com.ustadmobile.meshrabiya.vnet.wifi.state.WifiStationState
 
+import com.ustadmobile.meshrabiya.vnet.VirtualNode
 
 data class NetworkScreenModel(
     val connectingInProgressSsid: String? = null,

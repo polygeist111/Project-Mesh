@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import com.greybox.projectmesh.server.AppServer
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.asInetAddress
+import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.randomApipaAddr
 import kotlinx.coroutines.flow.first
@@ -47,6 +48,10 @@ class GlobalApp : Application(), DIAware {
         // Helper method to get a device name by IP
         fun getDeviceName(ipAddress: String): String? {
             return deviceNameMap[ipAddress]
+        }
+
+        fun getDeviceName(inetAddress: InetAddress): String? {
+            return deviceNameMap[inetAddress.requireAddressAsInt().addressToDotNotation()]
         }
     }
     private val diModule = DI.Module("project_mesh") {

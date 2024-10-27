@@ -3,8 +3,8 @@ package com.greybox.projectmesh.views
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,7 +28,7 @@ import org.kodein.di.compose.localDI
 
 @Composable
 fun SendScreen(
-    onSwitchToSelectDestNode: (Uri) -> Unit,
+    onSwitchToSelectDestNode: (List<Uri>) -> Unit,
     viewModel: SendScreenViewModel = viewModel(
         factory = ViewModelFactory(
             di = localDI(),
@@ -40,29 +40,24 @@ fun SendScreen(
 ) {
     // declare the UI state
     val uiState: SendScreenModel by viewModel.uiState.collectAsState(SendScreenModel())
-    // indicate a file has been chosen
-    // var isFileChosen = uiState.fileUri != null
     // File picker launcher
     val openDocumentLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ){ uri ->
-        if (uri != null){
-            viewModel.onFileChosen(uri)
+        ActivityResultContracts.OpenMultipleDocuments()
+    ){ uris ->
+        if (uris.isNotEmpty()){
+            viewModel.onFileChosen(uris)
         }
     }
-
-    Row(modifier = Modifier.fillMaxSize()) {
-        WhiteButton(onClick = {
-            openDocumentLauncher.launch(arrayOf("*/*"))
-            //isFileChosen = true
-        },
-            modifier = Modifier
-                .align(Alignment.Bottom)
-                .padding(16.dp),
+    Box(modifier = Modifier.fillMaxSize()){
+        Column(modifier = Modifier.fillMaxSize().padding(bottom=72.dp)) {
+            DisplayAllPendingTransfers(uiState)
+        }
+        WhiteButton(onClick = { openDocumentLauncher.launch(arrayOf("*/*")) },
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
             text = "Send File",
-            enabled = true)
+            enabled = true
+        )
     }
-    DisplayAllPendingTransfers(uiState)
 }
 
 @Composable

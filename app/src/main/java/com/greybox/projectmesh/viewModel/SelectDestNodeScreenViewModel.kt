@@ -10,6 +10,8 @@ import com.ustadmobile.meshrabiya.ext.addressToByteArray
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +24,7 @@ import java.net.InetAddress
 
 class SelectDestNodeScreenViewModel(
     di: DI,
-    private val sendUri: String,
+    private val sendUris: List<Uri>,
     private val popBackWhenDone: () -> Unit
 ): ViewModel(){
 
@@ -34,7 +36,7 @@ class SelectDestNodeScreenViewModel(
     init {
         _uiState.update { prev ->
             prev.copy(
-                uri = sendUri,
+                uris = sendUris,
             )
         }
 
@@ -53,27 +55,42 @@ class SelectDestNodeScreenViewModel(
         // convert the ip address to byte array, then convert it to InetAddress object
         // which can be used to perform network operation
         val inetAddress = InetAddress.getByAddress(address.addressToByteArray())
+        Log.d("uri_track_onClickReveiver", "inetAddress: $inetAddress")
+        // update the ui state to reflect that we are contacting the device
         _uiState.update { prev ->
             prev.copy(
                 contactingInProgressDevice = address.addressToDotNotation()
             )
         }
+        Log.d("uri_track_onClickReveiver", "sendUris: ${sendUris.toString()}")
+        // Launch a coroutine in the ViewModel Scope
         viewModelScope.launch {
+            // Switch the coroutine context to Dispatchers.IO for network operations
             val transfer = withContext(Dispatchers.IO){
-                try{
-                    appServer.addOutgoingTransfer(
-                        uri = Uri.parse(sendUri),
-                        toNode = inetAddress,
-                    )
-                }
-                catch (e: Exception){
-                    Log.e("AppServer", "Exception attempting to send to destination", e)
-                    null
-                }
+                // Map over the list of uris and launch an asynchronous task for each uri
+                sendUris.map { uri ->
+                    async{
+                        try{
+                            Log.d("uri_track_onClickReveiver_Loop", uri.toString())
+                            val response = appServer.addOutgoingTransfer(
+                                uri = uri,
+                                toNode = inetAddress,
+                            )
+                            Log.d("uri_track_onClickReveiver_Loop", "response: ${response.toString()}")
+                            true
+                        }
+                        catch (e: Exception){
+                            Log.e("AppServer", "Exception attempting to send $uri to destination", e)
+                            false
+                        }
+                    }
+                }.awaitAll()    // Wait for all the tasks to complete
             }
-            // if transfer is successful, pop back to previous screen
-            if (transfer != null)
+            // if any of the transfers were successful, pop back to previous screen
+            if(transfer.any{it}){
+                Log.d("uri_track_onClickReveiver", "popBackWhenDone")
                 popBackWhenDone()
+            }
         }
     }
 }

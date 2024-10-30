@@ -1,5 +1,6 @@
 package com.greybox.projectmesh.views
 
+import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,13 +24,13 @@ import org.kodein.di.compose.localDI
 
 @Composable
 fun SelectDestNodeScreen(
-    uri: String,
+    uris: List<Uri>,
     popBackWhenDone: () -> Unit,
     viewModel: SelectDestNodeScreenViewModel = viewModel(
         factory = ViewModelFactory(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
-            vmFactory = { SelectDestNodeScreenViewModel(it, uri, popBackWhenDone) },
+            vmFactory = { SelectDestNodeScreenViewModel(it, uris, popBackWhenDone) },
             defaultArgs = null,
         )
     )

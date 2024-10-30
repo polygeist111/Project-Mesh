@@ -15,7 +15,7 @@ import org.kodein.di.instance
 
 class SendScreenViewModel(
     di: DI,
-    private val onSwitchToSelectDestNode: (Uri) -> Unit
+    private val onSwitchToSelectDestNode: (List<Uri>) -> Unit
 ): ViewModel() {
     // _uiState will be updated whenever there is a change in the UI state
     private val _uiState = MutableStateFlow(SendScreenModel())
@@ -36,7 +36,7 @@ class SendScreenViewModel(
         }
     }
 
-    fun onFileChosen(uri: Uri){
-        onSwitchToSelectDestNode(uri)
+    fun onFileChosen(uris: List<Uri>){
+        onSwitchToSelectDestNode(uris)
     }
 }

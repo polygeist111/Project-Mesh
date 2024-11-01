@@ -6,11 +6,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,6 +27,7 @@ import java.net.InetAddress
 @Composable
 fun PingScreen(
     virtualAddress: InetAddress,
+    onClickChat: () -> Unit,
     viewModel: PingScreenViewModel = viewModel(
         factory = ViewModelFactory(
             di = localDI(),
@@ -39,6 +42,13 @@ fun PingScreen(
 
     // display all ping information
     LazyColumn{
+        item{
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = onClickChat, modifier = Modifier.fillMaxWidth()){
+                    Text(text = "Chat")
+                }
+            }
+        }
         item{
             Row(modifier = Modifier.fillMaxWidth()){
                 Text(text = "Device name: ${uiState.deviceName}, IP address: ${uiState.virtualAddress.hostAddress}")

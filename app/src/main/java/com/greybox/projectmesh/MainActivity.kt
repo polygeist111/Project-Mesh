@@ -20,6 +20,7 @@ import com.greybox.projectmesh.debug.CrashScreenActivity
 import com.greybox.projectmesh.navigation.BottomNavItem
 import com.greybox.projectmesh.navigation.BottomNavigationBar
 import com.greybox.projectmesh.viewModel.SharedUriViewModel
+import com.greybox.projectmesh.views.ChatScreen
 import com.greybox.projectmesh.views.HomeScreen
 import com.greybox.projectmesh.views.InfoScreen
 import com.greybox.projectmesh.views.NetworkScreen
@@ -63,6 +64,16 @@ fun BottomNavApp(di: DI) = withDI(di){
                 val ip = entry.arguments?.getString("ip")
                     ?: throw IllegalArgumentException("Invalid address")
                 PingScreen(
+                    virtualAddress = InetAddress.getByName(ip),
+                    onClickChat = {
+                        navController.navigate("chatScreen/${ip}")
+                    }
+                )
+            }
+            composable("chatScreen/{ip}"){ entry ->
+                val ip = entry.arguments?.getString("ip")
+                    ?: throw IllegalArgumentException("Invalid address")
+                ChatScreen(
                     virtualAddress = InetAddress.getByName(ip)
                 )
             }

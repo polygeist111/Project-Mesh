@@ -74,9 +74,12 @@ fun ChatScreen(
                     textMessage = it
                 })
             Button(modifier = Modifier.weight(1f), onClick = {
-                viewModel.sendChatMessage(virtualAddress, textMessage)
-                // resets the text field
-                textMessage = ""
+                val message = textMessage.trimEnd()
+                if(message.isNotEmpty()) {
+                    viewModel.sendChatMessage(virtualAddress, message)
+                    // resets the text field
+                    textMessage = ""
+                }
             }) {
                 Text(text = "Send")
             }

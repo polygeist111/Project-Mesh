@@ -27,7 +27,6 @@ import java.net.InetAddress
 @Composable
 fun PingScreen(
     virtualAddress: InetAddress,
-    onClickChat: () -> Unit,
     viewModel: PingScreenViewModel = viewModel(
         factory = ViewModelFactory(
             di = localDI(),
@@ -42,13 +41,6 @@ fun PingScreen(
 
     // display all ping information
     LazyColumn{
-        item{
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Button(onClick = onClickChat, modifier = Modifier.fillMaxWidth()){
-                    Text(text = "Chat")
-                }
-            }
-        }
         item{
             Row(modifier = Modifier.fillMaxWidth()){
                 Text(text = "Device name: ${uiState.deviceName}, IP address: ${uiState.virtualAddress.hostAddress}")

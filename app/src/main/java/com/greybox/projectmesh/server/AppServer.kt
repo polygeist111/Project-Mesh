@@ -37,6 +37,9 @@ import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import com.greybox.projectmesh.extension.getUriNameAndSize
 import kotlinx.coroutines.runBlocking
+import okhttp3.HttpUrl
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URLDecoder
 
 /*
@@ -308,12 +311,21 @@ class AppServer(
             return newFixedLengthResponse(Build.MODEL)
         }
         else if(path.startsWith("/chat")) {
-            val searchParams = session.queryParameterString.split("&").associate {
-                it.substringBefore("=") to it.substringAfter("=")
+            val files = mutableMapOf<String, String>()
+            try{
+                session.parseBody(files)
+            }catch (e: Exception){
+                Log.e("AppServer", "Error parsing body: ${e.message}")
             }
-            val chatMessage: String = URLDecoder.decode(searchParams["message"], "UTF-8") ?: "Error! No message found."
-            val time: Long = searchParams["time"]?.toLong() ?: 0
-            val senderIp: InetAddress = InetAddress.getByName(searchParams["senderIp"])
+            val chatMessage = session.parameters["chatMessage"]?.first() ?: "Error! No message found."
+            val time = session.parameters["time"]?.first()?.toLong() ?: 0
+            val senderIp = InetAddress.getByName(session.parameters["senderIp"]?.first() ?: "0.0.0.0")
+//            val searchParams = session.queryParameterString.split("&").associate {
+//                it.substringBefore("=") to it.substringAfter("=")
+//            }
+//            val chatMessage: String = URLDecoder.decode(searchParams["message"], "UTF-8") ?: "Error! No message found."
+//            val time: Long = searchParams["time"]?.toLong() ?: 0
+//            val senderIp: InetAddress = InetAddress.getByName(searchParams["senderIp"])
             val sender: String =  GlobalApp.DeviceInfoManager.getDeviceName(senderIp) ?: "Unknown"
             val chatName: String = GlobalApp.DeviceInfoManager.getChatName(senderIp)
             Log.d("Appserver", "chatMessage: $chatMessage, time: $time, sender: $sender, chatName: $chatName")
@@ -586,11 +598,20 @@ class AppServer(
     fun sendChatMessage(address: InetAddress, time: Long, message: String) {
         scope.launch {
             try {
-                val replacedMessage = message.replace("&", "%26")
-                Log.d("AppServer", "chat message: $replacedMessage")
-                val uri = "http://${address.hostAddress}:$DEFAULT_PORT/chat?message=$replacedMessage&time=$time&senderIp=${localVirtualAddr.hostAddress}"
-                Log.d("AppServer", "URI: $uri")
-                val request = Request.Builder().url(uri).build()
+                Log.d("AppServer", "chat message: $message")
+                val httpUrl = HttpUrl.Builder()
+                    .scheme("http")
+                    .host(address.hostAddress)
+                    .port(DEFAULT_PORT)
+                    .addPathSegment("chat")
+                    .addQueryParameter("chatMessage", message)
+                    .addQueryParameter("time", time.toString())
+                    .addQueryParameter("senderIp", localVirtualAddr.hostAddress)
+                    .build()
+                Log.d("Appserver", "HTTP URL: $httpUrl")
+                val request = Request.Builder()
+                    .url(httpUrl)
+                    .build()
                 Log.d("AppServer", "Request: $request")
                 val response = httpClient.newCall(request).execute()
                 Log.d("AppServer", "Response: $response")
@@ -610,5 +631,6 @@ class AppServer(
 
     companion object {
         const val DEFAULT_PORT = 4242
+        val CHAT_TYPE_PLAINTEXT = "text/plain; charset=utf-8".toMediaType()
     }
 }

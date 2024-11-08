@@ -56,24 +56,24 @@ fun BottomNavApp(di: DI) = withDI(di){
         {
             composable(BottomNavItem.Home.route) { HomeScreen() }
             composable(BottomNavItem.Network.route) { NetworkScreen(
-                onClickNetworkNode = { nodeAddress ->
-                    navController.navigate("pingScreen/${nodeAddress}")
+                onClickNetworkNode = { ip ->
+                    navController.navigate("chatScreen/${ip}")
                 }
             ) }
-            composable("pingScreen/{ip}"){ entry ->
-                val ip = entry.arguments?.getString("ip")
-                    ?: throw IllegalArgumentException("Invalid address")
-                PingScreen(
-                    virtualAddress = InetAddress.getByName(ip),
-                    onClickChat = {
-                        navController.navigate("chatScreen/${ip}")
-                    }
-                )
-            }
             composable("chatScreen/{ip}"){ entry ->
                 val ip = entry.arguments?.getString("ip")
                     ?: throw IllegalArgumentException("Invalid address")
                 ChatScreen(
+                    virtualAddress = InetAddress.getByName(ip),
+                    onClickButton = {
+                        navController.navigate("pingScreen/${ip}")
+                    }
+                )
+            }
+            composable("pingScreen/{ip}"){ entry ->
+                val ip = entry.arguments?.getString("ip")
+                    ?: throw IllegalArgumentException("Invalid address")
+                PingScreen(
                     virtualAddress = InetAddress.getByName(ip)
                 )
             }

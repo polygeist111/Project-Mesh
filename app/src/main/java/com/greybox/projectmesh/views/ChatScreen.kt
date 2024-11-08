@@ -21,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -41,6 +42,7 @@ import java.util.Date
 @Composable
 fun ChatScreen(
     virtualAddress: InetAddress,
+    onClickButton: () -> Unit,
     viewModel: ChatScreenViewModel = viewModel(
         factory = ViewModelFactory(
             di = localDI(),
@@ -53,12 +55,19 @@ fun ChatScreen(
     // declare the UI state, we can use the uiState to access the current state of the viewModel
     val uiState: ChatScreenModel by viewModel.uiState.collectAsState(initial = ChatScreenModel())
     var textMessage by rememberSaveable { mutableStateOf("") }
-
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize().padding(bottom = 72.dp)) {
-            DisplayAllMessages(uiState)
+        Column(modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 72.dp)) {
+//            Button(onClick = onClickButton, modifier = Modifier.fillMaxWidth()) {
+//                Text(text = "Ping")
+//            }
+            DisplayAllMessages(uiState, onClickButton)
         }
-        Row(modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(4.dp)) {
+        Row(modifier = Modifier
+            .fillMaxWidth()
+            .align(Alignment.BottomCenter)
+            .padding(4.dp)) {
             TextField(modifier = Modifier.weight(4f),
                 value = textMessage,
                 onValueChange = {
@@ -76,12 +85,19 @@ fun ChatScreen(
 }
 
 @Composable
-fun DisplayAllMessages(uiState: ChatScreenModel) {
-    // display all ping information
+fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit) {
+    val context = LocalContext.current
+    // display all chat messages
     LazyColumn{
         item{
             Row(modifier = Modifier.fillMaxWidth()){
-                Text(text = "Device name: ${uiState.deviceName}, IP address: ${uiState.virtualAddress.hostAddress}")
+                Text(modifier = Modifier.weight(4f),
+                    text = "Device name: ${uiState.deviceName}, IP address: ${uiState.virtualAddress.hostAddress}"
+                )
+                Button(modifier = Modifier.weight(1f),
+                    onClick = onClickButton) {
+                    Text(text = "Ping")
+                }
             }
         }
         items( // todo
@@ -93,7 +109,12 @@ fun DisplayAllMessages(uiState: ChatScreenModel) {
                     "Me"
                 else
                         (GlobalApp.DeviceInfoManager.getDeviceName(uiState.virtualAddress) ?: "Loading...")
-                Text(text = "$sender [${SimpleDateFormat("HH:mm").format(Date(chatMessage.dateReceived))}]: ${chatMessage.content}")
+                LongPressCopyableText(
+                    context = context,
+                    text = "$sender [${SimpleDateFormat("HH:mm").format(Date(chatMessage.dateReceived))}]: ",
+                    textCopyable = "${chatMessage.content}",
+                    textSize = 15
+                )
             }
         }
     }

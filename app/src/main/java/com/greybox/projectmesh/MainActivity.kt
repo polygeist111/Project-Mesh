@@ -12,7 +12,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -22,7 +21,7 @@ import com.greybox.projectmesh.navigation.BottomNavItem
 import com.greybox.projectmesh.navigation.BottomNavigationBar
 import com.greybox.projectmesh.viewModel.SharedUriViewModel
 import com.greybox.projectmesh.views.HomeScreen
-import com.greybox.projectmesh.views.InfoScreen
+import com.greybox.projectmesh.views.SettingsScreen
 import com.greybox.projectmesh.views.NetworkScreen
 import com.greybox.projectmesh.views.ReceiveScreen
 import com.greybox.projectmesh.views.SelectDestNodeScreen
@@ -79,7 +78,7 @@ fun BottomNavApp(di: DI) = withDI(di){
                 )
             }
             composable(BottomNavItem.Receive.route) { ReceiveScreen() }
-            composable(BottomNavItem.Info.route) { InfoScreen() }
+            composable(BottomNavItem.Settings.route) { SettingsScreen() }
         }
     }
 }

@@ -19,7 +19,7 @@ fun BottomNavigationBar(navController: NavHostController) {
         NavigationItem(BottomNavItem.Network.route, BottomNavItem.Network.title, BottomNavItem.Network.icon),
         NavigationItem(BottomNavItem.Send.route, BottomNavItem.Send.title, BottomNavItem.Send.icon),
         NavigationItem(BottomNavItem.Receive.route, BottomNavItem.Receive.title, BottomNavItem.Receive.icon),
-        NavigationItem(BottomNavItem.Info.route, BottomNavItem.Info.title, BottomNavItem.Info.icon)
+        NavigationItem(BottomNavItem.Settings.route, BottomNavItem.Settings.title, BottomNavItem.Settings.icon)
     )
     NavigationBar {
         val currentRoute = navController.currentDestination?.route

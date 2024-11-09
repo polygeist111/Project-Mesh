@@ -311,21 +311,9 @@ class AppServer(
             return newFixedLengthResponse(Build.MODEL)
         }
         else if(path.startsWith("/chat")) {
-            val files = mutableMapOf<String, String>()
-            try{
-                session.parseBody(files)
-            }catch (e: Exception){
-                Log.e("AppServer", "Error parsing body: ${e.message}")
-            }
             val chatMessage = session.parameters["chatMessage"]?.first() ?: "Error! No message found."
             val time = session.parameters["time"]?.first()?.toLong() ?: 0
             val senderIp = InetAddress.getByName(session.parameters["senderIp"]?.first() ?: "0.0.0.0")
-//            val searchParams = session.queryParameterString.split("&").associate {
-//                it.substringBefore("=") to it.substringAfter("=")
-//            }
-//            val chatMessage: String = URLDecoder.decode(searchParams["message"], "UTF-8") ?: "Error! No message found."
-//            val time: Long = searchParams["time"]?.toLong() ?: 0
-//            val senderIp: InetAddress = InetAddress.getByName(searchParams["senderIp"])
             val sender: String =  GlobalApp.DeviceInfoManager.getDeviceName(senderIp) ?: "Unknown"
             val chatName: String = GlobalApp.DeviceInfoManager.getChatName(senderIp)
             Log.d("Appserver", "chatMessage: $chatMessage, time: $time, sender: $sender, chatName: $chatName")

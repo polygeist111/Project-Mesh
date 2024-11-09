@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import com.greybox.projectmesh.helper.ThemePreferences
 import com.greybox.projectmesh.server.AppServer
 import com.greybox.projectmesh.viewModel.SettingsScreenViewModel
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
@@ -120,6 +121,8 @@ class GlobalApp : Application(), DIAware {
                 .writeTimeout(Duration.ofSeconds(30))
                 .build()
         }
+
+        bind<ThemePreferences>() with singleton { ThemePreferences(applicationContext) }
 
         bind<AppServer>() with singleton {
             val node: AndroidVirtualNode = instance()

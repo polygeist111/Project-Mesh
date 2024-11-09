@@ -31,6 +31,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -59,9 +60,6 @@ import com.google.zxing.BarcodeFormat
 import com.greybox.projectmesh.NEARBY_WIFI_PERMISSION_NAME
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.WhiteButton
-//import com.greybox.projectmesh.components.ConnectWifiLauncherResult
-//import com.greybox.projectmesh.components.ConnectWifiLauncherStatus
-//import com.greybox.projectmesh.components.meshrabiyaConnectLauncher
 import com.greybox.projectmesh.hasNearbyWifiDevicesOrLocationPermission
 import com.greybox.projectmesh.hasStaApConcurrency
 import com.greybox.projectmesh.model.HomeScreenModel
@@ -370,7 +368,9 @@ fun LongPressCopyableText(context: Context, text: String, textCopyable: String, 
     val clipboardManager = LocalClipboardManager.current
     BasicText(
         text = text + textCopyable,
-        style = TextStyle(fontSize = textSize.sp),
+        style = TextStyle(
+            fontSize = textSize.sp,
+            color = MaterialTheme.colorScheme.onBackground),
         modifier = Modifier.pointerInput(textCopyable) {
             detectTapGestures(
                 onLongPress = {

@@ -38,21 +38,22 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.GradientButton
 import com.greybox.projectmesh.ui.theme.AppTheme
-//import com.greybox.projectmesh.viewModel.SettingsScreenViewModel
+import com.greybox.projectmesh.viewModel.SettingsScreenViewModel
 import org.kodein.di.compose.localDI
 
 
 @Composable
 fun SettingsScreen(
-//    viewModel: SettingsScreenViewModel = viewModel(
-//        factory = ViewModelFactory(
-//            di = localDI(),
-//            owner = LocalSavedStateRegistryOwner.current,
-//            vmFactory = { SettingsScreenViewModel(it) },
-//            defaultArgs = null,
-//        ))
+    viewModel: SettingsScreenViewModel = viewModel(
+        factory = ViewModelFactory(
+            di = localDI(),
+            owner = LocalSavedStateRegistryOwner.current,
+            vmFactory = { SettingsScreenViewModel(it) },
+            defaultArgs = null,
+        )),
+    onThemeChange: (AppTheme) -> Unit
 ) {
-    //val currTheme = viewModel.theme.collectAsState(initial = AppTheme.SYSTEM)
+    val currTheme = viewModel.theme.collectAsState()
 
     var deviceName by remember { mutableStateOf("Samsung S24 Ultra") }
     var autoFinish by remember { mutableStateOf(false) }
@@ -116,9 +117,10 @@ fun SettingsScreen(
                     text = "Theme", style = TextStyle(fontSize = 18.sp), modifier = Modifier
                         .align(Alignment.CenterVertically))
                 Spacer(modifier = Modifier.weight(1f))
-                ThemeSetting(currentTheme = currTheme.value, onThemeChanged = {
-                    selectedTheme -> viewModel.saveTheme(selectedTheme)
-                })
+                ThemeSetting(currentTheme = currTheme.value,
+                    onThemeSelected = { selectedTheme ->
+                        viewModel.saveTheme(selectedTheme)
+                        onThemeChange(selectedTheme) })
             }
             Spacer(modifier = Modifier.height(20.dp))
             Text("Network", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
@@ -209,7 +211,7 @@ fun SettingsScreen(
 @Composable
 fun ThemeSetting(
     currentTheme: AppTheme,
-    onThemeChanged: (AppTheme) -> Unit)
+    onThemeSelected: (AppTheme) -> Unit)
 {
     // for Theme setting
     var expanded by remember { mutableStateOf(false) } // Track menu visibility
@@ -226,7 +228,7 @@ fun ThemeSetting(
                 DropdownMenuItem(
                     text = { Text(themes[theme.ordinal]) },
                     onClick = {
-                        onThemeChanged(theme)
+                        onThemeSelected(theme)
                         expanded = false
                     }
                 )

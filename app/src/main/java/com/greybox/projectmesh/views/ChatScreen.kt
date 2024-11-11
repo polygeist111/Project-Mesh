@@ -68,7 +68,7 @@ fun ChatScreen(
             .fillMaxWidth()
             .align(Alignment.BottomCenter)
             .padding(4.dp)) {
-            TextField(modifier = Modifier.weight(4f),
+            TextField(modifier = Modifier.weight(3f),
                 value = textMessage,
                 onValueChange = {
                     textMessage = it
@@ -94,7 +94,7 @@ fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit) {
     LazyColumn{
         item{
             Row(modifier = Modifier.fillMaxWidth()){
-                Text(modifier = Modifier.weight(4f),
+                Text(modifier = Modifier.weight(3f),
                     text = "Device name: ${uiState.deviceName}, IP address: ${uiState.virtualAddress.hostAddress}"
                 )
                 Button(modifier = Modifier.weight(1f),

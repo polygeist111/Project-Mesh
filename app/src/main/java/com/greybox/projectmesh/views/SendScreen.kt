@@ -17,9 +17,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.GlobalApp
+import com.greybox.projectmesh.R
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.WhiteButton
 import com.greybox.projectmesh.model.SendScreenModel
@@ -49,12 +51,16 @@ fun SendScreen(
         }
     }
     Box(modifier = Modifier.fillMaxSize()){
-        Column(modifier = Modifier.fillMaxSize().padding(bottom=72.dp)) {
+        Column(modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 72.dp)) {
             DisplayAllPendingTransfers(uiState)
         }
         WhiteButton(onClick = { openDocumentLauncher.launch(arrayOf("*/*")) },
-            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
-            text = "Send File",
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp),
+            text = stringResource(id = R.string.send_file),
             enabled = true
         )
     }
@@ -88,8 +94,8 @@ fun DisplayAllPendingTransfers(
                         else{
                             Text("To Loading...(${toHostAddress})")
                         }
-                        Text("Status: ${transfer.status}")
-                        Text("Sent ${autoConvertByte(byteTransferred)} / ${autoConvertByte(byteSize)}")
+                        Text(stringResource(id = R.string.status) + ": ${transfer.status}")
+                        Text(stringResource(id = R.string.send) + " ${autoConvertByte(byteTransferred)} / ${autoConvertByte(byteSize)}")
                     }
                 }
             )

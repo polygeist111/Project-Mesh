@@ -7,6 +7,7 @@ import android.util.Log
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.db.entities.Message
+import com.greybox.projectmesh.GlobalApp.Companion.TAG_VIRTUAL_ADDRESS
 import com.greybox.projectmesh.extension.updateItem
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback
 import com.ustadmobile.meshrabiya.util.FileSerializer
@@ -64,6 +65,15 @@ class AppServer(
     enum class Status {
         PENDING, IN_PROGRESS, COMPLETED, FAILED, DECLINED
     }
+
+    // Restart method to stop and start the server with an optional new IP address
+    fun restart() {
+        stop() // Stop the server using NanoHTTPD's built-in stop method
+        Log.d("AppServer", "Server stopped successfully")
+        start(SOCKET_READ_TIMEOUT, false) // Start the server using NanoHTTPD's built-in start method
+        Log.d("AppServer", "Server restarted successfully on port: $localPort")
+    }
+
 
     /*
     This data class contains all the information about the outgoing transfer (Sending a file)

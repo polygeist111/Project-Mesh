@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
@@ -27,9 +26,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.greybox.projectmesh.R
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.model.ReceiveScreenModel
 import com.greybox.projectmesh.server.AppServer
@@ -113,15 +114,14 @@ fun HandleIncomingTransfers(
                         openFile(transfer)
                     }
                     .fillMaxWidth(),
-
                 headlineContent = {
                     Text(transfer.name)
                 },
                 supportingContent = {
                     Column{
                         val fromHostAddress = transfer.fromHost.hostAddress
-                        Text("From ${transfer.deviceName}(${fromHostAddress})")
-                        Text("Status: ${transfer.status}")
+                        Text(stringResource(id = R.string.from) + " ${transfer.deviceName}(${fromHostAddress})")
+                        Text(stringResource(id = R.string.status) + ": ${transfer.status}")
                         Text("${autoConvertByte(transfer.transferred)} / ${autoConvertByte(transfer.size)}")
                         if(transfer.status == AppServer.Status.PENDING){
                             Row{

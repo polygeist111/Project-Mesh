@@ -11,5 +11,5 @@ sealed class BottomNavItem(val route: String, val title: String, val icon: Image
     data object Network : BottomNavItem("network", "Network", Icons.Default.Wifi)
     data object Send : BottomNavItem("send", "Send", Icons.AutoMirrored.Filled.Send)
     data object Receive : BottomNavItem("receive", "Receive", Icons.Default.Download)
-    data object Info : BottomNavItem("info", "Info", Icons.Default.Info)
+    data object Settings : BottomNavItem("settings", "Settings", Icons.Default.Settings)
 }

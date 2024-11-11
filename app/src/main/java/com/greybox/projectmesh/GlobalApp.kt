@@ -1,6 +1,8 @@
 package com.greybox.projectmesh
 
 import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -26,6 +28,7 @@ import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.bind
 import org.kodein.di.instance
+import org.kodein.di.provider
 import org.kodein.di.singleton
 import java.io.File
 import java.net.InetAddress
@@ -147,6 +150,10 @@ class GlobalApp : Application(), DIAware {
                 .fallbackToDestructiveMigration() // add this line to handle migrations destructively
 //                .allowMainThreadQueries() // this should generally be avoided for production apps
                 .build()
+        }
+
+        bind<SharedPreferences>(tag = "settings") with singleton {
+            applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         }
 
         bind<AppServer>() with singleton {

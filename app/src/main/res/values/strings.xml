@@ -1,3 +1,49 @@
 <resources>
     <string name="app_name">Project Mesh</string>
+    <string name="ip_address">IP Address</string>
+    <string name="start_hotspot">Start Hotspot</string>
+    <string name="stop_hotspot">Stop Hotspot</string>
+    <string name="connect_via_qr_code_scan">Connect via QR Code Scan</string>
+    <string name="connect_via_entering_connect_uri">Connect via Entering Connect URI</string>
+    <string name="share_connect_uri">Share connect URI</string>
+    <string name="wifi_station_connection">Wifi Station (Client) Connection</string>
+    <string name="prompt_scan_qr_code">Scan another device to join the Mesh</string>
+    <string name="hotspot_status">Hotspot Status</string>
+    <string name="hotspot_status_online">Online</string>
+    <string name="hotspot_status_offline">Offline</string>
+    <string name="instruction">"Or, enter the connect URI below:\n"
+                                "1. Make sure Bluetooth is enabled\n"
+                                "2. Allow everyone to share data via Quick Share\n"
+                                "3. After getting the URI, click copy\n"
+                                "4. Paste the URI into the text field below\n"
+                                "5. Click \"Connect via Entering Connect URI\""
+    </string>
+    <string name="instruction_start_hotspot">"To share the connect URI:\n"
+                        "1. Make sure Bluetooth is enabled on this device\n"
+                        "2. Click \"Share connect URI\"\n"
+                        "3. Select Quick Share\n"
+                        "4. Choose a nearby device you want to share the URI with"
+    </string>
+    <string name="prompt_enter_uri">Enter Connect URI (Starts with "meshrabiya://")</string>
+
+    <string name="send_file">Send File</string>
+    <string name="from">From</string>
+    <string name="status">Status</string>
+    <string name="completed">COMPLETED</string>
+
+    <string name="settings">Settings</string>
+    <string name="general">General</string>
+    <string name="language">Language</string>
+    <string name="theme">Theme</string>
+    <string name="network">Network</string>
+    <string name="server">Server</string>
+    <string name="restart">Restart</string>
+    <string name="device_name">Device Name</string>
+    <string name="receive">Receive</string>
+    <string name="auto_finish">Auto Finish</string>
+    <string name="save_to_folder">Save to folder</string>
+    <string name="home">Home</string>
+    <string name="send">Send</string>
+
+
 </resources>

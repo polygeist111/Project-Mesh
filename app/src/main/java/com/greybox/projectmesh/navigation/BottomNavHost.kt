@@ -5,6 +5,8 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.compose.material3.*
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import com.greybox.projectmesh.R
 
 data class NavigationItem(
     val route: String,
@@ -15,11 +17,11 @@ data class NavigationItem(
 @Composable
 fun BottomNavigationBar(navController: NavHostController) {
     val items = listOf(
-        NavigationItem(BottomNavItem.Home.route, BottomNavItem.Home.title, BottomNavItem.Home.icon),
-        NavigationItem(BottomNavItem.Network.route, BottomNavItem.Network.title, BottomNavItem.Network.icon),
-        NavigationItem(BottomNavItem.Send.route, BottomNavItem.Send.title, BottomNavItem.Send.icon),
-        NavigationItem(BottomNavItem.Receive.route, BottomNavItem.Receive.title, BottomNavItem.Receive.icon),
-        NavigationItem(BottomNavItem.Settings.route, BottomNavItem.Settings.title, BottomNavItem.Settings.icon)
+        NavigationItem(BottomNavItem.Home.route, stringResource(id = R.string.home), BottomNavItem.Home.icon),
+        NavigationItem(BottomNavItem.Network.route, stringResource(id = R.string.network), BottomNavItem.Network.icon),
+        NavigationItem(BottomNavItem.Send.route, stringResource(id = R.string.send), BottomNavItem.Send.icon),
+        NavigationItem(BottomNavItem.Receive.route, stringResource(id = R.string.receive), BottomNavItem.Receive.icon),
+        NavigationItem(BottomNavItem.Settings.route, stringResource(id = R.string.settings), BottomNavItem.Settings.icon)
     )
     NavigationBar {
         val currentRoute = navController.currentDestination?.route

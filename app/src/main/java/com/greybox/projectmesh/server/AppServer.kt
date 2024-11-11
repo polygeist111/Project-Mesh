@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import com.greybox.projectmesh.GlobalApp
+import com.greybox.projectmesh.GlobalApp.Companion.TAG_VIRTUAL_ADDRESS
 import com.greybox.projectmesh.extension.updateItem
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback
 import com.ustadmobile.meshrabiya.util.FileSerializer
@@ -34,6 +35,9 @@ import java.net.InetAddress
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import com.greybox.projectmesh.extension.getUriNameAndSize
+import org.kodein.di.DI
+import org.kodein.di.direct
+import org.kodein.di.instance
 
 /*
 This File is the Server for transferring files
@@ -56,6 +60,15 @@ class AppServer(
     enum class Status {
         PENDING, IN_PROGRESS, COMPLETED, FAILED, DECLINED
     }
+
+    // Restart method to stop and start the server with an optional new IP address
+    fun restart() {
+        stop() // Stop the server using NanoHTTPD's built-in stop method
+        Log.d("AppServer", "Server stopped successfully")
+        start(SOCKET_READ_TIMEOUT, false) // Start the server using NanoHTTPD's built-in start method
+        Log.d("AppServer", "Server restarted successfully on port: $localPort")
+    }
+
 
     /*
     This data class contains all the information about the outgoing transfer (Sending a file)

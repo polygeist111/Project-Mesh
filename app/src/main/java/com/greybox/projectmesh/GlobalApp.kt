@@ -1,12 +1,12 @@
 package com.greybox.projectmesh
 
 import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
-import com.greybox.projectmesh.helper.ThemePreferences
 import com.greybox.projectmesh.server.AppServer
-import com.greybox.projectmesh.viewModel.SettingsScreenViewModel
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.asInetAddress
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
@@ -20,6 +20,7 @@ import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.bind
 import org.kodein.di.instance
+import org.kodein.di.provider
 import org.kodein.di.singleton
 import java.io.File
 import java.net.InetAddress
@@ -61,7 +62,6 @@ class GlobalApp : Application(), DIAware {
                 val address = applicationContext.networkDataStore.data.map { preference ->
                     preference[addressKey] ?: 0
                 }.first()
-
                 // if the address is not 0, converted to an IP address
                 if(address != 0) {
                     address.asInetAddress()
@@ -73,8 +73,7 @@ class GlobalApp : Application(), DIAware {
                             randomAddress -> applicationContext.networkDataStore.edit {
                         // "it" used to access the 'Preferences' object
                         it[addressKey] = randomAddress
-                    }
-                    }.asInetAddress()
+                    } }.asInetAddress()
                 }
             }
         }
@@ -122,7 +121,9 @@ class GlobalApp : Application(), DIAware {
                 .build()
         }
 
-        bind<ThemePreferences>() with singleton { ThemePreferences(applicationContext) }
+        bind<SharedPreferences>(tag = "settings") with singleton {
+            applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        }
 
         bind<AppServer>() with singleton {
             val node: AndroidVirtualNode = instance()
@@ -141,8 +142,6 @@ class GlobalApp : Application(), DIAware {
             instance<AppServer>().start()
             Log.d("AppServer", "Server started successfully on port: ${AppServer.DEFAULT_PORT}")
         }
-
-
     }
 
     // DI container and its bindings are only set up when they are first needed

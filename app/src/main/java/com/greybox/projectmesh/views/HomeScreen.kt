@@ -1,9 +1,11 @@
 package com.greybox.projectmesh.views
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -50,14 +52,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.zxing.BarcodeFormat
 import com.greybox.projectmesh.NEARBY_WIFI_PERMISSION_NAME
+import com.greybox.projectmesh.R
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.WhiteButton
 import com.greybox.projectmesh.hasNearbyWifiDevicesOrLocationPermission
@@ -90,7 +93,6 @@ fun HomeScreen(viewModel: HomeScreenViewModel = viewModel(
     val uiState: HomeScreenModel by viewModel.uiState.collectAsState(initial = HomeScreenModel())
     val node: VirtualNode by di.instance()
     val context = LocalContext.current
-
     // Request nearby wifi permission
     val requestNearbyWifiPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -166,7 +168,7 @@ fun StartHomeScreen(
             Spacer(modifier = Modifier.height(6.dp))
             LongPressCopyableText(
                 context = context,
-                text = "IP Address: ",
+                text = stringResource(id = R.string.ip_address) + ": ",
                 textCopyable = uiState.localAddress.addressToDotNotation(),
                 textSize = 15
             )
@@ -181,7 +183,7 @@ fun StartHomeScreen(
                     WhiteButton(
                         onClick = { onSetIncomingConnectionsEnabled(true) },
                         modifier = Modifier.padding(4.dp),
-                        text = "Start Hotspot",
+                        text = stringResource(id = R.string.start_hotspot),
                         // If not connected to a WiFi, enable the button
                         // Else, check if the device supports WiFi STA/AP Concurrency
                         // If it does, enable the button. Otherwise, disable it
@@ -198,7 +200,7 @@ fun StartHomeScreen(
                     WhiteButton(
                         onClick = { onSetIncomingConnectionsEnabled(false) },
                         modifier = Modifier.padding(4.dp),
-                        text = "Stop Hotspot",
+                        text = stringResource(id = R.string.stop_hotspot),
                         enabled = true
                     )
                 }
@@ -217,11 +219,7 @@ fun StartHomeScreen(
                     uiState.wifiState?.connectConfig?.port.toString())
                 // Display connectUri
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "To share the connect URI:\n" +
-                        "1. Make sure Bluetooth is enabled on this device.\n" +
-                        "2. Click \"Share connect URI\"\n" +
-                        "3. Select Quick Share\n" +
-                        "4. Choose a nearby device you want to share the URI with")
+                Text(text = stringResource(id = R.string.instruction_start_hotspot))
                 Button(onClick = {
                     val sendIntent: Intent = Intent().apply {
                         action = Intent.ACTION_SEND
@@ -232,7 +230,7 @@ fun StartHomeScreen(
                     val shareIntent = Intent.createChooser(sendIntent, null)
                     context.startActivity(shareIntent)
                 }, modifier = Modifier.padding(4.dp), enabled = true) {
-                    Text("Share connect URI")
+                    Text(stringResource(id = R.string.share_connect_uri))
                 }
             }
             // Scan the QR CODE
@@ -242,7 +240,7 @@ fun StartHomeScreen(
                 if (stationState.status == WifiStationState.Status.INACTIVE){
                     Column (modifier = Modifier.fillMaxWidth()){
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(text = "Wifi Station (Client) Connection", style = TextStyle(fontSize = 16.sp))
+                        Text(text = stringResource(id = R.string.wifi_station_connection), style = TextStyle(fontSize = 16.sp))
                         Spacer(modifier = Modifier.height(12.dp))
                         Row (modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.Center)
@@ -253,7 +251,7 @@ fun StartHomeScreen(
                                     .setBeepEnabled(true)
                                 )},
                                 modifier = Modifier.padding(4.dp),
-                                text = "Connect via QR Code Scan",
+                                text = stringResource(id = R.string.connect_via_qr_code_scan),
                                 // If the hotspot isn't started, enable the button
                                 // Else, check if the device supports WiFi STA/AP Concurrency
                                 // If it does, enable the button. Otherwise, disable it
@@ -261,19 +259,14 @@ fun StartHomeScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(text = "Or, enter the connect URI below:\n" +
-                                "1. Make sure Bluetooth is enabled\n" +
-                                "2. Allow everyone to share data via Quick Share\n" +
-                                "3. After getting the URI, click copy\n" +
-                                "4. Paste the URI into the text field below\n" +
-                                "5. Click \"Connect via Entering Connect URI\"")
+                        Text(text = stringResource(id = R.string.instruction))
                         Spacer(modifier = Modifier.height(4.dp))
                         TextField(
                             value = userEnteredConnectUri,
                             onValueChange = {
                                 userEnteredConnectUri = it
                             },
-                            label = { Text("Enter Connect URI (Starts with \"meshrabiya://\")") }
+                            label = { Text(stringResource(id = R.string.prompt_enter_uri)) }
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         WhiteButton(
@@ -296,7 +289,7 @@ fun StartHomeScreen(
                                 }
                             },
                             modifier = Modifier.padding(4.dp),
-                            text = "Connect via Entering Connect URI",
+                            text = stringResource(id = R.string.connect_via_entering_connect_uri),
                             // If the hotspot isn't started, enable the button
                             // Else, check if the device supports WiFi STA/AP Concurrency
                             // If it does, enable the button. Otherwise, disable it
@@ -347,7 +340,10 @@ fun StartHomeScreen(
             Spacer(modifier = Modifier.height(10.dp))
             // add a Hotspot status indicator
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "Hotspot Status: ${if (uiState.hotspotStatus) "Online" else "Offline"}")
+                Text(text = stringResource(id = R.string.hotspot_status) + ": " + 
+                        if (uiState.hotspotStatus) stringResource(
+                            id = R.string.hotspot_status_online
+                        ) else stringResource(id = R.string.hotspot_status_offline))
                 Spacer(modifier = Modifier.width(8.dp)) // Adds some space between text and dot
                 Box(
                     modifier = Modifier

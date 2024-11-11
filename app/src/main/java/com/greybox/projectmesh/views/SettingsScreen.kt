@@ -29,17 +29,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.greybox.projectmesh.GlobalApp
+import com.greybox.projectmesh.R
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.GradientButton
+import com.greybox.projectmesh.server.AppServer
 import com.greybox.projectmesh.ui.theme.AppTheme
 import com.greybox.projectmesh.viewModel.SettingsScreenViewModel
 import org.kodein.di.compose.localDI
+import org.kodein.di.instance
 
 
 @Composable
@@ -51,16 +56,15 @@ fun SettingsScreen(
             vmFactory = { SettingsScreenViewModel(it) },
             defaultArgs = null,
         )),
-    onThemeChange: (AppTheme) -> Unit
+    onThemeChange: (AppTheme) -> Unit,
+    onLanguageChange: (String) -> Unit,
+    onRestartServer: () -> Unit
 ) {
     val currTheme = viewModel.theme.collectAsState()
+    val currLang = viewModel.lang.collectAsState()
 
     var deviceName by remember { mutableStateOf("Samsung S24 Ultra") }
     var autoFinish by remember { mutableStateOf(false) }
-    // for Language setting
-    var langExpanded by remember { mutableStateOf(false) } // Track menu visibility
-    val langMenuItems = listOf("System", "English", "Spanish", "French", "简体中文") // Menu items
-    var langSelectedOption by remember { mutableStateOf("System") } // Track selected item
 
     Column(modifier = Modifier
         .fillMaxSize()
@@ -68,11 +72,11 @@ fun SettingsScreen(
     {
         Spacer(modifier = Modifier.height(36.dp))
         Text(
-            "Settings", style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+            text=stringResource(id = R.string.settings), style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
             modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(modifier = Modifier.height(18.dp))
         Column(modifier = Modifier.padding(36.dp)) {
-            Text("General", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
+            Text(stringResource(id = R.string.general), style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
             HorizontalDivider(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -85,28 +89,15 @@ fun SettingsScreen(
                 .padding(0.dp, 16.dp))
             {
                 Text(
-                    "Language", style = TextStyle(fontSize = 18.sp), modifier = Modifier
+                    stringResource(id = R.string.language), style = TextStyle(fontSize = 18.sp), modifier = Modifier
                         .align(Alignment.CenterVertically))
                 Spacer(modifier = Modifier.weight(1f))
-                Box(modifier = Modifier.align(Alignment.CenterVertically))
-                {
-                    GradientButton(text = langSelectedOption,
-                        onClick = { langExpanded = true })
-                    DropdownMenu(expanded = langExpanded,
-                        onDismissRequest = { langExpanded = false },
-                        properties = PopupProperties(true))
-                    {
-                        langMenuItems.forEach{ item ->
-                            DropdownMenuItem(
-                                text = { Text(item) },
-                                onClick = {
-                                    langSelectedOption = item
-                                    langExpanded = false
-                                }
-                            )
-                        }
+                LanguageSetting(currentLanguage = currLang.value,
+                    onLanguageSelected = { selectedLanguageCode ->
+                        viewModel.saveLang(selectedLanguageCode)
+                        onLanguageChange(selectedLanguageCode)
                     }
-                }
+                )
             }
             Spacer(modifier = Modifier.height(10.dp))
             Row(modifier = Modifier
@@ -114,16 +105,18 @@ fun SettingsScreen(
                 .padding(0.dp, 16.dp))
             {
                 Text(
-                    text = "Theme", style = TextStyle(fontSize = 18.sp), modifier = Modifier
+                    text = stringResource(id = R.string.theme), style = TextStyle(fontSize = 18.sp), modifier = Modifier
                         .align(Alignment.CenterVertically))
                 Spacer(modifier = Modifier.weight(1f))
                 ThemeSetting(currentTheme = currTheme.value,
                     onThemeSelected = { selectedTheme ->
                         viewModel.saveTheme(selectedTheme)
-                        onThemeChange(selectedTheme) })
+                        onThemeChange(selectedTheme)
+                    }
+                )
             }
             Spacer(modifier = Modifier.height(20.dp))
-            Text("Network", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
+            Text(stringResource(id = R.string.network), style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
             HorizontalDivider(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -136,10 +129,16 @@ fun SettingsScreen(
                 .padding(0.dp, 16.dp))
             {
                 Text(
-                    "Server", style = TextStyle(fontSize = 18.sp), modifier = Modifier
+                    stringResource(id = R.string.server), style = TextStyle(fontSize = 18.sp), modifier = Modifier
                         .align(Alignment.CenterVertically))
                 Spacer(modifier = Modifier.weight(1f))
-                GradientButton(text = "Restart", onClick = {  })
+                GradientButton(
+                    text = stringResource(id = R.string.restart),
+                    onClick = {
+                        // restart the server
+                        onRestartServer()
+                    }
+                )
             }
             Spacer(modifier = Modifier.height(10.dp))
             Row(modifier = Modifier
@@ -147,7 +146,7 @@ fun SettingsScreen(
                 .padding(0.dp, 16.dp))
             {
                 Text(
-                    text = "Device Name", style = TextStyle(fontSize = 18.sp), modifier = Modifier
+                    text = stringResource(id = R.string.device_name), style = TextStyle(fontSize = 18.sp), modifier = Modifier
                         .align(Alignment.CenterVertically)
                 )
                 Spacer(modifier = Modifier.weight(1f))
@@ -160,7 +159,7 @@ fun SettingsScreen(
                 )
             }
             Spacer(modifier = Modifier.height(20.dp))
-            Text("Receive", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
+            Text(stringResource(id = R.string.receive), style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
             HorizontalDivider(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -173,7 +172,7 @@ fun SettingsScreen(
                 .padding(0.dp, 16.dp))
             {
                 Text(
-                    "Auto Finish", style = TextStyle(fontSize = 18.sp), modifier = Modifier
+                    stringResource(id = R.string.auto_finish), style = TextStyle(fontSize = 18.sp), modifier = Modifier
                         .align(Alignment.CenterVertically))
                 Spacer(modifier = Modifier.weight(1f))
                 Box(modifier = Modifier
@@ -199,10 +198,40 @@ fun SettingsScreen(
                 .padding(0.dp, 16.dp))
             {
                 Text(
-                    text = "Save to folder", style = TextStyle(fontSize = 18.sp), modifier = Modifier
+                    text = stringResource(id = R.string.save_to_folder), style = TextStyle(fontSize = 18.sp), modifier = Modifier
                         .align(Alignment.CenterVertically))
                 Spacer(modifier = Modifier.weight(1f))
                 GradientButton(text = "Download", onClick = { })
+            }
+        }
+    }
+}
+@Composable
+fun LanguageSetting(
+    currentLanguage: String,
+    onLanguageSelected: (String) -> Unit)
+{
+    // for Language setting
+    var langExpanded by remember { mutableStateOf(false) } // Track menu visibility
+    val langMenuItems = listOf("System" to "System",
+        "en" to "English", "es" to "Español", "cn" to "简体中文") // Menu items
+    val langSelectedOption = langMenuItems.firstOrNull {it.first == currentLanguage}?.second?:"System"
+    Box()
+    {
+        GradientButton(text = langSelectedOption,
+            onClick = { langExpanded = true })
+        DropdownMenu(expanded = langExpanded,
+            onDismissRequest = { langExpanded = false },
+            properties = PopupProperties(true))
+        {
+            langMenuItems.forEach{ item ->
+                DropdownMenuItem(
+                    text = { Text(item.second) },
+                    onClick = {
+                        onLanguageSelected(item.first)
+                        langExpanded = false
+                    }
+                )
             }
         }
     }

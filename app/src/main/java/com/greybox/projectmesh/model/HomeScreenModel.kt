@@ -14,4 +14,5 @@ data class HomeScreenModel(
     val hotspotStatus: Boolean = false,
     val wifiConnectionsEnabled: Boolean = false,
     var isWifiConnected: Boolean = false,
+    val nodesOnMesh: Set<Int> = emptySet(),
 )

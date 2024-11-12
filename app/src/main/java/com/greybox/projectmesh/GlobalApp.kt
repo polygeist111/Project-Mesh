@@ -1,16 +1,26 @@
 package com.greybox.projectmesh
 
 import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import com.greybox.projectmesh.db.MeshDatabase
+import com.greybox.projectmesh.db.entities.Message
 import com.greybox.projectmesh.server.AppServer
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.asInetAddress
+import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.randomApipaAddr
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -18,6 +28,7 @@ import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.bind
 import org.kodein.di.instance
+import org.kodein.di.provider
 import org.kodein.di.singleton
 import java.io.File
 import java.net.InetAddress
@@ -47,6 +58,17 @@ class GlobalApp : Application(), DIAware {
         // Helper method to get a device name by IP
         fun getDeviceName(ipAddress: String): String? {
             return deviceNameMap[ipAddress]
+        }
+
+        fun getDeviceName(inetAddress: InetAddress): String? {
+            return deviceNameMap[inetAddress.hostAddress]
+        }
+
+        fun getChatName(inetAddress: InetAddress): String {
+            return inetAddress.hostAddress
+//            val deviceName = getDeviceName(inetAddress) ?: "Unknown"
+//            val addressDotNotation = inetAddress.hostAddress
+//            return "$deviceName ($addressDotNotation)"
         }
     }
     private val diModule = DI.Module("project_mesh") {
@@ -120,6 +142,20 @@ class GlobalApp : Application(), DIAware {
                 .build()
         }
 
+        bind<MeshDatabase>() with singleton {
+            Room.databaseBuilder(applicationContext,
+                MeshDatabase::class.java,
+                "mesh-database"
+            )
+                .fallbackToDestructiveMigration() // add this line to handle migrations destructively
+//                .allowMainThreadQueries() // this should generally be avoided for production apps
+                .build()
+        }
+
+        bind<SharedPreferences>(tag = "settings") with singleton {
+            applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        }
+
         bind<AppServer>() with singleton {
             val node: AndroidVirtualNode = instance()
             AppServer(
@@ -129,16 +165,19 @@ class GlobalApp : Application(), DIAware {
                 name = node.addressAsInt.addressToDotNotation(),
                 localVirtualAddr = node.address,
                 receiveDir = instance(tag = TAG_RECEIVE_DIR),
-                json = instance()
+                json = instance(),
+                db = instance()
             )
         }
 
         onReady {
+            // clears all data in the existing tables
+            GlobalScope.launch {
+                instance<MeshDatabase>().messageDao().clearTable()
+            }
             instance<AppServer>().start()
             Log.d("AppServer", "Server started successfully on port: ${AppServer.DEFAULT_PORT}")
         }
-
-
     }
 
     // DI container and its bindings are only set up when they are first needed

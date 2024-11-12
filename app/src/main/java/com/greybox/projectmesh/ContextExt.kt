@@ -1,7 +1,6 @@
 package com.greybox.projectmesh
 
 import android.Manifest
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.wifi.WifiManager

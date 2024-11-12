@@ -31,16 +31,20 @@ class HomeScreenViewModel(di: DI): ViewModel(){
             // collect the state flow of the AndroidVirtualNode
             node.state.collect {
                 // update the UI state with the new state
-                _uiState.update {
+                _uiState.update { prev ->
                     // Creates a new instance of the state,
                     // copying the existing properties and updating only the ones specified.
-                        prev -> prev.copy(
-                    wifiState = it.wifiState,
-                    connectUri = it.connectUri,
-                    localAddress = it.address,
-                    hotspotStatus = it.wifiState.hotspotIsStarted,
-                    wifiConnectionsEnabled = (it.wifiState.connectConfig != null)
-                ) } } }
+                    prev.copy(
+                        wifiState = it.wifiState,
+                        connectUri = it.connectUri,
+                        localAddress = it.address,
+                        hotspotStatus = it.wifiState.hotspotIsStarted,
+                        wifiConnectionsEnabled = (it.wifiState.connectConfig != null),
+                        nodesOnMesh = it.originatorMessages.keys
+                    )
+                }
+            }
+        }
     }
 
     // This function is responsible for enabling or disabling the hotspot

@@ -165,8 +165,6 @@ fun BottomNavApp(di: DI,
                     virtualAddress = InetAddress.getByName(ip)
                 )
             }
-            composable(BottomNavItem.Home.route) { HomeScreen(deviceName = deviceName) }
-            composable(BottomNavItem.Network.route) { NetworkScreen() }
             composable(BottomNavItem.Send.route) {
                 val activity = LocalContext.current as ComponentActivity
                 val sharedUrisViewModel: SharedUriViewModel = viewModel(activity)

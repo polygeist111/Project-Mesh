@@ -1,14 +1,13 @@
 package com.greybox.projectmesh.viewModel
 
-import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import com.greybox.projectmesh.ui.theme.AppTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.kodein.di.DI
 import org.kodein.di.instance
-import java.util.Locale
 
 class SettingsScreenViewModel(di: DI): ViewModel() {
     // inject SharedPreferences
@@ -22,10 +21,15 @@ class SettingsScreenViewModel(di: DI): ViewModel() {
     private val _lang = MutableStateFlow(loadLang())
     val lang: StateFlow<String> = _lang
 
+    // Device Name State
+    private val _deviceName = MutableStateFlow(loadDeviceName())
+    val deviceName: StateFlow<String> = _deviceName
+
     init {
         // Load the theme from SharedPreferences
         _theme.value = loadTheme()
         _lang.value = loadLang()
+        _deviceName.value = loadDeviceName()
     }
 
     // Load theme from SharedPreferences
@@ -51,18 +55,20 @@ class SettingsScreenViewModel(di: DI): ViewModel() {
         settingPrefs.edit().putString(LANGUAGE_KEY, languageCode).apply()
     }
 
-    fun getUpdatedLocaleContext(context: Context): Context {
-        val locale = Locale(_lang.value)
-        Locale.setDefault(locale)
+    // Load Device Name from SharedPreferences
+    private fun loadDeviceName(): String {
+        return settingPrefs.getString(DEVICE_NAME_KEY, Build.MODEL) ?: Build.MODEL
+    }
 
-        val config = context.resources.configuration
-        config.setLocale(locale)
-
-        return context.createConfigurationContext(config)
+    // Store Device Name to SharedPreferences
+    fun saveDeviceName(deviceName: String) {
+        _deviceName.value = deviceName
+        settingPrefs.edit().putString(DEVICE_NAME_KEY, deviceName).apply()
     }
 
     companion object{
         private const val THEME_KEY = "app_theme"
         private const val LANGUAGE_KEY = "language"
+        private const val DEVICE_NAME_KEY = "device_name"
     }
 }

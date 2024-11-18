@@ -20,7 +20,6 @@ import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.bind
 import org.kodein.di.instance
-import org.kodein.di.provider
 import org.kodein.di.singleton
 import java.io.File
 import java.net.InetAddress
@@ -134,7 +133,8 @@ class GlobalApp : Application(), DIAware {
                 name = node.addressAsInt.addressToDotNotation(),
                 localVirtualAddr = node.address,
                 receiveDir = instance(tag = TAG_RECEIVE_DIR),
-                json = instance()
+                json = instance(),
+                di = di
             )
         }
 

@@ -1,11 +1,11 @@
 package com.greybox.projectmesh.server
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.util.Log
 import com.greybox.projectmesh.GlobalApp
-import com.greybox.projectmesh.GlobalApp.Companion.TAG_VIRTUAL_ADDRESS
 import com.greybox.projectmesh.extension.updateItem
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback
 import com.ustadmobile.meshrabiya.util.FileSerializer
@@ -36,7 +36,7 @@ import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import com.greybox.projectmesh.extension.getUriNameAndSize
 import org.kodein.di.DI
-import org.kodein.di.direct
+import org.kodein.di.DIAware
 import org.kodein.di.instance
 
 /*
@@ -51,7 +51,8 @@ class AppServer(
     private val localVirtualAddr: InetAddress,
     private val receiveDir: File,   // Directory for receiving files
     private val json: Json,
-) : NanoHTTPD(port), Closeable {
+    override val di: DI,
+) : NanoHTTPD(port), Closeable, DIAware {
 
     private val logPrefix: String = "[AppServer - $name] "
 
@@ -60,6 +61,8 @@ class AppServer(
     enum class Status {
         PENDING, IN_PROGRESS, COMPLETED, FAILED, DECLINED
     }
+
+
 
     // Restart method to stop and start the server with an optional new IP address
     fun restart() {
@@ -313,7 +316,8 @@ class AppServer(
         }
         else if(path.startsWith("/getDeviceName")){
             Log.d("AppServer", "local ip address: ${localVirtualAddr.hostAddress}")
-            return newFixedLengthResponse(Build.MODEL)
+            val settingPref: SharedPreferences by di.instance(tag="settings")
+            return newFixedLengthResponse(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
         }
         else {
             // Returns a NOT_FOUND response indicating that the requested path could not be found.

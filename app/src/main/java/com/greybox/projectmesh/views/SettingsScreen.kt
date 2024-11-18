@@ -1,5 +1,6 @@
 package com.greybox.projectmesh.views
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,9 +15,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -34,17 +38,15 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.R
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.GradientButton
-import com.greybox.projectmesh.server.AppServer
 import com.greybox.projectmesh.ui.theme.AppTheme
 import com.greybox.projectmesh.viewModel.SettingsScreenViewModel
 import org.kodein.di.compose.localDI
-import org.kodein.di.instance
 
 
 @Composable
@@ -58,12 +60,15 @@ fun SettingsScreen(
         )),
     onThemeChange: (AppTheme) -> Unit,
     onLanguageChange: (String) -> Unit,
-    onRestartServer: () -> Unit
+    onRestartServer: () -> Unit,
+    onDeviceNameChange: (String) -> Unit
 ) {
     val currTheme = viewModel.theme.collectAsState()
     val currLang = viewModel.lang.collectAsState()
+    val currDeviceName = viewModel.deviceName.collectAsState()
 
-    var deviceName by remember { mutableStateOf("Samsung S24 Ultra") }
+    //var deviceName by remember { mutableStateOf(Build.MODEL) }
+    var showDialog by remember { mutableStateOf(false) }
     var autoFinish by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier
@@ -146,17 +151,29 @@ fun SettingsScreen(
                 .padding(0.dp, 16.dp))
             {
                 Text(
-                    text = stringResource(id = R.string.device_name), style = TextStyle(fontSize = 18.sp), modifier = Modifier
-                        .align(Alignment.CenterVertically)
+                    text = stringResource(id = R.string.device_name),
+                    style = TextStyle(fontSize = 18.sp),
+                    modifier = Modifier.align(Alignment.CenterVertically)
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                TextField(
-                    value = deviceName,
-                    onValueChange = { deviceName = it },
-                    modifier = Modifier
-                        .width(120.dp)
-                        .height(50.dp)
+                GradientButton(
+                    text = currDeviceName.value,
+                    onClick = {
+                        // pop a dialog to change the device name
+                        showDialog = true
+                    }
                 )
+                if(showDialog){
+                    ChangeDeviceNameDialog(
+                        onDismiss = { showDialog = false },
+                        onConfirm = { newDeviceName ->
+                            viewModel.saveDeviceName(newDeviceName)
+                            onDeviceNameChange(newDeviceName)
+                            showDialog = false
+                        },
+                        deviceName = currDeviceName.value
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(20.dp))
             Text(stringResource(id = R.string.receive), style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
@@ -261,6 +278,51 @@ fun ThemeSetting(
                         expanded = false
                     }
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun ChangeDeviceNameDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+    deviceName: String,
+){
+    Dialog(onDismissRequest = { onDismiss() }) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("Enter New Device Name", style = MaterialTheme.typography.titleMedium)
+                var inputText by remember { mutableStateOf("") }
+                TextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    label = { Text(deviceName) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = { onDismiss() }) {
+                        Text("Cancel")
+                    }
+                    TextButton(onClick = {
+                        if (inputText.isNotBlank()) {
+                            onConfirm(inputText)
+                        }
+                    }) {
+                        Text("Submit")
+                    }
+                }
             }
         }
     }

@@ -1,16 +1,15 @@
 package com.greybox.projectmesh
 
 import android.content.SharedPreferences
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.view.Gravity
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,7 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -64,6 +62,9 @@ class MainActivity : ComponentActivity(), DIAware {
                     "language", "System") ?: "System")
             }
             var restartServerKey by remember {mutableStateOf(0)}
+            var deviceName by remember {
+                mutableStateOf(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
+            }
 
             // State to trigger recomposition when locale changes
             var localeState by rememberSaveable { mutableStateOf(Locale.getDefault()) }
@@ -89,7 +90,9 @@ class MainActivity : ComponentActivity(), DIAware {
                         onLanguageChange = { selectedLanguage ->  languageCode = selectedLanguage},
                         onNavigateToScreen = {screen ->
                             currentScreen = screen },
-                        onRestartServer = {restartServerKey++}
+                        onRestartServer = {restartServerKey++},
+                        onDeviceNameChange = {deviceName = it},
+                        deviceName = deviceName
                     )
                 }
             }
@@ -114,7 +117,10 @@ fun BottomNavApp(di: DI,
                  onThemeChange: (AppTheme) -> Unit,
                  onLanguageChange: (String) -> Unit,
                  onNavigateToScreen: (String) -> Unit,
-                 onRestartServer: () -> Unit) = withDI(di)
+                 onRestartServer: () -> Unit,
+                 onDeviceNameChange: (String) -> Unit,
+                 deviceName: String
+) = withDI(di)
 {
     val navController = rememberNavController()
     // Observe the current route directly through the back stack entry
@@ -133,7 +139,7 @@ fun BottomNavApp(di: DI,
     ){ innerPadding ->
         NavHost(navController, startDestination = startDestination, Modifier.padding(innerPadding))
         {
-            composable(BottomNavItem.Home.route) { HomeScreen() }
+            composable(BottomNavItem.Home.route) { HomeScreen(deviceName = deviceName) }
             composable(BottomNavItem.Network.route) { NetworkScreen() }
             composable(BottomNavItem.Send.route) {
                 val activity = LocalContext.current as ComponentActivity
@@ -163,7 +169,8 @@ fun BottomNavApp(di: DI,
                 SettingsScreen(
                     onThemeChange = onThemeChange,
                     onLanguageChange = onLanguageChange,
-                    onRestartServer = onRestartServer
+                    onRestartServer = onRestartServer,
+                    onDeviceNameChange = onDeviceNameChange
                 )
             }
         }

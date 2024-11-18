@@ -54,6 +54,10 @@ class GlobalApp : Application(), DIAware {
             deviceNameMap.remove(ipAddress)
         }
 
+        fun getDeviceName(inetAddress: String): String? {
+            return deviceNameMap[inetAddress]
+        }
+
         fun getDeviceName(inetAddress: InetAddress): String? {
             return deviceNameMap[inetAddress.hostAddress]
         }

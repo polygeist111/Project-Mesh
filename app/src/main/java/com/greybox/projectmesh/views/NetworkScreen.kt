@@ -54,7 +54,7 @@ fun NetworkScreen(
             key = {it.key}
         ){ eachItem ->
             viewModel.getDeviceName(eachItem.key)
-            WifiListItem(eachItem.key, eachItem.value)
+            WifiListItem(eachItem.key, eachItem.value, onClickNetworkNode)
         }
     }
 }

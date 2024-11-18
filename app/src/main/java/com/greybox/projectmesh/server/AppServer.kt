@@ -6,6 +6,9 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import com.greybox.projectmesh.GlobalApp
+import com.greybox.projectmesh.db.MeshDatabase
+import com.greybox.projectmesh.db.entities.Message
+import com.greybox.projectmesh.GlobalApp.Companion.TAG_VIRTUAL_ADDRESS
 import com.greybox.projectmesh.extension.updateItem
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback
 import com.ustadmobile.meshrabiya.util.FileSerializer
@@ -38,6 +41,11 @@ import com.greybox.projectmesh.extension.getUriNameAndSize
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
+import kotlinx.coroutines.runBlocking
+import okhttp3.HttpUrl
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.URLDecoder
 
 /*
 This File is the Server for transferring files
@@ -51,6 +59,7 @@ class AppServer(
     private val localVirtualAddr: InetAddress,
     private val receiveDir: File,   // Directory for receiving files
     private val json: Json,
+    private val db: MeshDatabase,
     override val di: DI,
 ) : NanoHTTPD(port), Closeable, DIAware {
 
@@ -319,6 +328,18 @@ class AppServer(
             val settingPref: SharedPreferences by di.instance(tag="settings")
             return newFixedLengthResponse(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
         }
+        else if(path.startsWith("/chat")) {
+            val chatMessage = session.parameters["chatMessage"]?.first() ?: "Error! No message found."
+            val time = session.parameters["time"]?.first()?.toLong() ?: 0
+            val senderIp = InetAddress.getByName(session.parameters["senderIp"]?.first() ?: "0.0.0.0")
+            val sender: String =  GlobalApp.DeviceInfoManager.getDeviceName(senderIp) ?: "Unknown"
+            val chatName: String = GlobalApp.DeviceInfoManager.getChatName(senderIp)
+            Log.d("Appserver", "chatMessage: $chatMessage, time: $time, sender: $sender, chatName: $chatName")
+            scope.launch {
+                db.messageDao().addMessage(Message(0, time, chatMessage, sender, chatName))
+            }
+            return newFixedLengthResponse("OK")
+        }
         else {
             // Returns a NOT_FOUND response indicating that the requested path could not be found.
             return newFixedLengthResponse(
@@ -580,6 +601,34 @@ class AppServer(
         }
     }
 
+    fun sendChatMessage(address: InetAddress, time: Long, message: String) {
+        scope.launch {
+            try {
+                Log.d("AppServer", "chat message: $message")
+                val httpUrl = HttpUrl.Builder()
+                    .scheme("http")
+                    .host(address.hostAddress)
+                    .port(DEFAULT_PORT)
+                    .addPathSegment("chat")
+                    .addQueryParameter("chatMessage", message)
+                    .addQueryParameter("time", time.toString())
+                    .addQueryParameter("senderIp", localVirtualAddr.hostAddress)
+                    .build()
+                Log.d("Appserver", "HTTP URL: $httpUrl")
+                val request = Request.Builder()
+                    .url(httpUrl)
+                    .build()
+                Log.d("AppServer", "Request: $request")
+                val response = httpClient.newCall(request).execute()
+                Log.d("AppServer", "Response: $response")
+            }
+            catch (e: Exception) {
+                e.printStackTrace()
+                Log.d("AppServer", "Failed to send message to ${address.hostAddress}")
+            }
+        }
+    }
+
     // Stop the server and cancel any coroutine that are running within the CoroutineScope
     override fun close() {
         stop()
@@ -588,5 +637,6 @@ class AppServer(
 
     companion object {
         const val DEFAULT_PORT = 4242
+        val CHAT_TYPE_PLAINTEXT = "text/plain; charset=utf-8".toMediaType()
     }
 }

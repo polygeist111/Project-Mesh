@@ -32,9 +32,11 @@ import com.greybox.projectmesh.server.AppServer
 import com.greybox.projectmesh.ui.theme.AppTheme
 import com.greybox.projectmesh.ui.theme.ProjectMeshTheme
 import com.greybox.projectmesh.viewModel.SharedUriViewModel
+import com.greybox.projectmesh.views.ChatScreen
 import com.greybox.projectmesh.views.HomeScreen
 import com.greybox.projectmesh.views.SettingsScreen
 import com.greybox.projectmesh.views.NetworkScreen
+import com.greybox.projectmesh.views.PingScreen
 import com.greybox.projectmesh.views.ReceiveScreen
 import com.greybox.projectmesh.views.SelectDestNodeScreen
 import com.greybox.projectmesh.views.SendScreen
@@ -44,6 +46,7 @@ import org.kodein.di.android.closestDI
 import org.kodein.di.compose.withDI
 import org.kodein.di.instance
 import java.util.Locale
+import java.net.InetAddress
 
 class MainActivity : ComponentActivity(), DIAware {
     override val di by closestDI()
@@ -139,6 +142,29 @@ fun BottomNavApp(di: DI,
     ){ innerPadding ->
         NavHost(navController, startDestination = startDestination, Modifier.padding(innerPadding))
         {
+            composable(BottomNavItem.Home.route) { HomeScreen() }
+            composable(BottomNavItem.Network.route) { NetworkScreen(
+                onClickNetworkNode = { ip ->
+                    navController.navigate("chatScreen/${ip}")
+                }
+            ) }
+            composable("chatScreen/{ip}"){ entry ->
+                val ip = entry.arguments?.getString("ip")
+                    ?: throw IllegalArgumentException("Invalid address")
+                ChatScreen(
+                    virtualAddress = InetAddress.getByName(ip),
+                    onClickButton = {
+                        navController.navigate("pingScreen/${ip}")
+                    }
+                )
+            }
+            composable("pingScreen/{ip}"){ entry ->
+                val ip = entry.arguments?.getString("ip")
+                    ?: throw IllegalArgumentException("Invalid address")
+                PingScreen(
+                    virtualAddress = InetAddress.getByName(ip)
+                )
+            }
             composable(BottomNavItem.Home.route) { HomeScreen(deviceName = deviceName) }
             composable(BottomNavItem.Network.route) { NetworkScreen() }
             composable(BottomNavItem.Send.route) {

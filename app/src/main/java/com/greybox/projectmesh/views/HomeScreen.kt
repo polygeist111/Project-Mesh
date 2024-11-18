@@ -2,6 +2,8 @@ package com.greybox.projectmesh.views
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -71,6 +73,9 @@ import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.MeshrabiyaConnectLink
 import com.ustadmobile.meshrabiya.vnet.VirtualNode
 import com.ustadmobile.meshrabiya.vnet.wifi.state.WifiStationState
+import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import org.kodein.di.compose.localDI
 import org.kodein.di.direct
 import org.kodein.di.instance
@@ -131,27 +136,42 @@ fun StartHomeScreen(
     val barcodeEncoder = remember { BarcodeEncoder() }
     val context = LocalContext.current
     var userEnteredConnectUri by rememberSaveable { mutableStateOf("") }
+    // connect to other device via connect uri
+    fun connect(uri: String): Unit {
+        try {
+            // Parse the link, get the wifi connect configuration.
+            val hotSpot = MeshrabiyaConnectLink.parseUri(
+                uri = uri,
+                json = di.direct.instance()
+            ).hotspotConfig
+            // if the configuration is valid, connect to the device.
+            if (hotSpot != null) {
+                if(hotSpot.nodeVirtualAddr !in uiState.nodesOnMesh) {
+                    // Connect device thru wifi connection
+                    viewModel.onConnectWifi(hotSpot)
+                }else{
+                    Toast.makeText(context, "Already connected to this device", Toast.LENGTH_SHORT).show()
+                    Log.d("Connection", "Already connected to this device")
+                }
+            } else {
+                Toast.makeText(context, "Link doesn't have a connect config", Toast.LENGTH_SHORT).show()
+                Log.d("Connection", "Link doesn't have a connect config")
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Invalid Link", Toast.LENGTH_SHORT).show()
+            Log.e("Connection", "Invalid Link ${e.message}")
+        }
+    }
+
     // initialize the QR code scanner
     val qrScannerLauncher = rememberLauncherForActivityResult(contract = ScanContract()) { result ->
         // Get the contents of the QR code
         val link = result.contents
         if (link != null) {
-            try {
-                // Parse the link, get the wifi connect configuration.
-                val hotSpot = MeshrabiyaConnectLink.parseUri(
-                    uri = link,
-                    json = di.direct.instance()
-                ).hotspotConfig
-                // if the configuration is valid, connect to the device.
-                if (hotSpot != null) {
-                    // Connect device thru wifi connection
-                    viewModel.onConnectWifi(hotSpot)
-                } else {
-                    // Link doesn't have a connect config
-                }
-            } catch (e: Exception) {
-                // Invalid Link
-            }
+            connect(link)
+        }else{
+            Toast.makeText(context, "QR Code scan doesn't return a link", Toast.LENGTH_SHORT).show()
+            Log.d("Connection", "QR Code scan doesn't return a link")
         }
     }
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -270,22 +290,7 @@ fun StartHomeScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         WhiteButton(
                             onClick = {
-                                try {
-                                    // Parse the link, get the wifi connect configuration.
-                                    val hotSpot = MeshrabiyaConnectLink.parseUri(
-                                        uri = userEnteredConnectUri,
-                                        json = di.direct.instance()
-                                    ).hotspotConfig
-                                    // if the configuration is valid, connect to the device.
-                                    if (hotSpot != null) {
-                                        // Connect device thru wifi connection
-                                        viewModel.onConnectWifi(hotSpot)
-                                    } else {
-                                        // Link doesn't have a connect config
-                                    }
-                                } catch (e: Exception) {
-                                    // Invalid Link
-                                }
+                                connect(userEnteredConnectUri)
                             },
                             modifier = Modifier.padding(4.dp),
                             text = stringResource(id = R.string.connect_via_entering_connect_uri),

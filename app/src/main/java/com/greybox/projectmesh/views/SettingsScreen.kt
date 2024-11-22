@@ -1,5 +1,10 @@
 package com.greybox.projectmesh.views
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
@@ -32,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -61,15 +68,18 @@ fun SettingsScreen(
     onThemeChange: (AppTheme) -> Unit,
     onLanguageChange: (String) -> Unit,
     onRestartServer: () -> Unit,
-    onDeviceNameChange: (String) -> Unit
+    onDeviceNameChange: (String) -> Unit,
+    onAutoFinishChange: (Boolean) -> Unit,
+    onSaveToFolderChange: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val currTheme = viewModel.theme.collectAsState()
     val currLang = viewModel.lang.collectAsState()
     val currDeviceName = viewModel.deviceName.collectAsState()
+    val currAutoFinish = viewModel.autoFinish.collectAsState()
+    val currSaveToFolder = viewModel.saveToFolder.collectAsState()
 
-    //var deviceName by remember { mutableStateOf(Build.MODEL) }
     var showDialog by remember { mutableStateOf(false) }
-    var autoFinish by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier
         .fillMaxSize()
@@ -197,7 +207,10 @@ fun SettingsScreen(
                     .width(130.dp)
                     .height(70.dp))
                 {
-                    Switch(checked = autoFinish, onCheckedChange = { autoFinish = it },
+                    Switch(checked = currAutoFinish.value,
+                        onCheckedChange = { isChecked ->
+                            viewModel.saveAutoFinish(isChecked)
+                            onAutoFinishChange(isChecked)},
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             uncheckedThumbColor = Color.White,
@@ -210,15 +223,42 @@ fun SettingsScreen(
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
+            val directoryLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocumentTree()
+            ) { uri: Uri? ->
+                if (uri != null) {
+                    // Persist the directory permission
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                    Toast.makeText(context, "Directory selected: $uri", Toast.LENGTH_LONG).show()
+                    viewModel.saveSaveToFolder(uri.toString())
+                    onSaveToFolderChange(uri.toString())
+                } else {
+                    Toast.makeText(context, "No directory selected", Toast.LENGTH_LONG).show()
+                }
+            }
             Row(modifier = Modifier
                 .fillMaxWidth()
                 .padding(0.dp, 16.dp))
             {
                 Text(
-                    text = stringResource(id = R.string.save_to_folder), style = TextStyle(fontSize = 18.sp), modifier = Modifier
-                        .align(Alignment.CenterVertically))
+                    text = stringResource(id = R.string.save_to_folder),
+                    style = TextStyle(fontSize = 18.sp),
+                    modifier = Modifier.align(Alignment.CenterVertically)
+                )
                 Spacer(modifier = Modifier.weight(1f))
-                GradientButton(text = "Download", onClick = { })
+                val folderNameToShow = if (currSaveToFolder.value.startsWith("content://")) {
+                    // Decode Uri and extract the folder name for content URIs
+                    Uri.decode(currSaveToFolder.value).split(":").lastOrNull() ?: "Unknown"
+                } else {
+                    // Extract the last directory from the file path for plain file paths
+                    currSaveToFolder.value.split("/").lastOrNull() ?: "Unknown"
+                }
+                GradientButton(text = folderNameToShow, onClick = {
+                    directoryLauncher.launch(null)
+                })
             }
         }
     }

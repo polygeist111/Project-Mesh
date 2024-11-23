@@ -1,8 +1,13 @@
 package com.greybox.projectmesh.views
 
+import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -56,6 +61,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.zxing.BarcodeFormat
 import com.greybox.projectmesh.NEARBY_WIFI_PERMISSION_NAME
 import com.greybox.projectmesh.R
@@ -73,9 +79,6 @@ import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.MeshrabiyaConnectLink
 import com.ustadmobile.meshrabiya.vnet.VirtualNode
 import com.ustadmobile.meshrabiya.vnet.wifi.state.WifiStationState
-import com.yveskalume.compose.qrpainter.rememberQrBitmapPainter
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.first
 import org.kodein.di.compose.localDI
 import org.kodein.di.direct
 import org.kodein.di.instance
@@ -104,7 +107,6 @@ fun HomeScreen(viewModel: HomeScreenViewModel = viewModel
             viewModel.onSetIncomingConnectionsEnabled(true)
         }
     } }
-
     // Launch the home screen
     StartHomeScreen(
         uiState = uiState,

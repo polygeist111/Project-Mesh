@@ -1,9 +1,16 @@
 package com.greybox.projectmesh
 
+import android.annotation.SuppressLint
+import android.app.AlertDialog
+import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -135,6 +142,9 @@ class MainActivity : ComponentActivity(), DIAware {
         }
         // crash screen
         CrashHandler.init(applicationContext,CrashScreenActivity::class.java)
+        if (!isBatteryOptimizationDisabled(this)) {
+            promptDisableBatteryOptimization(this)
+        }
     }
 
     private fun updateLocale(languageCode: String): Locale {
@@ -160,6 +170,7 @@ fun BottomNavApp(di: DI,
                  onSaveToFolderChange: (String) -> Unit
 ) = withDI(di)
 {
+
     val navController = rememberNavController()
     // Observe the current route directly through the back stack entry
     val currentRoute = navController.currentBackStackEntryFlow.collectAsState(initial = null)
@@ -239,3 +250,40 @@ fun BottomNavApp(di: DI,
         }
     }
 }
+
+@SuppressLint("ServiceCast", "ObsoleteSdkInt")
+fun isBatteryOptimizationDisabled(context: Context): Boolean {
+    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    } else {
+        true // Battery optimization doesn't apply below Android 6.0
+    }
+}
+
+@SuppressLint("ObsoleteSdkInt")
+fun promptDisableBatteryOptimization(context: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        AlertDialog.Builder(context)
+            .setTitle("Disable Battery Optimization")
+            .setMessage(
+                "To ensure uninterrupted background functionality and maintain a stable connection," +
+                        " please disable battery optimization for this app."
+            )
+            .setPositiveButton("Go to Settings") { _, _ ->
+                try {
+                    // Navigate to Battery Optimization Settings
+                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    // Fallback to App Info screen
+                    val appSettingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(Uri.fromParts("package", context.packageName, null))
+                    context.startActivity(appSettingsIntent)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+}
+

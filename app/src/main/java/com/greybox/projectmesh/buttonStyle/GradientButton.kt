@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -29,6 +30,7 @@ fun GradientButton(
     modifier: Modifier = Modifier,
     gradientColors: List<Color> = listOf(Color(0xFF4CAF50), Color(0xFF81C784)), // Default gradient colors
     textColor: Color = Color.White,
+    maxWidth: Dp = 120.dp,
     onClick: () -> Unit
 ) {
     var isPressed by remember { mutableStateOf(false) }
@@ -48,7 +50,7 @@ fun GradientButton(
                 shape = RoundedCornerShape(12.dp)
             )
             .height(50.dp) // Height of the button
-            .width(120.dp) // Width of the button
+            .widthIn(min = 120.dp, max = maxWidth) // Width of the button
             .padding(horizontal = 16.dp)
             .clickable {
                 isPressed = true
@@ -59,8 +61,10 @@ fun GradientButton(
         Text(
             text = text,
             color = textColor,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, // Truncate text if it overflows
         )
     }
 }

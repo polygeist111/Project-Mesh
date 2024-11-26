@@ -1,9 +1,17 @@
 package com.greybox.projectmesh
 
+import android.annotation.SuppressLint
+import android.app.AlertDialog
+import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
-import android.view.Gravity
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -46,6 +53,7 @@ import org.kodein.di.DIAware
 import org.kodein.di.android.closestDI
 import org.kodein.di.compose.withDI
 import org.kodein.di.instance
+import java.io.File
 import java.util.Locale
 import java.net.InetAddress
 
@@ -56,6 +64,24 @@ class MainActivity : ComponentActivity(), DIAware {
         val settingPref: SharedPreferences by di.instance(tag="settings")
         val appServer: AppServer by di.instance()
         setContent {
+            // check if the default directory exist (Download/Project Mesh)
+            val defaultDirectory = File(
+                Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_DOWNLOADS),
+                "Project Mesh"
+            )
+            if (!defaultDirectory.exists()) {
+                // Create the directory if it doesn't exist
+                if (defaultDirectory.mkdirs()) {
+                    Log.d("DirectoryCheck", "Default directory created: ${defaultDirectory.absolutePath}")
+                }
+                else {
+                    Log.e("DirectoryCheck", "Failed to create default directory: ${defaultDirectory.absolutePath}")
+                }
+            }
+            else {
+                Log.d("DirectoryCheck", "Default directory already exists: ${defaultDirectory.absolutePath}")
+            }
             var appTheme by remember {
                 mutableStateOf(AppTheme.valueOf(
                     settingPref.getString("app_theme", AppTheme.SYSTEM.name) ?:
@@ -66,6 +92,20 @@ class MainActivity : ComponentActivity(), DIAware {
                     "language", "System") ?: "System")
             }
             var restartServerKey by remember {mutableStateOf(0)}
+            var deviceName by remember {
+                mutableStateOf(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
+            }
+
+            var autoFinish by remember {
+                mutableStateOf(settingPref.getBoolean("auto_finish", false))
+            }
+
+            var saveToFolder by remember {
+                mutableStateOf(
+                    settingPref.getString("save_to_folder", null)
+                        ?: "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/Project Mesh"
+                )
+            }
 
             // State to trigger recomposition when locale changes
             var localeState by rememberSaveable { mutableStateOf(Locale.getDefault()) }
@@ -91,13 +131,20 @@ class MainActivity : ComponentActivity(), DIAware {
                         onLanguageChange = { selectedLanguage ->  languageCode = selectedLanguage},
                         onNavigateToScreen = {screen ->
                             currentScreen = screen },
-                        onRestartServer = {restartServerKey++}
+                        onRestartServer = {restartServerKey++},
+                        onDeviceNameChange = {deviceName = it},
+                        deviceName = deviceName,
+                        onAutoFinishChange = {autoFinish = it},
+                        onSaveToFolderChange = {saveToFolder = it}
                     )
                 }
             }
         }
         // crash screen
         CrashHandler.init(applicationContext,CrashScreenActivity::class.java)
+        if (!isBatteryOptimizationDisabled(this)) {
+            promptDisableBatteryOptimization(this)
+        }
     }
 
     private fun updateLocale(languageCode: String): Locale {
@@ -116,8 +163,14 @@ fun BottomNavApp(di: DI,
                  onThemeChange: (AppTheme) -> Unit,
                  onLanguageChange: (String) -> Unit,
                  onNavigateToScreen: (String) -> Unit,
-                 onRestartServer: () -> Unit) = withDI(di)
+                 onRestartServer: () -> Unit,
+                 onDeviceNameChange: (String) -> Unit,
+                 deviceName: String,
+                 onAutoFinishChange: (Boolean) -> Unit,
+                 onSaveToFolderChange: (String) -> Unit
+) = withDI(di)
 {
+
     val navController = rememberNavController()
     // Observe the current route directly through the back stack entry
     val currentRoute = navController.currentBackStackEntryFlow.collectAsState(initial = null)
@@ -135,7 +188,7 @@ fun BottomNavApp(di: DI,
     ){ innerPadding ->
         NavHost(navController, startDestination = startDestination, Modifier.padding(innerPadding))
         {
-            composable(BottomNavItem.Home.route) { HomeScreen() }
+            composable(BottomNavItem.Home.route) { HomeScreen(deviceName = deviceName) }
             composable(BottomNavItem.Network.route) { NetworkScreen(
                 onClickNetworkNode = { ip ->
                     navController.navigate("chatScreen/${ip}")
@@ -181,14 +234,56 @@ fun BottomNavApp(di: DI,
                     popBackWhenDone = {navController.popBackStack()},
                 )
             }
-            composable(BottomNavItem.Receive.route) { ReceiveScreen() }
+            composable(BottomNavItem.Receive.route) { ReceiveScreen(
+                onAutoFinishChange = onAutoFinishChange
+            ) }
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen(
                     onThemeChange = onThemeChange,
                     onLanguageChange = onLanguageChange,
-                    onRestartServer = onRestartServer
+                    onRestartServer = onRestartServer,
+                    onDeviceNameChange = onDeviceNameChange,
+                    onAutoFinishChange = onAutoFinishChange,
+                    onSaveToFolderChange = onSaveToFolderChange
                 )
             }
         }
     }
 }
+
+@SuppressLint("ServiceCast", "ObsoleteSdkInt")
+fun isBatteryOptimizationDisabled(context: Context): Boolean {
+    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    } else {
+        true // Battery optimization doesn't apply below Android 6.0
+    }
+}
+
+@SuppressLint("ObsoleteSdkInt")
+fun promptDisableBatteryOptimization(context: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        AlertDialog.Builder(context)
+            .setTitle("Disable Battery Optimization")
+            .setMessage(
+                "To ensure uninterrupted background functionality and maintain a stable connection," +
+                        " please disable battery optimization for this app."
+            )
+            .setPositiveButton("Go to Settings") { _, _ ->
+                try {
+                    // Navigate to Battery Optimization Settings
+                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    // Fallback to App Info screen
+                    val appSettingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(Uri.fromParts("package", context.packageName, null))
+                    context.startActivity(appSettingsIntent)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+}
+

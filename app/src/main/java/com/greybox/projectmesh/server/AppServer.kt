@@ -1,6 +1,7 @@
 package com.greybox.projectmesh.server
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -37,6 +38,9 @@ import java.net.InetAddress
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import com.greybox.projectmesh.extension.getUriNameAndSize
+import org.kodein.di.DI
+import org.kodein.di.DIAware
+import org.kodein.di.instance
 import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -55,8 +59,9 @@ class AppServer(
     private val localVirtualAddr: InetAddress,
     private val receiveDir: File,   // Directory for receiving files
     private val json: Json,
-    private val db: MeshDatabase
-) : NanoHTTPD(port), Closeable {
+    private val db: MeshDatabase,
+    override val di: DI,
+) : NanoHTTPD(port), Closeable, DIAware {
 
     private val logPrefix: String = "[AppServer - $name] "
 
@@ -65,6 +70,8 @@ class AppServer(
     enum class Status {
         PENDING, IN_PROGRESS, COMPLETED, FAILED, DECLINED
     }
+
+
 
     // Restart method to stop and start the server with an optional new IP address
     fun restart() {
@@ -318,7 +325,8 @@ class AppServer(
         }
         else if(path.startsWith("/getDeviceName")){
             Log.d("AppServer", "local ip address: ${localVirtualAddr.hostAddress}")
-            return newFixedLengthResponse(Build.MODEL)
+            val settingPref: SharedPreferences by di.instance(tag="settings")
+            return newFixedLengthResponse(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
         }
         else if(path.startsWith("/chat")) {
             val chatMessage = session.parameters["chatMessage"]?.first() ?: "Error! No message found."

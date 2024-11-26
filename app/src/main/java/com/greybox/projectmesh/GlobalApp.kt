@@ -3,6 +3,7 @@ package com.greybox.projectmesh
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Environment
 import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -28,7 +29,6 @@ import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.bind
 import org.kodein.di.instance
-import org.kodein.di.provider
 import org.kodein.di.singleton
 import java.io.File
 import java.net.InetAddress
@@ -55,9 +55,8 @@ class GlobalApp : Application(), DIAware {
             deviceNameMap.remove(ipAddress)
         }
 
-        // Helper method to get a device name by IP
-        fun getDeviceName(ipAddress: String): String? {
-            return deviceNameMap[ipAddress]
+        fun getDeviceName(inetAddress: String): String? {
+            return deviceNameMap[inetAddress]
         }
 
         fun getDeviceName(inetAddress: InetAddress): String? {
@@ -166,6 +165,7 @@ class GlobalApp : Application(), DIAware {
                 localVirtualAddr = node.address,
                 receiveDir = instance(tag = TAG_RECEIVE_DIR),
                 json = instance(),
+                di = di,
                 db = instance()
             )
         }

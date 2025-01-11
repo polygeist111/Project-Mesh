@@ -46,7 +46,6 @@ import com.greybox.projectmesh.views.SettingsScreen
 import com.greybox.projectmesh.views.NetworkScreen
 import com.greybox.projectmesh.views.PingScreen
 import com.greybox.projectmesh.views.ReceiveScreen
-import com.greybox.projectmesh.views.SearchScreen
 import com.greybox.projectmesh.views.SelectDestNodeScreen
 import com.greybox.projectmesh.views.SendScreen
 import org.kodein.di.DI
@@ -189,12 +188,7 @@ fun BottomNavApp(di: DI,
     ){ innerPadding ->
         NavHost(navController, startDestination = startDestination, Modifier.padding(innerPadding))
         {
-            composable(BottomNavItem.Home.route) { HomeScreen(
-                onSwitchToSearchScreen = {
-                    navController.navigate("searchScreen")
-                },
-                deviceName = deviceName
-            ) }
+            composable(BottomNavItem.Home.route) { HomeScreen(deviceName = deviceName) }
             composable(BottomNavItem.Network.route) { NetworkScreen(
                 onClickNetworkNode = { ip ->
                     navController.navigate("chatScreen/${ip}")
@@ -215,16 +209,6 @@ fun BottomNavApp(di: DI,
                     ?: throw IllegalArgumentException("Invalid address")
                 PingScreen(
                     virtualAddress = InetAddress.getByName(ip)
-                )
-            }
-            composable("searchScreen"){
-                val isSearching = remember { mutableStateOf(true) }
-                SearchScreen(
-                    isSearching = isSearching,
-                    onHomeClick = {
-                        isSearching.value = false // Set to false on cancel
-                        navController.popBackStack()
-                    }
                 )
             }
             composable(BottomNavItem.Send.route) {

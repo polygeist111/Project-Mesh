@@ -178,20 +178,22 @@ fun StartHomeScreen(
     }
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
         Column {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             // Display the device name and IP
             LongPressCopyableText(
                 context = context,
                 text = "",
                 textCopyable = deviceName.toString(),
-                textSize = 15
+                textSize = 15,
+                padding = 6
             )
             Spacer(modifier = Modifier.height(6.dp))
             LongPressCopyableText(
                 context = context,
                 text = stringResource(id = R.string.ip_address) + ": ",
                 textCopyable = uiState.localAddress.addressToDotNotation(),
-                textSize = 15
+                textSize = 15,
+                padding = 6
             )
             Spacer(modifier = Modifier.height(12.dp))
             // Display the "Start Hotspot" button
@@ -261,7 +263,7 @@ fun StartHomeScreen(
                 if (stationState.status == WifiStationState.Status.INACTIVE){
                     Column (modifier = Modifier.fillMaxWidth()){
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(text = stringResource(id = R.string.wifi_station_connection), style = TextStyle(fontSize = 16.sp))
+                        Text(modifier = Modifier.padding(6.dp), text = stringResource(id = R.string.wifi_station_connection), style = TextStyle(fontSize = 16.sp))
                         Spacer(modifier = Modifier.height(12.dp))
                         Row (modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.Center)
@@ -280,7 +282,7 @@ fun StartHomeScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(text = stringResource(id = R.string.instruction))
+                        Text(modifier = Modifier.padding(6.dp), text = stringResource(id = R.string.instruction))
                         Spacer(modifier = Modifier.height(4.dp))
                         TextField(
                             value = userEnteredConnectUri,
@@ -346,7 +348,7 @@ fun StartHomeScreen(
             Spacer(modifier = Modifier.height(10.dp))
             // add a Hotspot status indicator
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = stringResource(id = R.string.hotspot_status) + ": " + 
+                Text(modifier = Modifier.padding(6.dp), text = stringResource(id = R.string.hotspot_status) + ": " +
                         if (uiState.hotspotStatus) stringResource(
                             id = R.string.hotspot_status_online
                         ) else stringResource(id = R.string.hotspot_status_offline))
@@ -366,7 +368,11 @@ fun StartHomeScreen(
 
 // Enable users to copy text by holding down the text for a long press
 @Composable
-fun LongPressCopyableText(context: Context, text: String, textCopyable: String, textSize: Int){
+fun LongPressCopyableText(context: Context,
+                          text: String,
+                          textCopyable: String,
+                          textSize: Int,
+                          padding: Int = 0){
     val clipboardManager = LocalClipboardManager.current
     BasicText(
         text = text + textCopyable,
@@ -379,7 +385,7 @@ fun LongPressCopyableText(context: Context, text: String, textCopyable: String, 
                     clipboardManager.setText(AnnotatedString(textCopyable))
                     Toast.makeText(context, "Text copied to clipboard!", Toast.LENGTH_SHORT).show()
                 })
-        }
+        }.padding(padding.dp)
     )
 }
 

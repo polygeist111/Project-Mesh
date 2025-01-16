@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity(), DIAware {
             }
             var languageCode by remember {
                 mutableStateOf(settingPref.getString(
-                    "language", "System") ?: "System")
+                    "language", "en") ?: "en")
             }
             var restartServerKey by remember {mutableStateOf(0)}
             var deviceName by remember {
@@ -148,7 +148,7 @@ class MainActivity : ComponentActivity(), DIAware {
     }
 
     private fun updateLocale(languageCode: String): Locale {
-        val locale = if (languageCode == "System") Locale.getDefault() else Locale(languageCode)
+        val locale = Locale(languageCode)
         val config = resources.configuration
         config.setLocale(locale)
         @Suppress("DEPRECATION")

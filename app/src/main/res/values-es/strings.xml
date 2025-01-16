@@ -33,4 +33,12 @@
 
     <string name="home">Inicio</string>
     <string name="send">Enviar</string>
+
+    <string name="band">Banda</string>
+    <string name="hotspot_type">Tipo de punto de acceso</string>
+    <string name="search_nearby_devices">Buscar dispositivos cercanos</string>
+    <string name="searching">Buscando</string>
+    <string name="cancel">Cancelar</string>
+
+    <string name="elapsed_time">Tiempo transcurrido</string>
 </resources>

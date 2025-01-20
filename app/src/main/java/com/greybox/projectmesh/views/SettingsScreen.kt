@@ -270,9 +270,8 @@ fun LanguageSetting(
 {
     // for Language setting
     var langExpanded by remember { mutableStateOf(false) } // Track menu visibility
-    val langMenuItems = listOf("System" to "System",
-        "en" to "English", "es" to "Español", "cn" to "简体中文") // Menu items
-    val langSelectedOption = langMenuItems.firstOrNull {it.first == currentLanguage}?.second?:"System"
+    val langMenuItems = listOf("en" to "English", "es" to "Español", "cn" to "简体中文") // Menu items
+    val langSelectedOption = langMenuItems.firstOrNull {it.first == currentLanguage}?.second?:"English"
     Box()
     {
         GradientButton(text = langSelectedOption,

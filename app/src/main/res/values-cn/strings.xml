@@ -33,4 +33,12 @@
 
     <string name="home">首页</string>
     <string name="send">发送</string>
+
+    <string name="band">频段</string>
+    <string name="hotspot_type">热点类型</string>
+    <string name="search_nearby_devices">搜索附近设备</string>
+    <string name="searching">搜索中</string>
+    <string name="cancel">取消</string>
+
+    <string name="elapsed_time">耗时</string>
 </resources>

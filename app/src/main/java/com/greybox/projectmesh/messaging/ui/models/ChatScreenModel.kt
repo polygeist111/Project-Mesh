@@ -1,6 +1,6 @@
-package com.greybox.projectmesh.model
+package com.greybox.projectmesh.messaging.ui.models
 
-import com.greybox.projectmesh.db.entities.Message
+import com.greybox.projectmesh.messaging.data.entities.Message
 import java.net.InetAddress
 
 data class ChatScreenModel(

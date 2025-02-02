@@ -1,10 +1,10 @@
-package com.greybox.projectmesh.db.dao
+package com.greybox.projectmesh.messaging.data.dao
 
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
-import com.greybox.projectmesh.db.entities.Message
+import com.greybox.projectmesh.messaging.data.entities.Message
 import kotlinx.coroutines.flow.Flow
 
 @Dao

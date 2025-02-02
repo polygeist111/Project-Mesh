@@ -1,4 +1,4 @@
-package com.greybox.projectmesh.views
+package com.greybox.projectmesh.messaging.ui.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,17 +27,18 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.ViewModelFactory
-import com.greybox.projectmesh.buttonStyle.WhiteButton
-import com.greybox.projectmesh.model.ChatScreenModel
-import com.greybox.projectmesh.model.PingScreenModel
-import com.greybox.projectmesh.viewModel.ChatScreenViewModel
-import com.greybox.projectmesh.viewModel.PingScreenViewModel
-import com.ustadmobile.meshrabiya.ext.addressToDotNotation
-import com.ustadmobile.meshrabiya.mmcp.MmcpOriginatorMessage
+import com.greybox.projectmesh.messaging.ui.models.ChatScreenModel
+import com.greybox.projectmesh.messaging.ui.viewmodels.ChatScreenViewModel
+import com.greybox.projectmesh.views.LongPressCopyableText
 import org.kodein.di.compose.localDI
 import java.net.InetAddress
 import java.text.SimpleDateFormat
 import java.util.Date
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 @Composable
 fun ChatScreen(
@@ -47,13 +48,13 @@ fun ChatScreen(
         factory = ViewModelFactory(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
-            vmFactory = { ChatScreenViewModel(it, virtualAddress) },
+            vmFactory = { di -> ChatScreenViewModel(virtualAddress, di) },
             defaultArgs = null
         )
     )
 ) {
     // declare the UI state, we can use the uiState to access the current state of the viewModel
-    val uiState: ChatScreenModel by viewModel.uiState.collectAsState(initial = ChatScreenModel())
+    val uiState by viewModel.uiState.collectAsState()
     var textMessage by rememberSaveable { mutableStateOf("") }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier
@@ -76,7 +77,7 @@ fun ChatScreen(
             Button(modifier = Modifier.weight(1f), onClick = {
                 val message = textMessage.trimEnd()
                 if(message.isNotEmpty()) {
-                    viewModel.sendChatMessage(virtualAddress, message)
+                    viewModel.sendChatMessage(message)
                     // resets the text field
                     textMessage = ""
                 }

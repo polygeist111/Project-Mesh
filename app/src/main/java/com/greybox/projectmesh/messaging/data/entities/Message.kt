@@ -1,4 +1,4 @@
-package com.greybox.projectmesh.db.entities
+package com.greybox.projectmesh.messaging.data.entities
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity

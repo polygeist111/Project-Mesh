@@ -264,7 +264,7 @@ fun BottomNavApp(di: DI,
                     )
                     Button(
                         onClick= {
-                            if(isipvalid(thisip) == true){
+                            if(!thisip.equals("") && isipvalid(thisip) == true){
                                 navController.navigate("chatScreen/$thisip")//Directs to the chat screen using current IP address
                                 //This functionality was already incorporated into the existing code via a composable, there just wasn't a button for it.
                             } else {

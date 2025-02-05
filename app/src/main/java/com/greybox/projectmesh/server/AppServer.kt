@@ -7,8 +7,8 @@ import android.os.Build
 import android.util.Log
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.db.MeshDatabase
-import com.greybox.projectmesh.db.entities.Message
-import com.greybox.projectmesh.GlobalApp.Companion.TAG_VIRTUAL_ADDRESS
+import com.greybox.projectmesh.messaging.data.entities.Message
+import com.greybox.projectmesh.messaging.network.MessageNetworkHandler
 import com.greybox.projectmesh.extension.updateItem
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback
 import com.ustadmobile.meshrabiya.util.FileSerializer
@@ -41,10 +41,8 @@ import com.greybox.projectmesh.extension.getUriNameAndSize
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
-import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.URLDecoder
 
 /*
@@ -153,7 +151,7 @@ class AppServer(
     init {
         scope.launch {
             // fetch all files in receiveDir directory that end with .rx.json extension
-            val incomingFiles = receiveDir.listFiles { file, fileName: String? ->
+            val incomingFiles = receiveDir.listFiles { _ , fileName: String? ->
                 fileName?.endsWith(".rx.json") == true
             }?.map {
                 // It deserializes the JSON file into an IncomingTransferInfo object
@@ -329,14 +327,18 @@ class AppServer(
             return newFixedLengthResponse(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
         }
         else if(path.startsWith("/chat")) {
-            val chatMessage = session.parameters["chatMessage"]?.first() ?: "Error! No message found."
+            val chatMessage = session.parameters["chatMessage"]?.first()
             val time = session.parameters["time"]?.first()?.toLong() ?: 0
-            val senderIp = InetAddress.getByName(session.parameters["senderIp"]?.first() ?: "0.0.0.0")
-            val sender: String =  GlobalApp.DeviceInfoManager.getDeviceName(senderIp) ?: "Unknown"
-            val chatName: String = GlobalApp.DeviceInfoManager.getChatName(senderIp)
-            Log.d("Appserver", "chatMessage: $chatMessage, time: $time, sender: $sender, chatName: $chatName")
+            val senderIp = InetAddress.getByName(session.parameters["senderIp"]?.first())
+
+            val message = MessageNetworkHandler.handleIncomingMessage(
+                chatMessage,
+                time,
+                senderIp
+            )
+
             scope.launch {
-                db.messageDao().addMessage(Message(0, time, chatMessage, sender, chatName))
+                db.messageDao().addMessage(message)
             }
             return newFixedLengthResponse("OK")
         }
@@ -517,7 +519,7 @@ class AppServer(
                 val jsonFile = File(receiveDir, "${incomingTransfer.name}.rx.json")
                 jsonFile.writeText(json.encodeToString(IncomingTransferInfo.serializer(), incomingTransfer))
             }
-            val speedKBS = transfer.size / transferDurationMs
+            //val speedKBS = transfer.size / transferDurationMs
         }
         catch(e: Exception) {
             _incomingTransfers.update { prev ->
@@ -553,9 +555,10 @@ class AppServer(
                 .url("http://${transfer.fromHost.hostAddress}:$fromPort/decline/${transfer.id}")
                 .build()
             try {
+                httpClient.newCall(request).execute()
                 // Send the request to the sender and get the response
-                val response = httpClient.newCall(request).execute()
-                val strResponse = response.body?.string()
+                //val response = httpClient.newCall(request).execute()
+                //val strResponse = response.body?.string()
             }catch(_: Exception) { }
         }
         // update the _incomingTransfers list, setting the status to DECLINED

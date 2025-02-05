@@ -40,7 +40,7 @@ import com.greybox.projectmesh.server.AppServer
 import com.greybox.projectmesh.ui.theme.AppTheme
 import com.greybox.projectmesh.ui.theme.ProjectMeshTheme
 import com.greybox.projectmesh.viewModel.SharedUriViewModel
-import com.greybox.projectmesh.views.ChatScreen
+import com.greybox.projectmesh.messaging.ui.screens.ChatScreen
 import com.greybox.projectmesh.views.HomeScreen
 import com.greybox.projectmesh.views.SettingsScreen
 import com.greybox.projectmesh.views.NetworkScreen

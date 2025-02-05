@@ -15,8 +15,12 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -247,8 +251,42 @@ fun BottomNavApp(di: DI,
                     onSaveToFolderChange = onSaveToFolderChange
                 )
             }
+
+            //I'm guessing I can put my Chat button here?
+            composable(BottomNavItem.Chat.route){//Chat Screen button, this stuff was written by Craig
+                var thisip by remember{mutableStateOf("")}
+                var loctxt = LocalContext.current//allows for display of error messages
+                Column{
+                    TextField(//Get user to reenter IP address
+                        value = thisip,//string for IP address
+                        onValueChange = {thisip = it},
+                        label = { Text("Enter your IP Address") }
+                    )
+                    Button(
+                        onClick= {
+                            if(isipvalid(thisip) == true){
+                                navController.navigate("chatScreen/$thisip")//Directs to the chat screen using current IP address
+                                //This functionality was already incorporated into the existing code via a composable, there just wasn't a button for it.
+                            } else {
+                                Toast.makeText(loctxt, "Invalid IP Address", Toast.LENGTH_SHORT).show()//Error message if invalid IP address
+                            }
+                        }
+
+                    ){
+                        Text("Chat")
+                    }
+                }
+            }
         }
     }
+}
+
+fun isipvalid(theip:String): Boolean{//this is a function for checking if the IP address is valid, if this is redundant let me know and I'll make changes
+    try{
+        InetAddress.getByName(theip)
+        return true
+    }catch(e: Exception)
+    { return false}
 }
 
 @SuppressLint("ServiceCast", "ObsoleteSdkInt")

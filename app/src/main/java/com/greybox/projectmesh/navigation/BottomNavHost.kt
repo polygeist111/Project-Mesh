@@ -21,7 +21,8 @@ fun BottomNavigationBar(navController: NavHostController) {
         NavigationItem(BottomNavItem.Network.route, stringResource(id = R.string.network), BottomNavItem.Network.icon),
         NavigationItem(BottomNavItem.Send.route, stringResource(id = R.string.send), BottomNavItem.Send.icon),
         NavigationItem(BottomNavItem.Receive.route, stringResource(id = R.string.receive), BottomNavItem.Receive.icon),
-        NavigationItem(BottomNavItem.Settings.route, stringResource(id = R.string.settings), BottomNavItem.Settings.icon)
+        NavigationItem(BottomNavItem.Settings.route, stringResource(id = R.string.settings), BottomNavItem.Settings.icon),
+        NavigationItem(BottomNavItem.Chat.route, stringResource(id=R.string.chat), BottomNavItem.Chat.icon)
     )
     NavigationBar {
         val currentRoute = navController.currentDestination?.route

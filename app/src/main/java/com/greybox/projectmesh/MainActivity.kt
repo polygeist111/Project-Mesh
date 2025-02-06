@@ -60,6 +60,7 @@ import org.kodein.di.instance
 import java.io.File
 import java.util.Locale
 import java.net.InetAddress
+import com.greybox.projectmesh.messaging.ui.screens.ChatNodeListScreen
 
 class MainActivity : ComponentActivity(), DIAware {
     override val di by closestDI()
@@ -253,29 +254,14 @@ fun BottomNavApp(di: DI,
             }
 
             //I'm guessing I can put my Chat button here?
-            composable(BottomNavItem.Chat.route){//Chat Screen button, this stuff was written by Craig
-                var thisip by remember{mutableStateOf("")}
-                var loctxt = LocalContext.current//allows for display of error messages
-                Column{
-                    TextField(//Get user to reenter IP address
-                        value = thisip,//string for IP address
-                        onValueChange = {thisip = it},
-                        label = { Text("Enter your IP Address") }
-                    )
-                    Button(
-                        onClick= {
-                            if(!thisip.equals("") && isipvalid(thisip) == true){
-                                navController.navigate("chatScreen/$thisip")//Directs to the chat screen using current IP address
-                                //This functionality was already incorporated into the existing code via a composable, there just wasn't a button for it.
-                            } else {
-                                Toast.makeText(loctxt, "Invalid IP Address", Toast.LENGTH_SHORT).show()//Error message if invalid IP address
-                            }
-                        }
-
-                    ){
-                        Text("Chat")
+            composable(BottomNavItem.Chat.route) {
+                // Show a list of nodes, let the user pick one
+                ChatNodeListScreen(
+                    onNodeSelected = { ip ->
+                        // Once a node is tapped, navigate to the actual chat
+                        navController.navigate("chatScreen/$ip")
                     }
-                }
+                )
             }
         }
     }

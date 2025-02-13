@@ -194,11 +194,10 @@ fun BottomNavApp(di: DI,
         NavHost(navController, startDestination = startDestination, Modifier.padding(innerPadding))
         {
             composable(BottomNavItem.Home.route) { HomeScreen(deviceName = deviceName) }
-            composable(BottomNavItem.Network.route) { NetworkScreen(
-                onClickNetworkNode = { ip ->
-                    navController.navigate("chatScreen/${ip}")
-                }
-            ) }
+            composable(BottomNavItem.Network.route) {
+                // Just call NetworkScreen with no click callback
+                NetworkScreen()
+            }
             composable("chatScreen/{ip}"){ entry ->
                 val ip = entry.arguments?.getString("ip")
                     ?: throw IllegalArgumentException("Invalid address")

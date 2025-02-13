@@ -9,7 +9,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.model.NetworkScreenModel
 import com.greybox.projectmesh.viewModel.NetworkScreenViewModel
-import com.greybox.projectmesh.views.WifiListItem
+import com.greybox.projectmesh.extension.WifiListItem
 import org.kodein.di.compose.localDI
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 

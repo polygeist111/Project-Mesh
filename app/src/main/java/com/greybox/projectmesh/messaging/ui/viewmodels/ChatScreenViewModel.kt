@@ -2,46 +2,67 @@ package com.greybox.projectmesh.messaging.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.greybox.projectmesh.messaging.network.MessageService
+import com.greybox.projectmesh.GlobalApp
+import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.messaging.ui.models.ChatScreenModel
-import kotlinx.coroutines.launch
-import org.kodein.di.DI
-import org.kodein.di.DIAware
-import org.kodein.di.instance
-import java.net.InetAddress
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.kodein.di.DI
+import com.greybox.projectmesh.server.AppServer
+import com.ustadmobile.meshrabiya.ext.addressToDotNotation
+import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
+import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import org.kodein.di.instance
+import java.net.InetAddress
 
 class ChatScreenViewModel(
-    private val virtualAddress: InetAddress,
-    override val di: DI
-) : ViewModel(), DIAware {
-    private val messageService: MessageService by di.instance()
-
+    di: DI,
+    virtualAddress: InetAddress
+): ViewModel() {
+    // _uiState will be updated whenever there is a change in the UI state
+    private val deviceName = GlobalApp.DeviceInfoManager.getDeviceName(virtualAddress) ?: "Unknown"
+    private val addressDotNotation = virtualAddress.requireAddressAsInt().addressToDotNotation()
+    private val chatName: String = GlobalApp.DeviceInfoManager.getChatName(virtualAddress)
     private val _uiState = MutableStateFlow(
         ChatScreenModel(
-            deviceName = "My Device", // Or get from preferences
-            virtualAddress = virtualAddress,
-            allChatMessages = emptyList()
+            deviceName = deviceName,
+            virtualAddress = virtualAddress
         )
     )
-    val uiState: StateFlow<ChatScreenModel> = _uiState.asStateFlow()
+    // uiState is a read-only property that shows the current UI state
+    val uiState: Flow<ChatScreenModel> = _uiState.asStateFlow()
+    // di is used to get the AndroidVirtualNode instance
+    private val db: MeshDatabase by di.instance()
+    private val appServer: AppServer by di.instance()
 
-    fun sendChatMessage(message: String) {
+
+    // launch a coroutine
+    init {
         viewModelScope.launch {
-            val newMessage = Message(
-                id = 0,
-                dateReceived = System.currentTimeMillis(),
-                content = message,
-                sender = "Me",
-                chat = virtualAddress.hostAddress
-            )
+            // collect the state flow of the AndroidVirtualNode
+            db.messageDao().getChatMessagesFlow(chatName).collect{
+                    newChatMessages: List<Message> ->
 
-            messageService.sendMessage(virtualAddress, newMessage)
+                // update the UI state with the new state
+                _uiState.update { prev ->
+                    prev.copy(
+                        allChatMessages = newChatMessages
+                    )
+                }
+            }
         }
+    }
+
+    fun sendChatMessage(virtualAddress: InetAddress, message: String) {
+        val sendTime: Long = System.currentTimeMillis()
+        viewModelScope.launch {
+            db.messageDao().addMessage(Message(0, sendTime, message, "Me", chatName))
+        }
+        appServer.sendChatMessage(virtualAddress, sendTime, message)
     }
 }

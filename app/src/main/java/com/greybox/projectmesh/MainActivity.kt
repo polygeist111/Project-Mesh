@@ -267,13 +267,13 @@ fun BottomNavApp(di: DI,
     }
 }
 
-fun isipvalid(theip:String): Boolean{//this is a function for checking if the IP address is valid, if this is redundant let me know and I'll make changes
+/*fun isipvalid(theip:String): Boolean{//this is a function for checking if the IP address is valid, if this is redundant let me know and I'll make changes
     try{
         InetAddress.getByName(theip)
         return true
     }catch(e: Exception)
     { return false}
-}
+}*/
 
 @SuppressLint("ServiceCast", "ObsoleteSdkInt")
 fun isBatteryOptimizationDisabled(context: Context): Boolean {

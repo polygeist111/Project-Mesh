@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -26,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.unit.dp
@@ -207,7 +209,7 @@ fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = if (sentBySelf) Arrangement.End else Arrangement.Start
             ) {
-                MessageBubble(chatMessage = chatMessage, messageContent = {
+                MessageBubble(chatMessage = chatMessage, sentBySelf = sentBySelf, messageContent = {
                     LongPressCopyableText(
                         context = context,
                         text = "",
@@ -288,10 +290,18 @@ fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit) {
 ////    }
 
 @Composable
-fun MessageBubble(chatMessage: Message, messageContent: @Composable () -> Unit, sender: String, modifier: Modifier){
-    Card(
+fun MessageBubble(chatMessage: Message, sentBySelf: Boolean, messageContent: @Composable () -> Unit, sender: String, modifier: Modifier){
+    ElevatedCard(
+        //backgroundColor: color = MaterialTheme.colorScheme.surfaceVariant,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = if(sentBySelf){
+                Color.Cyan
+            }else{
+                MaterialTheme.colorScheme.surfaceVariant
+
+            }
+//            backgroundColor: Color =
+//            //containerColor = MaterialTheme.colorScheme.surfaceVariant,
         ),
         modifier = modifier
             .size(width = 200.dp, height = 100.dp)

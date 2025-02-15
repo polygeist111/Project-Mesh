@@ -10,6 +10,7 @@ import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.messaging.network.MessageNetworkHandler
 import com.greybox.projectmesh.extension.updateItem
+import com.greybox.projectmesh.testing.TestDeviceService
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback
 import com.ustadmobile.meshrabiya.util.FileSerializer
 import com.ustadmobile.meshrabiya.util.InetAddressSerializer
@@ -608,6 +609,23 @@ class AppServer(
         scope.launch {
             try {
                 Log.d("AppServer", "chat message: $message")
+                if (TestDeviceService.isTestDevice(address)) {
+                    // Create an echo response from our test device
+                    val testMessage = Message(
+                        id = 0,
+                        dateReceived = System.currentTimeMillis(),
+                        content = "Echo: $message",
+                        sender = TestDeviceService.TEST_DEVICE_NAME,
+                        chat = TestDeviceService.TEST_DEVICE_IP
+                    )
+
+                    // Store the echo response in our database
+                    db.messageDao().addMessage(testMessage)
+                    Log.d("AppServer", "Test device echoed message: $message")
+                    return@launch
+                }
+
+                //original code for real devices
                 val httpUrl = HttpUrl.Builder()
                     .scheme("http")
                     .host(address.hostAddress)
@@ -617,11 +635,14 @@ class AppServer(
                     .addQueryParameter("time", time.toString())
                     .addQueryParameter("senderIp", localVirtualAddr.hostAddress)
                     .build()
+
                 Log.d("Appserver", "HTTP URL: $httpUrl")
                 val request = Request.Builder()
                     .url(httpUrl)
                     .build()
+
                 Log.d("AppServer", "Request: $request")
+
                 val response = httpClient.newCall(request).execute()
                 Log.d("AppServer", "Response: $response")
             }

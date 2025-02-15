@@ -1,5 +1,6 @@
 package com.greybox.projectmesh.viewModel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.Flow
@@ -11,6 +12,7 @@ import com.greybox.projectmesh.server.AppServer
 import com.ustadmobile.meshrabiya.ext.addressToByteArray
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.wifi.state.WifiStationState
+import com.greybox.projectmesh.testing.TestDeviceEntry
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.kodein.di.instance
@@ -28,22 +30,33 @@ class NetworkScreenViewModel(di:DI): ViewModel() {
     // launch a coroutine
     init {
         viewModelScope.launch {
-            // collect the state flow of the AndroidVirtualNode
-            node.state.collect{
+            //create test device entry
+            val testEntry = TestDeviceEntry.createTestEntry()
+
+            node.state.collect{ nodeState ->
+                // get the test device entry
+                // Combine real nodes with test device
+                val allNodesWithTest = nodeState.originatorMessages.toMutableMap()
+                allNodesWithTest[testEntry.first] = testEntry.second
+
+                Log.d("NetworkScreenViewModel", "Updating nodes. Count: ${allNodesWithTest.size}")
+                Log.d("NetworkScreenViewModel", "Test device address: ${testEntry.first}")
+                Log.d("NetworkScreenViewModel", "All nodes: ${allNodesWithTest.keys}")
+
                 // update the UI state with the new state
                 _uiState.update { prev -> prev.copy(
                     // update all nodes
-                    allNodes = it.originatorMessages,
+                    allNodes = allNodesWithTest,
+                    //allNodes = it.originatorMessages,
                     // update the ssid of the connecting station
                     connectingInProgressSsid =
-                    if (it.wifiState.wifiStationState.status == WifiStationState.Status.CONNECTING){
-                        it.wifiState.wifiStationState.config?.ssid
-                    }
-                    else{
-                        null
-                    }
-                )
-                }
+                        if (nodeState.wifiState.wifiStationState.status == WifiStationState.Status.CONNECTING){
+                            nodeState.wifiState.wifiStationState.config?.ssid
+                        }
+                        else{
+                            null
+                        }
+                )}
             }
         }
     }
@@ -54,5 +67,4 @@ class NetworkScreenViewModel(di:DI): ViewModel() {
             appServer.sendDeviceName(inetAddress)
         }
     }
-
 }

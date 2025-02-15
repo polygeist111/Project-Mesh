@@ -52,6 +52,7 @@ import com.greybox.projectmesh.views.PingScreen
 import com.greybox.projectmesh.views.ReceiveScreen
 import com.greybox.projectmesh.views.SelectDestNodeScreen
 import com.greybox.projectmesh.views.SendScreen
+import com.greybox.projectmesh.testing.TestDeviceService
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.android.closestDI
@@ -68,6 +69,10 @@ class MainActivity : ComponentActivity(), DIAware {
         super.onCreate(savedInstanceState)
         val settingPref: SharedPreferences by di.instance(tag="settings")
         val appServer: AppServer by di.instance()
+
+        //Initialize test device:
+        TestDeviceService.initialize()
+        Log.d("MainActivity", "Test device initialized")
         setContent {
             // check if the default directory exist (Download/Project Mesh)
             val defaultDirectory = File(

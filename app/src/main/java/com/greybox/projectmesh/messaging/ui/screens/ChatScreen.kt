@@ -76,7 +76,8 @@ fun ChatScreen(
         Row(modifier = Modifier
             .fillMaxWidth()
             .align(Alignment.BottomCenter)
-            .padding(4.dp)) {
+            .padding(4.dp)) {//attach a button for connecting to file picker
+
             TextField(modifier = Modifier.weight(3f),
                 value = textMessage,
                 onValueChange = {

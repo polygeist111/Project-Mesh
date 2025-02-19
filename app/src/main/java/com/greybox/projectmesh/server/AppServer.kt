@@ -617,7 +617,7 @@ class AppServer(
                         content = "Echo: $message",
                         sender = TestDeviceService.TEST_DEVICE_NAME,
                         chat = TestDeviceService.TEST_DEVICE_IP,
-                        file = null
+                        //file = null
                     )
 
                     // Store the echo response in our database

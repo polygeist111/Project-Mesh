@@ -213,7 +213,7 @@ class AppServer(
         val path = session.uri
         // check if the path is for download, indicating the request wants to download a file
             // 1) /myinfo route
-            if (path.startsWith("/myinfo")) {
+        if (path.startsWith("/myinfo")) {
                 return handleMyInfoRequest()
             }
             // 2) /download/

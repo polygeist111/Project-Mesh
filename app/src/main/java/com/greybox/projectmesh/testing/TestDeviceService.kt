@@ -2,7 +2,9 @@ package com.greybox.projectmesh.testing
 
 import android.util.Log
 import com.greybox.projectmesh.GlobalApp
+import com.greybox.projectmesh.GlobalApp.GlobalUserRepo.userRepository
 import com.greybox.projectmesh.messaging.data.entities.Message
+import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 
 class TestDeviceService {
@@ -15,8 +17,10 @@ class TestDeviceService {
         fun initialize() {
             try {
                 if (!isInitialized) {
+                    runBlocking {
+                        userRepository.insertOrUpdateUserByIp(TEST_DEVICE_IP, TEST_DEVICE_NAME)
+                    }
                     // Register our test device with the DeviceInfoManager
-                    GlobalApp.DeviceInfoManager.addDevice(TEST_DEVICE_IP, TEST_DEVICE_NAME)
                     isInitialized = true
                     Log.d("TestDeviceService", "Test device initialized successfully with IP: $TEST_DEVICE_IP")
                 }

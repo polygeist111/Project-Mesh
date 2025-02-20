@@ -17,6 +17,7 @@ import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.kodein.di.instance
 import java.net.InetAddress
 
@@ -25,9 +26,15 @@ class ChatScreenViewModel(
     virtualAddress: InetAddress
 ): ViewModel() {
     // _uiState will be updated whenever there is a change in the UI state
-    private val deviceName = GlobalApp.DeviceInfoManager.getDeviceName(virtualAddress) ?: "Unknown"
+    private val ipStr: String = virtualAddress.hostAddress
+    private val userEntity = runBlocking {
+        GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)
+    }
+
+    // Use the retrieved user name (fallback to "Unknown" if no user is found)
+    private val deviceName = userEntity?.name ?: "Unknown"
+    private val chatName: String = userEntity?.name ?: ipStr
     private val addressDotNotation = virtualAddress.requireAddressAsInt().addressToDotNotation()
-    private val chatName: String = GlobalApp.DeviceInfoManager.getChatName(virtualAddress)
     private val _uiState = MutableStateFlow(
         ChatScreenModel(
             deviceName = deviceName,

@@ -53,6 +53,7 @@ import com.greybox.projectmesh.views.ReceiveScreen
 import com.greybox.projectmesh.views.SelectDestNodeScreen
 import com.greybox.projectmesh.views.SendScreen
 import com.greybox.projectmesh.views.OnboardingScreen
+import com.greybox.projectmesh.testing.TestDeviceService
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.android.closestDI
@@ -69,6 +70,10 @@ class MainActivity : ComponentActivity(), DIAware {
         super.onCreate(savedInstanceState)
         val settingPref: SharedPreferences by di.instance(tag="settings")
         val appServer: AppServer by di.instance()
+
+        //Initialize test device:
+        TestDeviceService.initialize()
+        Log.d("MainActivity", "Test device initialized")
         // 1) Check if this is the first launch
         val meshPrefs = getSharedPreferences("project_mesh_prefs", MODE_PRIVATE)
         val hasRunBefore = meshPrefs.getBoolean("hasRunBefore", false)

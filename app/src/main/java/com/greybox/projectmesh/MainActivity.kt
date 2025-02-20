@@ -52,6 +52,7 @@ import com.greybox.projectmesh.views.PingScreen
 import com.greybox.projectmesh.views.ReceiveScreen
 import com.greybox.projectmesh.views.SelectDestNodeScreen
 import com.greybox.projectmesh.views.SendScreen
+import com.greybox.projectmesh.views.OnboardingScreen
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.android.closestDI
@@ -68,6 +69,18 @@ class MainActivity : ComponentActivity(), DIAware {
         super.onCreate(savedInstanceState)
         val settingPref: SharedPreferences by di.instance(tag="settings")
         val appServer: AppServer by di.instance()
+        // 1) Check if this is the first launch
+        val meshPrefs = getSharedPreferences("project_mesh_prefs", MODE_PRIVATE)
+        val hasRunBefore = meshPrefs.getBoolean("hasRunBefore", false)
+
+        // 2) Decide the initial route for the NavHost
+        //    If it's first run, go to "onboarding"; else use the currentScreen
+        val initialRoute = if (!hasRunBefore) {
+            "onboarding"
+        } else {
+            // Could be whatever your "normal" start route is (e.g. Home)
+            BottomNavItem.Home.route
+        }
         setContent {
             // check if the default directory exist (Download/Project Mesh)
             val defaultDirectory = File(
@@ -116,7 +129,7 @@ class MainActivity : ComponentActivity(), DIAware {
             var localeState by rememberSaveable { mutableStateOf(Locale.getDefault()) }
 
             // Remember the current screen across recompositions
-            var currentScreen by rememberSaveable { mutableStateOf(BottomNavItem.Home.route) }
+            var currentScreen by rememberSaveable { mutableStateOf(initialRoute) }
             LaunchedEffect(restartServerKey) {
                 if (restartServerKey > 0){
                     appServer.restart()
@@ -251,6 +264,18 @@ fun BottomNavApp(di: DI,
                     onSaveToFolderChange = onSaveToFolderChange
                 )
             }
+
+            composable("onboarding") {
+                OnboardingScreen(
+                    onComplete = {
+                        // e.g. navigate to "home"
+                        navController.navigate("home") {
+                            popUpTo("onboarding") { inclusive = true }
+                        }
+                    }
+                )
+            }
+
 
             //I'm guessing I can put my Chat button here?
             composable(BottomNavItem.Chat.route) {

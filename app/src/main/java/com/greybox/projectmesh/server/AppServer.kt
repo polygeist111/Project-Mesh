@@ -38,13 +38,15 @@ import java.net.InetAddress
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import com.greybox.projectmesh.extension.getUriNameAndSize
+import com.greybox.projectmesh.user.UserEntity
+import com.greybox.projectmesh.user.UserRepository
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import java.net.URLDecoder
-
+import kotlinx.coroutines.runBlocking
 /*
 This File is the Server for transferring files
 The Meshrabiya test app uses NanoHttpD as the server, OkHttp as the client
@@ -59,6 +61,7 @@ class AppServer(
     private val json: Json,
     private val db: MeshDatabase,
     override val di: DI,
+    private val userRepository: UserRepository
 ) : NanoHTTPD(port), Closeable, DIAware {
 
     private val logPrefix: String = "[AppServer - $name] "
@@ -70,6 +73,35 @@ class AppServer(
     }
 
 
+    private fun handleMyInfoRequest(): Response {
+        // 1) Get local UUID from SharedPreferences (already set during onboarding),
+        //    or any other approach you use to store the local device's UUID.
+        val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
+        val localUuid = sharedPrefs.getString("UUID", null)
+        if (localUuid == null) {
+            // If no local UUID, we can't identify ourselves
+            return newFixedLengthResponse(
+                Response.Status.INTERNAL_ERROR, "application/json",
+                """{"error":"No local UUID found"}"""
+            )
+        }
+
+        // 2) Fetch user info from DB
+        val localUser = runBlocking {
+            userRepository.getUser(localUuid) // e.g. "UserEntity(uuid, name, lastSeen, ...)"
+        }
+        if (localUser == null) {
+            // If we never inserted a local user row, onboarding might not be done
+            return newFixedLengthResponse(
+                Response.Status.INTERNAL_ERROR, "application/json",
+                """{"error":"No local user record in DB"}"""
+            )
+        }
+
+        // 3) Encode as JSON and return
+        val userJson = json.encodeToString(UserEntity.serializer(), localUser)
+        return newFixedLengthResponse(Response.Status.OK, "application/json", userJson)
+    }
 
     // Restart method to stop and start the server with an optional new IP address
     fun restart() {
@@ -180,7 +212,12 @@ class AppServer(
         // Extracts the URI from the session, which is the path of the request
         val path = session.uri
         // check if the path is for download, indicating the request wants to download a file
-        if(path.startsWith("/download/")) {
+            // 1) /myinfo route
+            if (path.startsWith("/myinfo")) {
+                return handleMyInfoRequest()
+            }
+            // 2) /download/
+            else if (path.startsWith("/download/")) {
             // Extracts the transfer ID (Integer)from the path by taking the last part of the path
             val xferId = path.substringAfterLast("/").toInt()
             // Find the outgoing transfer with the given xferId
@@ -272,17 +309,23 @@ class AppServer(
             // if size is missing or invalid, then defaults to -1
             val size = searchParams["size"]?.toInt() ?: -1
             val fromAddr = searchParams["from"]
-            val devicename = fromAddr?.let { GlobalApp.DeviceInfoManager.getDeviceName(it) }
+
 
             // if everything is ready, create a new incomingTransferInfo object that contains all the
             // info extract from the query parameters
             if(id != null && filename != null && fromAddr != null) {
+                val ipStr = fromAddr
+                val userName = runBlocking {
+                    val user = userRepository.getUserByIp(ipStr)
+                    user?.name ?: "Unknown Device"
+                }
+
                 val incomingTransfer = IncomingTransferInfo(
                     id = id.toInt(),
                     fromHost = InetAddress.getByName(fromAddr),
                     name = filename,
                     size = size,
-                    deviceName = devicename ?: ""
+                    deviceName = userName
                 )
                 /*
                  update the _incomingTransfers list with the new incoming transfer
@@ -320,11 +363,6 @@ class AppServer(
             }
             // return "OK", indicating the decline request has been handled
             return newFixedLengthResponse("OK")
-        }
-        else if(path.startsWith("/getDeviceName")){
-            Log.d("AppServer", "local ip address: ${localVirtualAddr.hostAddress}")
-            val settingPref: SharedPreferences by di.instance(tag="settings")
-            return newFixedLengthResponse(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
         }
         else if(path.startsWith("/chat")) {
             val chatMessage = session.parameters["chatMessage"]?.first()
@@ -366,7 +404,12 @@ class AppServer(
                 Log.d("AppServer", "Remote device name: $remoteDeviceName")
 
                 if (remoteDeviceName != null) {
-                    wifiAddress.hostAddress?.let { GlobalApp.DeviceInfoManager.addDevice(it, remoteDeviceName) }
+                    val ipStr = wifiAddress.hostAddress
+                    if (ipStr != null) {
+                        runBlocking {
+                            userRepository.insertOrUpdateUserByIp(ipStr, remoteDeviceName)
+                        }
+                    }
                 }
             }
             catch (e: Exception) {
@@ -374,6 +417,27 @@ class AppServer(
                 Log.e("AppServer", "Failed to get device name from " +
                         wifiAddress.hostAddress
                 )
+            }
+        }
+    }
+    fun requestRemoteUserInfo(remoteAddr: InetAddress, port: Int = DEFAULT_PORT) {
+        scope.launch {
+            try {
+                val url = "http://${remoteAddr.hostAddress}:$port/myinfo"
+                val request = Request.Builder().url(url).build()
+                val response = httpClient.newCall(request).execute()
+                val userJson = response.body?.string()
+                response.close()
+
+                if (!userJson.isNullOrEmpty()) {
+                    // Decode JSON into a UserEntity
+                    val remoteUser = json.decodeFromString(UserEntity.serializer(), userJson)
+                    // Insert or update in DB
+                    userRepository.insertOrUpdateUser(remoteUser.uuid, remoteUser.name)
+                    // Possibly store lastSeen, remote IP, etc., if your entity includes those fields
+                }
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to fetch /myinfo from $remoteAddr", e)
             }
         }
     }

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.kodein.di.DI
 import com.greybox.projectmesh.server.AppServer
+import com.greybox.projectmesh.user.UserRepository
 import com.ustadmobile.meshrabiya.ext.addressToByteArray
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.kodein.di.instance
 import java.net.InetAddress
 
@@ -28,7 +30,11 @@ class PingScreenViewModel(
     // _uiState will be updated whenever there is a change in the UI state
     private val _uiState = MutableStateFlow(
         PingScreenModel(
-            deviceName = GlobalApp.DeviceInfoManager.getDeviceName(virtualAddress),
+            deviceName = runBlocking {
+                GlobalApp.GlobalUserRepo.userRepository.getUserByIp(virtualAddress.hostAddress)
+                    ?.name
+                    ?: "Unknown"
+            },
             virtualAddress = virtualAddress
         )
     )

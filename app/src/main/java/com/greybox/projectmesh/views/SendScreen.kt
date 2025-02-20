@@ -26,7 +26,9 @@ import com.greybox.projectmesh.R
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.WhiteButton
 import com.greybox.projectmesh.model.SendScreenModel
+import com.greybox.projectmesh.user.UserRepository
 import com.greybox.projectmesh.viewModel.SendScreenViewModel
+import kotlinx.coroutines.runBlocking
 import org.kodein.di.compose.localDI
 
 @Composable
@@ -86,11 +88,13 @@ fun DisplayAllPendingTransfers(
                         val byteTransferred: Int = transfer.transferred
                         val byteSize: Int = transfer.size
                         val toHostAddress = transfer.toHost.hostAddress
-                        val deviceName = toHostAddress?.let {
-                            GlobalApp.DeviceInfoManager.getDeviceName(it)
+                        val deviceName = toHostAddress?.let { ipStr ->
+                            runBlocking {
+                                GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)?.name
+                            }
                         }
-                        if (deviceName != null){
-                            Text("To ${deviceName}(${toHostAddress})")
+                        if (deviceName != null) {
+                            Text("To $deviceName($toHostAddress)")
                         }
                         else{
                             Text("To Loading...(${toHostAddress})")

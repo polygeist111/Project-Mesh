@@ -49,13 +49,18 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.messaging.data.entities.Message
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.runBlocking
 import org.kodein.di.Copy
 import org.kodein.di.DI
 import kotlin.io.path.moveTo
+import com.greybox.projectmesh.user.UserRepository
+import com.greybox.projectmesh.user.UserDao
+import com.greybox.projectmesh.user.UserEntity
 
 @Composable
 fun ChatScreen(
@@ -124,10 +129,15 @@ fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit) {
         items( // todo
             items = uiState.allChatMessages
         ){ chatMessage ->
-            val sender: String = if(chatMessage.sender == "Me")
+            val sender: String = if (chatMessage.sender == "Me") {
                 "Me"
-            else
-                (GlobalApp.DeviceInfoManager.getDeviceName(uiState.virtualAddress) ?: "Loading...")
+            } else {
+                val ipStr = uiState.virtualAddress.hostAddress
+                val user = runBlocking {
+                    GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)
+                }
+                user?.name ?: "Loading..."
+            }
 
             val sentBySelf = chatMessage.sender == "Me"
             Row(

@@ -2,6 +2,7 @@
 package com.greybox.projectmesh.messaging.network
 
 import android.util.Log
+import androidx.compose.runtime.remember
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.server.AppServer
@@ -14,6 +15,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.kodein.di.DI
 import org.kodein.di.DIAware
+import com.greybox.projectmesh.user.UserRepository
+import kotlinx.coroutines.runBlocking
 
 class MessageNetworkHandler(
     private val httpClient: OkHttpClient,
@@ -21,7 +24,6 @@ class MessageNetworkHandler(
     override val di: DI
 ) : DIAware {
     private val scope = CoroutineScope(Dispatchers.IO)
-
     fun sendChatMessage(address: InetAddress, time: Long, message: String) {
         scope.launch {
             try {
@@ -53,9 +55,14 @@ class MessageNetworkHandler(
             time: Long,
             senderIp: InetAddress
         ): Message {
-            val sender = GlobalApp.DeviceInfoManager.getDeviceName(senderIp) ?: "Unknown"
-            val chatName = GlobalApp.DeviceInfoManager.getChatName(senderIp)
-
+            val ipStr = senderIp.hostAddress
+            val user = runBlocking {GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)  }// might be null if unknown
+            val sender = user?.name ?: "Unknown"
+            val chatName = if (user != null) {
+                "${user.name} ($ipStr)"
+            } else {
+                ipStr // fallback if no record in DB
+            }
             return Message(
                 id = 0,
                 dateReceived = time,

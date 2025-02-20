@@ -28,7 +28,7 @@ import org.kodein.di.singleton
 import java.io.File
 import java.net.InetAddress
 import java.time.Duration
-
+import com.greybox.projectmesh.user.UserRepository
 /*
 initialize global variables and DI(dependency injection) container
 why use DI?
@@ -37,7 +37,7 @@ All dependencies are defined in one place, which makes it easier to manage and t
 class GlobalApp : Application(), DIAware {
     // it is an instance of Preferences.key<Int>, used to interact with "DataStore"
     private val addressKey = intPreferencesKey("virtual_node_address")
-    data object DeviceInfoManager {
+    /*data object DeviceInfoManager {
         // Global HashMap to store IP-DeviceName mapping
         val deviceNameMap = HashMap<String, String?>()
 
@@ -64,6 +64,19 @@ class GlobalApp : Application(), DIAware {
 //            val addressDotNotation = inetAddress.hostAddress
 //            return "$deviceName ($addressDotNotation)"
         }
+    }*/
+    object GlobalUserRepo {
+        // Lateinit or lazy property
+        lateinit var userRepository: UserRepository
+        lateinit var prefs: SharedPreferences
+    }
+    override fun onCreate() {
+        super.onCreate()
+        // Once you have the DI container, retrieve the userRepository instance:
+        val repo: UserRepository by di.instance()
+        GlobalUserRepo.userRepository = repo
+        val settingPref: SharedPreferences by di.instance(tag = "settings")
+        GlobalUserRepo.prefs = settingPref
     }
     private val diModule = DI.Module("project_mesh") {
         // create a single instance of "InetAddress" for the entire lifetime of the application
@@ -149,6 +162,9 @@ class GlobalApp : Application(), DIAware {
         bind<SharedPreferences>(tag = "settings") with singleton {
             applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         }
+        bind<UserRepository>() with singleton {
+            UserRepository(instance<MeshDatabase>().userDao())
+        }
 
         bind<AppServer>() with singleton {
             val node: AndroidVirtualNode = instance()
@@ -161,7 +177,8 @@ class GlobalApp : Application(), DIAware {
                 receiveDir = instance(tag = TAG_RECEIVE_DIR),
                 json = instance(),
                 di = di,
-                db = instance()
+                db = instance(),
+                userRepository = instance()
             )
         }
 

@@ -22,7 +22,8 @@ import androidx.compose.ui.unit.dp
 import com.greybox.projectmesh.GlobalApp
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.vnet.VirtualNode
-
+import kotlinx.coroutines.runBlocking
+import com.greybox.projectmesh.user.UserRepository
 @Composable
 // Display a single connected wifi station
 fun WifiListItem(
@@ -53,7 +54,10 @@ fun WifiListItem(
         },
         headlineContent = {
             // obtain the device name according to the ip address
-            val device = GlobalApp.DeviceInfoManager.getDeviceName(wifiAddressDotNotation)
+            val user = runBlocking {
+                GlobalApp.GlobalUserRepo.userRepository.getUserByIp(wifiAddressDotNotation)
+            }
+            val device = user?.name ?: "Unknown"
             if(device != null){
                 Text(text= device, fontWeight = FontWeight.Bold)
             }

@@ -22,5 +22,6 @@ interface UserDao {
 
     @Query("SELECT * FROM users WHERE address = :ip LIMIT 1")
     suspend fun getUserByIp(ip: String): UserEntity?
-
+    @Query("SELECT * FROM users WHERE address IS NOT NULL")
+    suspend fun getAllConnectedUsers(): List<UserEntity>
 }

@@ -48,6 +48,7 @@ import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import java.net.URLDecoder
 import kotlinx.coroutines.runBlocking
+import okhttp3.RequestBody.Companion.toRequestBody
 /*
 This File is the Server for transferring files
 The Meshrabiya test app uses NanoHttpD as the server, OkHttp as the client
@@ -216,6 +217,26 @@ class AppServer(
             // 1) /myinfo route
         if (path.startsWith("/myinfo")) {
                 return handleMyInfoRequest()
+            }
+            else if (path.startsWith("/updateUserInfo")) {
+                // Read the POST body (assumed JSON)
+                val postData = session.inputStream.bufferedReader().readText()
+                try {
+                    // Decode the JSON payload into a UserEntity
+                    val updatedUser = json.decodeFromString(UserEntity.serializer(), postData)
+                    // Update or insert the user info in the database
+                    runBlocking {
+                        userRepository.insertOrUpdateUser(updatedUser.uuid, updatedUser.name)
+                    }
+                    return newFixedLengthResponse(
+                        Response.Status.OK, "application/json", """{"status":"OK"}"""
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return newFixedLengthResponse(
+                        Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid user data"}"""
+                    )
+                }
             }
             // 2) /download/
             else if (path.startsWith("/download/")) {
@@ -421,27 +442,7 @@ class AppServer(
             }
         }
     }
-    fun requestRemoteUserInfo(remoteAddr: InetAddress, port: Int = DEFAULT_PORT) {
-        scope.launch {
-            try {
-                val url = "http://${remoteAddr.hostAddress}:$port/myinfo"
-                val request = Request.Builder().url(url).build()
-                val response = httpClient.newCall(request).execute()
-                val userJson = response.body?.string()
-                response.close()
 
-                if (!userJson.isNullOrEmpty()) {
-                    // Decode JSON into a UserEntity
-                    val remoteUser = json.decodeFromString(UserEntity.serializer(), userJson)
-                    // Insert or update in DB
-                    userRepository.insertOrUpdateUser(remoteUser.uuid, remoteUser.name)
-                    // Possibly store lastSeen, remote IP, etc., if your entity includes those fields
-                }
-            } catch (e: Exception) {
-                Log.e("AppServer", "Failed to fetch /myinfo from $remoteAddr", e)
-            }
-        }
-    }
 
     /**
      * Add an outgoing transfer. This is done using a Uri so that we don't have to make our own
@@ -713,6 +714,66 @@ class AppServer(
             catch (e: Exception) {
                 e.printStackTrace()
                 Log.d("AppServer", "Failed to send message to ${address.hostAddress}")
+            }
+        }
+    }
+    fun pushUserInfoTo(remoteAddr: InetAddress, port: Int = DEFAULT_PORT) {
+        scope.launch {
+            // Retrieve your local user info (assume you store your UUID in SharedPreferences)
+            val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
+            val localUuid = sharedPrefs.getString("UUID", null)
+            if (localUuid == null) {
+                Log.e("AppServer", "Local UUID not found, cannot push user info")
+                return@launch
+            }
+            val localUser = runBlocking { userRepository.getUser(localUuid) }
+            if (localUser == null) {
+                Log.e("AppServer", "Local user info not found in DB, cannot push user info")
+                return@launch
+            }
+
+            // Convert the user info to JSON
+            val userJson = json.encodeToString(UserEntity.serializer(), localUser)
+            val url = "http://${remoteAddr.hostAddress}:$port/updateUserInfo"
+            val requestBody = userJson.toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build()
+
+            Log.d("AppServer", "Pushing user info to $url with payload: $userJson")
+
+            try {
+                val response = httpClient.newCall(request).execute()
+                // Log the response code and body (if any)
+                val responseBody = response.body?.string()
+                Log.d("AppServer", "Response from ${remoteAddr.hostAddress}: Code=${response.code}, Body=$responseBody")
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to push user info to ${remoteAddr.hostAddress}", e)
+            }
+        }
+    }
+    fun requestRemoteUserInfo(remoteAddr: InetAddress, port: Int = DEFAULT_PORT) {
+        scope.launch {
+            try {
+                val url = "http://${remoteAddr.hostAddress}:$port/myinfo"
+                val request = Request.Builder().url(url).build()
+                Log.d("AppServer", "Requesting remote user info from $url")
+
+                val response = httpClient.newCall(request).execute()
+                val userJson = response.body?.string()
+                Log.d("AppServer", "Received user info from ${remoteAddr.hostAddress}: $userJson")
+                response.close()
+
+                if (!userJson.isNullOrEmpty()) {
+                    // Decode the JSON into a UserEntity
+                    val remoteUser = json.decodeFromString(UserEntity.serializer(), userJson)
+                    // Update local DB
+                    userRepository.insertOrUpdateUser(remoteUser.uuid, remoteUser.name)
+                    Log.d("AppServer", "Updated local DB with remote user info: $remoteUser")
+                }
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to fetch /myinfo from ${remoteAddr.hostAddress}", e)
             }
         }
     }

@@ -33,6 +33,9 @@ class UserRepository(private val userDao: UserDao) {
     suspend fun getUser(uuid: String): UserEntity? {
         return userDao.getUserByUuid(uuid)
     }
+    suspend fun getAllConnectedUsers(): List<UserEntity> {
+        return userDao.getAllConnectedUsers()
+    }
 
     suspend fun hasUser(uuid: String): Boolean {
         return userDao.hasWithID(uuid)

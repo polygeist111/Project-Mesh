@@ -63,6 +63,10 @@ import java.io.File
 import java.util.Locale
 import java.net.InetAddress
 import com.greybox.projectmesh.messaging.ui.screens.ChatNodeListScreen
+import com.greybox.projectmesh.user.UserRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity(), DIAware {
     override val di by closestDI()
@@ -193,6 +197,7 @@ fun BottomNavApp(di: DI,
                  onSaveToFolderChange: (String) -> Unit
 ) = withDI(di)
 {
+    val appServer: AppServer by di.instance()
 
     val navController = rememberNavController()
     // Observe the current route directly through the back stack entry
@@ -260,15 +265,49 @@ fun BottomNavApp(di: DI,
                 onAutoFinishChange = onAutoFinishChange
             ) }
             composable(BottomNavItem.Settings.route) {
+                // Retrieve required instances from DI with explicit types
+                val settingsPrefs: SharedPreferences by di.instance<SharedPreferences>(tag = "settings")
+                val userRepository: UserRepository by di.instance<UserRepository>()
+
                 SettingsScreen(
                     onThemeChange = onThemeChange,
                     onLanguageChange = onLanguageChange,
                     onRestartServer = onRestartServer,
-                    onDeviceNameChange = onDeviceNameChange,
+                    onDeviceNameChange = { newDeviceName ->
+                        Log.d("BottomNavApp", "Device name changed to: $newDeviceName")
+
+                        // Retrieve the local UUID from SharedPreferences
+                        val localUuid = settingsPrefs.getString("UUID", null)
+                        if (localUuid != null) {
+                            // Update the local user info and broadcast in an IO coroutine
+                            CoroutineScope(Dispatchers.IO).launch {
+                                // 1. Update the local user in the database
+                                userRepository.insertOrUpdateUser(localUuid, newDeviceName)
+                                Log.d("BottomNavApp", "Updated local user with new name: $newDeviceName")
+
+                                // 2. Retrieve all connected users (those with a non-null address)
+                                val connectedUsers = userRepository.getAllConnectedUsers()
+                                connectedUsers.forEach { user ->
+                                    user.address?.let { ip ->
+                                        try {
+                                            val remoteAddr = InetAddress.getByName(ip)
+                                            Log.d("BottomNavApp", "Broadcasting updated info to: $ip")
+                                            appServer.pushUserInfoTo(remoteAddr)
+                                        } catch (e: Exception) {
+                                            Log.e("BottomNavApp", "Error processing IP address: $ip", e)
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            Log.e("BottomNavApp", "Local UUID not found; cannot update user")
+                        }
+                    },
                     onAutoFinishChange = onAutoFinishChange,
-                    onSaveToFolderChange = onSaveToFolderChange
+                    onSaveToFolderChange = onSaveToFolderChange,
                 )
             }
+
 
             composable("onboarding") {
                 OnboardingScreen(
@@ -287,7 +326,18 @@ fun BottomNavApp(di: DI,
                 // Show a list of nodes, let the user pick one
                 ChatNodeListScreen(
                     onNodeSelected = { ip ->
-                        // Once a node is tapped, navigate to the actual chat
+                        val remoteAddr = InetAddress.getByName(ip)
+                        Log.d("ChatHandshake", "Node selected with IP: $ip, remoteAddr: $remoteAddr")
+
+                        // Request remote user info
+                        Log.d("ChatHandshake", "Requesting remote user info from: ${remoteAddr.hostAddress}")
+                        appServer.requestRemoteUserInfo(remoteAddr)
+
+                        // Push local user info to remote node
+                        Log.d("ChatHandshake", "Pushing local user info to: ${remoteAddr.hostAddress}")
+                        appServer.pushUserInfoTo(remoteAddr)
+
+                        // Navigate to the chat screen
                         navController.navigate("chatScreen/$ip")
                     }
                 )

@@ -1,7 +1,9 @@
 package com.greybox.projectmesh.views
 
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
@@ -51,9 +52,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.R
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.GradientButton
+import com.greybox.projectmesh.buttonStyle.GradientLongButton
 import com.greybox.projectmesh.ui.theme.AppTheme
+import com.greybox.projectmesh.viewModel.HomeScreenViewModel
+import com.greybox.projectmesh.viewModel.SendScreenViewModel
 import com.greybox.projectmesh.viewModel.SettingsScreenViewModel
 import org.kodein.di.compose.localDI
+import org.kodein.di.instance
 
 
 @Composable
@@ -62,7 +67,7 @@ fun SettingsScreen(
         factory = ViewModelFactory(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
-            vmFactory = { SettingsScreenViewModel(it) },
+            vmFactory = { di, savedStateHandle -> SettingsScreenViewModel(di, savedStateHandle)},
             defaultArgs = null,
         )),
     onThemeChange: (AppTheme) -> Unit,
@@ -72,6 +77,7 @@ fun SettingsScreen(
     onAutoFinishChange: (Boolean) -> Unit,
     onSaveToFolderChange: (String) -> Unit
 ) {
+    val di = localDI()
     val context = LocalContext.current
     val currTheme = viewModel.theme.collectAsState()
     val currLang = viewModel.lang.collectAsState()
@@ -80,6 +86,8 @@ fun SettingsScreen(
     val currSaveToFolder = viewModel.saveToFolder.collectAsState()
 
     var showDialog by remember { mutableStateOf(false) }
+
+    val settingPref: SharedPreferences by di.instance(tag="settings")
 
     Column(modifier = Modifier
         .fillMaxSize()
@@ -259,6 +267,29 @@ fun SettingsScreen(
                 GradientButton(text = folderNameToShow, onClick = {
                     directoryLauncher.launch(null)
                 })
+            }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R){
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(stringResource(id = R.string.concurrency), style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
+                HorizontalDivider(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(0.dp, 10.dp),
+                    thickness = 2.dp,
+                    color = Color.Red
+                )
+                Row(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(0.dp, 16.dp))
+                {
+                    GradientLongButton(
+                        text = stringResource(id = R.string.reset),
+                        onClick = {
+                            viewModel.updateConcurrencySettings(false, true)
+                            Toast.makeText(context, "Reset STA/AP Concurrency Status -> Unknown", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
             }
         }
     }

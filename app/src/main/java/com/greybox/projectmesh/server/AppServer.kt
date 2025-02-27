@@ -680,8 +680,7 @@ class AppServer(
                         dateReceived = System.currentTimeMillis(),
                         content = "Echo: $message",
                         sender = TestDeviceService.TEST_DEVICE_NAME,
-                        chat = TestDeviceService.TEST_DEVICE_IP,
-                        //file = null
+                        chat = TestDeviceService.TEST_DEVICE_NAME
                     )
 
                     // Store the echo response in our database

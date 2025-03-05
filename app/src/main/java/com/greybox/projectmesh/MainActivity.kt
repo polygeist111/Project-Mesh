@@ -3,6 +3,7 @@ package com.greybox.projectmesh
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
+import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
@@ -67,6 +68,7 @@ import com.greybox.projectmesh.user.UserRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+
 
 class MainActivity : ComponentActivity(), DIAware {
     override val di by closestDI()
@@ -282,7 +284,11 @@ fun BottomNavApp(di: DI,
                             // Update the local user info and broadcast in an IO coroutine
                             CoroutineScope(Dispatchers.IO).launch {
                                 // 1. Update the local user in the database
-                                userRepository.insertOrUpdateUser(localUuid, newDeviceName)
+                                userRepository.insertOrUpdateUser(
+                                    uuid = localUuid,
+                                    name = newDeviceName,
+                                    address = appServer.localVirtualAddr.hostAddress  // <-- local IP here
+                                )
                                 Log.d("BottomNavApp", "Updated local user with new name: $newDeviceName")
 
                                 // 2. Retrieve all connected users (those with a non-null address)
@@ -308,10 +314,14 @@ fun BottomNavApp(di: DI,
                 )
             }
 
-
             composable("onboarding") {
+                val context = LocalContext.current
                 OnboardingScreen(
                     onComplete = {
+
+                        val meshPrefs = context.getSharedPreferences("project_mesh_prefs", MODE_PRIVATE)
+                        meshPrefs.edit().putBoolean("hasRunBefore", true).apply()
+
                         // e.g. navigate to "home"
                         navController.navigate("home") {
                             popUpTo("onboarding") { inclusive = true }

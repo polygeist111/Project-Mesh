@@ -58,7 +58,7 @@ class AppServer(
     private val httpClient: OkHttpClient,   // OkHttp client for making HTTP requests
     name: String,
     port: Int = 0,  // Port for NanoHTTPD server, default is 0
-    private val localVirtualAddr: InetAddress,
+    val localVirtualAddr: InetAddress,
     private val receiveDir: File,   // Directory for receiving files
     private val json: Json,
     private val db: MeshDatabase,
@@ -76,34 +76,24 @@ class AppServer(
 
 
     private fun handleMyInfoRequest(): Response {
-        // 1) Get local UUID from SharedPreferences (already set during onboarding),
-        //    or any other approach you use to store the local device's UUID.
         val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
-        val localUuid = sharedPrefs.getString("UUID", null)
-        if (localUuid == null) {
-            // If no local UUID, we can't identify ourselves
-            return newFixedLengthResponse(
-                Response.Status.INTERNAL_ERROR, "application/json",
-                """{"error":"No local UUID found"}"""
-            )
-        }
+        val localUuid = sharedPrefs.getString("UUID", null) ?: return newFixedLengthResponse(
+            Response.Status.INTERNAL_ERROR, "application/json", """{"error":"No local UUID found"}"""
+        )
 
-        // 2) Fetch user info from DB
-        val localUser = runBlocking {
-            userRepository.getUser(localUuid) // e.g. "UserEntity(uuid, name, lastSeen, ...)"
-        }
-        if (localUser == null) {
-            // If we never inserted a local user row, onboarding might not be done
-            return newFixedLengthResponse(
-                Response.Status.INTERNAL_ERROR, "application/json",
-                """{"error":"No local user record in DB"}"""
-            )
-        }
+        val localUser = runBlocking { userRepository.getUser(localUuid) } ?: return newFixedLengthResponse(
+            Response.Status.INTERNAL_ERROR, "application/json", """{"error":"No local user record in DB"}"""
+        )
 
-        // 3) Encode as JSON and return
-        val userJson = json.encodeToString(UserEntity.serializer(), localUser)
+        // Add the local IP to the address field so it comes through in JSON
+        val localUserWithAddr = localUser.copy(
+            address = localVirtualAddr.hostAddress // or any IP you want to send
+        )
+
+        val userJson = json.encodeToString(UserEntity.serializer(), localUserWithAddr)
         return newFixedLengthResponse(Response.Status.OK, "application/json", userJson)
     }
+
 
     // Restart method to stop and start the server with an optional new IP address
     fun restart() {
@@ -226,7 +216,7 @@ class AppServer(
                     val updatedUser = json.decodeFromString(UserEntity.serializer(), postData)
                     // Update or insert the user info in the database
                     runBlocking {
-                        userRepository.insertOrUpdateUser(updatedUser.uuid, updatedUser.name)
+                        userRepository.insertOrUpdateUser(updatedUser.uuid, updatedUser.name, updatedUser.address)
                     }
                     return newFixedLengthResponse(
                         Response.Status.OK, "application/json", """{"status":"OK"}"""
@@ -413,35 +403,50 @@ class AppServer(
     fun sendDeviceName(wifiAddress: InetAddress, port: Int = 4242) {
         scope.launch {
             try {
-                Log.d("AppServer", "wifiAddress: $wifiAddress")
-                // Send local device's name to the remote device
-                val uri = "http://${wifiAddress.hostAddress}:$port/getDeviceName"
-                Log.d("AppServer", "URI: $uri")
+                val ipStr = wifiAddress.hostAddress
+                Log.d("AppServer", "wifiAddress: $ipStr")
+
+                // GET /getDeviceName
+                val uri = "http://$ipStr:$port/getDeviceName"
                 val request = Request.Builder().url(uri).build()
-                Log.d("AppServer", "Request: $request")
                 val response = httpClient.newCall(request).execute()
                 Log.d("AppServer", "Response: $response")
-                // Get the remote device's name
+
+                // The remote device's name
                 val remoteDeviceName = response.body?.string()
                 Log.d("AppServer", "Remote device name: $remoteDeviceName")
 
-                if (remoteDeviceName != null) {
-                    val ipStr = wifiAddress.hostAddress
-                    if (ipStr != null) {
-                        runBlocking {
-                            userRepository.insertOrUpdateUserByIp(ipStr, remoteDeviceName)
+                response.close() // best practice: close the response
+
+                if (!remoteDeviceName.isNullOrEmpty()) {
+                    runBlocking {
+                        val existingUser = userRepository.getUserByIp(ipStr)
+                        if (existingUser == null) {
+                            // No user? Insert with a temporary or random UUID
+                            val pseudoUuid = "temp-$ipStr"
+                            userRepository.insertOrUpdateUser(
+                                uuid = pseudoUuid,
+                                name = remoteDeviceName,
+                                address = ipStr
+                            )
+                        } else {
+                            // Already have a user? Update the name
+                            userRepository.insertOrUpdateUser(
+                                uuid = existingUser.uuid,
+                                name = remoteDeviceName,
+                                address = existingUser.address
+                            )
                         }
                     }
                 }
-            }
-            catch (e: Exception) {
+
+            } catch (e: Exception) {
                 e.printStackTrace()
-                Log.e("AppServer", "Failed to get device name from " +
-                        wifiAddress.hostAddress
-                )
+                Log.e("AppServer", "Failed to get device name from ${wifiAddress.hostAddress}")
             }
         }
     }
+
 
 
     /**
@@ -758,25 +763,36 @@ class AppServer(
             try {
                 val url = "http://${remoteAddr.hostAddress}:$port/myinfo"
                 val request = Request.Builder().url(url).build()
-                Log.d("AppServer", "Requesting remote user info from $url")
-
                 val response = httpClient.newCall(request).execute()
                 val userJson = response.body?.string()
-                Log.d("AppServer", "Received user info from ${remoteAddr.hostAddress}: $userJson")
                 response.close()
 
                 if (!userJson.isNullOrEmpty()) {
-                    // Decode the JSON into a UserEntity
+                    // 1) Decode JSON
                     val remoteUser = json.decodeFromString(UserEntity.serializer(), userJson)
-                    // Update local DB
-                    userRepository.insertOrUpdateUser(remoteUser.uuid, remoteUser.name)
-                    Log.d("AppServer", "Updated local DB with remote user info: $remoteUser")
+
+                    // 2) Optionally override with the *actual* IP of the request
+                    //    if you prefer forcing the discovered IP over the user’s self-reported IP.
+                    val remoteUserWithIp = remoteUser.copy(
+                        address = remoteAddr.hostAddress
+                    )
+
+                    // 3) Insert or update that IP in the DB
+                    //    (You’ll need a method that accepts the address parameter.)
+                    userRepository.insertOrUpdateUser(
+                        remoteUserWithIp.uuid,
+                        remoteUserWithIp.name,
+                        remoteUserWithIp.address
+                    )
+
+                    Log.d("AppServer", "Updated local DB with remote user info: $remoteUserWithIp")
                 }
             } catch (e: Exception) {
                 Log.e("AppServer", "Failed to fetch /myinfo from ${remoteAddr.hostAddress}", e)
             }
         }
     }
+
 
     // Stop the server and cancel any coroutine that are running within the CoroutineScope
     override fun close() {

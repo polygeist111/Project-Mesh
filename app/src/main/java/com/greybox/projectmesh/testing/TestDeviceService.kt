@@ -18,9 +18,25 @@ class TestDeviceService {
             try {
                 if (!isInitialized) {
                     runBlocking {
-                        userRepository.insertOrUpdateUserByIp(TEST_DEVICE_IP, TEST_DEVICE_NAME)
+                        val existingUser = userRepository.getUserByIp(TEST_DEVICE_IP)
+                        if (existingUser == null) {
+                            // If there's no user with this IP, insert one with a "temp" UUID
+                            val pseudoUuid = "temp-$TEST_DEVICE_IP"
+                            userRepository.insertOrUpdateUser(
+                                uuid = pseudoUuid,
+                                name = TEST_DEVICE_NAME,
+                                address = TEST_DEVICE_IP
+                            )
+                        } else {
+                            // If a user with this IP already exists, just update the name
+                            // (keeping the same uuid and address)
+                            userRepository.insertOrUpdateUser(
+                                uuid = existingUser.uuid,
+                                name = TEST_DEVICE_NAME,
+                                address = existingUser.address
+                            )
+                        }
                     }
-                    // Register our test device with the DeviceInfoManager
                     isInitialized = true
                     Log.d("TestDeviceService", "Test device initialized successfully with IP: $TEST_DEVICE_IP")
                 }

@@ -3,23 +3,34 @@ package com.greybox.projectmesh.views
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.GlobalApp
+import com.greybox.projectmesh.extension.getLocalIpFromDI
 import com.greybox.projectmesh.viewModel.OnboardingViewModel
+import org.kodein.di.compose.localDI
 
 @Composable
 fun OnboardingScreen(
     onComplete: () -> Unit
 ) {
-    // 1) Create a custom factory that uses the global singletons
+    // Retrieve DI instance
+    val di = localDI()
+    // Get the local IP from DI using our helper function
+    val localIp = getLocalIpFromDI(di)
+
+    // Create a custom ViewModelProvider.Factory that passes the local IP to OnboardingViewModel
     val factory = remember {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -27,7 +38,8 @@ fun OnboardingScreen(
                     @Suppress("UNCHECKED_CAST")
                     return OnboardingViewModel(
                         userRepository = GlobalApp.GlobalUserRepo.userRepository,
-                        prefs = GlobalApp.GlobalUserRepo.prefs
+                        prefs = GlobalApp.GlobalUserRepo.prefs,
+                        localIp = localIp  // pass the local IP here
                     ) as T
                 }
                 throw IllegalArgumentException("Unknown ViewModel class")
@@ -35,30 +47,21 @@ fun OnboardingScreen(
         }
     }
 
-    // 2) Pass that factory to viewModel(...)
+    // Obtain the OnboardingViewModel using the custom factory
     val onboardingViewModel: OnboardingViewModel = viewModel(factory = factory)
-
-    // 3) Use it as normal
     val uiState by onboardingViewModel.uiState.collectAsState()
 
-    Column {
+    // Build your UI
+    Column(modifier = Modifier.padding(16.dp)) {
         Text("Welcome to Project Mesh!")
         Spacer(modifier = Modifier.height(16.dp))
-
         Text("Please set your username:")
         TextField(
             value = uiState.username,
-            onValueChange = { newValue ->
-                onboardingViewModel.onUsernameChange(newValue)
-            }
+            onValueChange = { newValue -> onboardingViewModel.onUsernameChange(newValue) }
         )
         Spacer(modifier = Modifier.height(16.dp))
-
-        Button(onClick = {
-            onboardingViewModel.handleFirstTimeSetup {
-                onComplete()
-            }
-        }) {
+        Button(onClick = { onboardingViewModel.handleFirstTimeSetup { onComplete() } }) {
             Text("Next")
         }
     }

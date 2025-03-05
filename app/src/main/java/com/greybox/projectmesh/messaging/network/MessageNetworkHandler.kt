@@ -58,11 +58,7 @@ class MessageNetworkHandler(
             val ipStr = senderIp.hostAddress
             val user = runBlocking {GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)  }// might be null if unknown
             val sender = user?.name ?: "Unknown"
-            val chatName = if (user != null) {
-                "${user.name} ($ipStr)"
-            } else {
-                ipStr // fallback if no record in DB
-            }
+            val chatName = user?.name ?: ipStr
             return Message(
                 id = 0,
                 dateReceived = time,

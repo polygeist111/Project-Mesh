@@ -1,32 +1,49 @@
 package com.greybox.projectmesh.user
 
+import android.util.Log
+
 class UserRepository(private val userDao: UserDao) {
 
-    suspend fun insertOrUpdateUser(uuid: String, name: String) {
+    suspend fun insertOrUpdateUser(uuid: String, name: String, address: String?) {
         val existing = userDao.getUserByUuid(uuid)
         if (existing == null) {
-            userDao.insertUser(UserEntity(uuid = uuid, name = name))
-        } else {
-            userDao.updateUser(existing.copy(name = name))
-        }
-    }
-    suspend fun insertOrUpdateUserByIp(ip: String, name: String) {
-        val existing = userDao.getUserByIp(ip)
-        if (existing == null) {
-            // Decide on a pseudo-uuid if you don't have a real one:
-            val pseudoUuid = "temp-$ip"
-            val newUser = UserEntity(
-                uuid = pseudoUuid,
-                name = name,
-                address = ip
+            // Insert new user with address
+            userDao.insertUser(
+                UserEntity(
+                    uuid = uuid,
+                    name = name,
+                    address = address
+                )
             )
-            userDao.insertUser(newUser)
         } else {
-            // just update the name
-            val updated = existing.copy(name = name)
-            userDao.updateUser(updated)
+            // Update existing user, copying over address
+            userDao.updateUser(
+                existing.copy(
+                    name = name,
+                    address = address
+                )
+            )
         }
     }
+
+ //   suspend fun insertOrUpdateUserByIp(ip: String, name: String) {
+ //       Log.d("UserRepository", "insertOrUpdateUserByIp called with name=$name, ip=$ip")
+    //        val existing = userDao.getUserByIp(ip)
+ //  if (existing == null) {
+ //         // Decide on a pseudo-uuid if you don't have a real one:
+ //         val pseudoUuid = "temp-$ip"
+    //         val newUser = UserEntity(
+    //          uuid = pseudoUuid,
+    //          name = name,
+    //          address = ip
+    //      )
+    //      userDao.insertUser(newUser)
+ //  } else {
+ //         // just update the name
+    //         val updated = existing.copy(name = name)
+    //      userDao.updateUser(updated)
+    //  }
+ //}
     suspend fun getUserByIp(ip: String): UserEntity? {
         return userDao.getUserByIp(ip)
     }

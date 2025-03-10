@@ -6,9 +6,11 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.greybox.projectmesh.model.HomeScreenModel
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
+import com.ustadmobile.meshrabiya.vnet.wifi.ConnectBand
+import com.ustadmobile.meshrabiya.vnet.wifi.HotspotType
 import com.ustadmobile.meshrabiya.vnet.wifi.WifiConnectConfig
+import com.ustadmobile.meshrabiya.vnet.wifi.state.MeshrabiyaWifiState
 import com.ustadmobile.meshrabiya.vnet.wifi.state.WifiStationState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +23,26 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.kodein.di.DI
 import org.kodein.di.instance
 
+
+data class HomeScreenModel(
+    val wifiState: MeshrabiyaWifiState? = null,
+    val connectUri: String? = null,
+    val localAddress: Int = 0,
+    val bandMenu: List<ConnectBand> = listOf(ConnectBand.BAND_2GHZ),
+    val band: ConnectBand = bandMenu.first(),
+    val hotspotTypeMenu: List<HotspotType> = listOf(HotspotType.AUTO,
+        HotspotType.WIFIDIRECT_GROUP,
+        HotspotType.LOCALONLY_HOTSPOT),
+    val hotspotTypeToCreate: HotspotType = hotspotTypeMenu.first(),
+    val hotspotStatus: Boolean = false,
+    val isWifiConnected: Boolean = false,
+    val nodesOnMesh: Set<Int> = emptySet(),
+){
+    val wifiConnectionEnabled: Boolean
+        get() = wifiState?.connectConfig != null
+    val connectBandVisible: Boolean
+        get() = Build.VERSION.SDK_INT >= 29 && wifiState?.connectConfig == null
+}
 
 class HomeScreenViewModel(di: DI,
                           savedStateHandle: SavedStateHandle): ViewModel(){
@@ -73,6 +95,14 @@ class HomeScreenViewModel(di: DI,
                 }
             }
         }
+        if (node.meshrabiyaWifiManager.is5GhzSupported){
+            _uiState.update { prev ->
+                prev.copy(
+                    bandMenu = listOf(ConnectBand.BAND_5GHZ, ConnectBand.BAND_2GHZ),
+                    band = ConnectBand.BAND_5GHZ
+                )
+            }
+        }
         settingPrefs.registerOnSharedPreferenceChangeListener(sharedPrefsListener)
     }
 
@@ -92,6 +122,22 @@ class HomeScreenViewModel(di: DI,
     fun saveConcurrencySupported(concurrencySupported: Boolean) {
         _concurrencySupported.value = concurrencySupported
         settingPrefs.edit().putBoolean(CONCURRENCY_SUPPORTED_KEY, concurrencySupported).apply()
+    }
+
+    fun onConnectBandChanged(band: ConnectBand) {
+        _uiState.update { prev ->
+            prev.copy(
+                band = band
+            )
+        }
+    }
+
+    fun onSetHotspotTypeToCreate(hotspotType: HotspotType) {
+        _uiState.update { prev ->
+            prev.copy(
+                hotspotTypeToCreate = hotspotType
+            )
+        }
     }
 
     fun onSetIncomingConnectionsEnabled(enable: Boolean) {

@@ -53,6 +53,8 @@ import com.greybox.projectmesh.testing.TestDeviceService
 import kotlinx.coroutines.runBlocking
 import org.kodein.di.compose.localDI
 import java.net.InetAddress
+import java.text.SimpleDateFormat
+import java.util.Date
 
 
 @Composable
@@ -333,7 +335,13 @@ fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit) {
 }
 
 @Composable
-fun MessageBubble(chatMessage: Message, sentBySelf: Boolean, messageContent: @Composable () -> Unit, sender: String, modifier: Modifier){
+fun MessageBubble(
+    chatMessage: Message,
+    sentBySelf: Boolean,
+    messageContent: @Composable () -> Unit,
+    sender: String,
+    modifier: Modifier
+){
     ElevatedCard(
         //backgroundColor: color = MaterialTheme.colorScheme.surfaceVariant,
         colors = CardDefaults.cardColors(
@@ -343,8 +351,6 @@ fun MessageBubble(chatMessage: Message, sentBySelf: Boolean, messageContent: @Co
                 MaterialTheme.colorScheme.surfaceVariant
 
             }
-//            backgroundColor: Color =
-//            //containerColor = MaterialTheme.colorScheme.surfaceVariant,
         ),
         modifier = modifier
             .size(width = 200.dp, height = 100.dp)
@@ -356,12 +362,17 @@ fun MessageBubble(chatMessage: Message, sentBySelf: Boolean, messageContent: @Co
                 style = MaterialTheme.typography.labelMedium
             )
             messageContent()
-//            Text(
-//                text = "",
-//                //text = "$sender [${SimpleDateFormat("HH:mm").format(Date(chatMessage.dateReceived))}]: ",
-//                style = MaterialTheme.typography.labelSmall,
-//                textAlign = TextAlign.End
-//            )
+
+            // Adding timestamp to bottom right of message bubble
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = SimpleDateFormat("HH:mm").format(Date(chatMessage.dateReceived)),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import org.kodein.di.DI
 import com.greybox.projectmesh.model.NetworkScreenModel
 import com.greybox.projectmesh.server.AppServer
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.kodein.di.instance
 import java.net.InetAddress
+import com.greybox.projectmesh.GlobalApp
 
 class NetworkScreenViewModel(di:DI): ViewModel() {
     // _uiState will be updated whenever there is a change in the UI state
@@ -57,6 +59,39 @@ class NetworkScreenViewModel(di:DI): ViewModel() {
                             null
                         }
                 )}
+            }
+        }
+
+        viewModelScope.launch {
+            while (true) {
+                try {
+                    //get all connected users
+                    val connectedUsers = GlobalApp.GlobalUserRepo.userRepository.getAllConnectedUsers()
+                    for (user in connectedUsers) {
+                        user.address?.let { ipStr ->
+                            try {
+                                val addr = InetAddress.getByName(ipStr)
+
+                                //ping user by requesting online info to update status
+                                appServer.requestRemoteUserInfo(addr)
+
+                                Log.d("NetworkScreenViewModel", "Pinged user: ${user.name} at $ipStr")
+                            } catch (e: Exception) {
+                                //if ping fails, mark user as offline
+                                GlobalApp.GlobalUserRepo.conversationRepository.updateUserStatus(
+                                    userUuid = user.uuid,
+                                    isOnline = false,
+                                    userAddress = null
+                                )
+                                Log.d("NetworkScreenViewModel", "User ${user.name} appears to be offline")
+                            }
+                        }
+                    }
+                }catch (e: Exception) {
+                    Log.e("NetworkScreenViewModel", "Error during periodic ping", e)
+                }
+                //wait for 30 secs before next ming
+                delay(30000)
             }
         }
     }

@@ -778,17 +778,71 @@ class AppServer(
                     )
 
                     // 3) Insert or update that IP in the DB
-                    //    (You’ll need a method that accepts the address parameter.)
                     userRepository.insertOrUpdateUser(
                         remoteUserWithIp.uuid,
                         remoteUserWithIp.name,
                         remoteUserWithIp.address
                     )
 
+                    // 4) update user connection status to online
+                    updateUserOnlineStatus(
+                        userUuid = remoteUserWithIp.uuid,
+                        isOnline = true,
+                        userAddress = remoteUserWithIp.address
+                    )
+
                     Log.d("AppServer", "Updated local DB with remote user info: $remoteUserWithIp")
                 }
             } catch (e: Exception) {
                 Log.e("AppServer", "Failed to fetch /myinfo from ${remoteAddr.hostAddress}", e)
+            }
+        }
+    }
+
+    fun updateUserConnectionStatus(userUuid: String, isOnline: Boolean, userAddress: String?) {
+        scope.launch {
+            try {
+                GlobalApp.GlobalUserRepo.conversationRepository.updateUserStatus(
+                    userUuid = userUuid,
+                    isOnline = isOnline,
+                    userAddress = userAddress
+                )
+                Log.d("AppServer", "Updated user $userUuid connection status: online=$isOnline, address=$userAddress")
+            }catch (e: Exception){
+                Log.e("AppServer", "Failed to update user connection status", e)
+            }
+        }
+    }
+
+    fun updateUserOnlineStatus(userUuid: String, isOnline: Boolean, userAddress: String?){
+        scope.launch {
+            try {
+                GlobalApp.GlobalUserRepo.conversationRepository.updateUserStatus(
+                    userUuid = userUuid,
+                    isOnline = isOnline,
+                    userAddress = userAddress
+                )
+                Log.d("AppServer", "Updated user $userUuid connection status: online=$isOnline, address=$userAddress")
+            } catch (e: Exception){
+                Log.e("AppServer", "Failed to update user connection status", e)
+            }
+        }
+    }
+
+    fun markAllUsersOffline(){
+        scope.launch {
+            try {
+                val allUsers = GlobalApp.GlobalUserRepo.userRepository.getAllConnectedUsers()
+                for (user in allUsers) {
+                    GlobalApp.GlobalUserRepo.conversationRepository.updateUserStatus(
+                        userUuid = user.uuid,
+                        isOnline = false,
+                        userAddress = null
+                    )
+                }
+                Log.d("AppServer", "Marked all users as offline")
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to mark all users as offline", e)
             }
         }
     }

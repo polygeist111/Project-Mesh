@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.server.AppServer
+import com.greybox.projectmesh.messaging.repository.ConversationRepository
 import java.net.InetAddress
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,9 @@ import org.kodein.di.DI
 import org.kodein.di.DIAware
 import com.greybox.projectmesh.user.UserRepository
 import kotlinx.coroutines.runBlocking
+import android.content.SharedPreferences
+import com.greybox.projectmesh.testing.TestDeviceService
+import org.kodein.di.instance
 
 class MessageNetworkHandler(
     private val httpClient: OkHttpClient,
@@ -24,6 +28,9 @@ class MessageNetworkHandler(
     override val di: DI
 ) : DIAware {
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val conversationRepository: ConversationRepository by di.instance()
+    private val settingsPrefs: SharedPreferences by di.instance(tag = "settings")
+
     fun sendChatMessage(address: InetAddress, time: Long, message: String) {
         scope.launch {
             try {
@@ -58,14 +65,54 @@ class MessageNetworkHandler(
             val ipStr = senderIp.hostAddress
             val user = runBlocking {GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)  }// might be null if unknown
             val sender = user?.name ?: "Unknown"
-            val chatName = user?.name ?: ipStr
-            return Message(
+
+            //determine the correct chat name
+            val chatName = if (TestDeviceService.isOnlineTestDevice(senderIp)) {
+                TestDeviceService.TEST_DEVICE_NAME
+            } else if (ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE || user?.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE) {
+                TestDeviceService.TEST_DEVICE_NAME_OFFLINE
+            } else {
+                user?.name ?: ipStr
+            }
+
+            Log.d("MessageNetworkHandler", "Creating message with chat name: $chatName, sender: $sender")
+
+            //Create the message
+            val message = Message(
                 id = 0,
                 dateReceived = time,
                 content = chatMessage ?: "Error! No message found.",
                 sender = sender,
                 chat = chatName
             )
+
+            //update convo with new message
+            if(user != null){
+                try {
+                    val localUuid = GlobalApp.GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
+
+                    //get/create convo
+                    val conversation = runBlocking {
+                        GlobalApp.GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                            localUuid = localUuid,
+                            remoteUser = user
+                        )
+                    }
+
+                    //update convo with the new message
+                    runBlocking {
+                        GlobalApp.GlobalUserRepo.conversationRepository.updateWithMessage(
+                            conversationId = conversation.id,
+                            message = message
+                        )
+                    }
+
+                    Log.d("MessageNetworkHandler", "Updated conversation with new message")
+                }catch (e: Exception){
+                    Log.e("MessageNetworkHandler", "Failed to update conversation", e)
+                }
+            }
+            return message
         }
     }
 }

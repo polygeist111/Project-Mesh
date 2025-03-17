@@ -64,10 +64,29 @@ import java.io.File
 import java.util.Locale
 import java.net.InetAddress
 import com.greybox.projectmesh.messaging.ui.screens.ChatNodeListScreen
+import com.greybox.projectmesh.messaging.ui.screens.ConversationsHomeScreen
 import com.greybox.projectmesh.user.UserRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
+import com.greybox.projectmesh.messaging.data.entities.Conversation
+
 
 
 class MainActivity : ComponentActivity(), DIAware {
@@ -223,16 +242,40 @@ fun BottomNavApp(di: DI,
                 // Just call NetworkScreen with no click callback
                 NetworkScreen()
             }
-            composable("chatScreen/{ip}"){ entry ->
+
+            composable("chatScreen/{ip}") { entry ->
                 val ip = entry.arguments?.getString("ip")
                     ?: throw IllegalArgumentException("Invalid address")
-                ChatScreen(
-                    virtualAddress = InetAddress.getByName(ip),
-                    onClickButton = {
-                        navController.navigate("pingScreen/${ip}")
-                    }
-                )
+
+                Log.d("Navigation", "Navigating to chatScreen with parameter: $ip")
+
+                //determine if this is an ip address
+                val isValidIpAddress = ip.matches(Regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\$"))
+                Log.d("Navigation", "Is valid IP address: $isValidIpAddress")
+
+
+                if(isValidIpAddress) {
+                    Log.d("Navigation", "Showing chat for IP address: $ip")
+                    // This is a valid IP address, use normal chat screen
+                    ChatScreen(
+                        virtualAddress = InetAddress.getByName(ip),
+                        onClickButton = {
+                            navController.navigate("pingScreen/${ip}")
+                        }
+                    )
+                } else {
+                    Log.d("Navigation", "Showing chat for conversation ID: $ip")
+                    //conversation id: handle offline chat
+                    ConversationChatScreen(
+                        conversationId = ip,
+                        onBackClick = {
+                            Log.d("Navigation", "Navigating back from conversation")
+                            navController.popBackStack()
+                        }
+                    )
+                }
             }
+
             composable("pingScreen/{ip}"){ entry ->
                 val ip = entry.arguments?.getString("ip")
                     ?: throw IllegalArgumentException("Invalid address")
@@ -334,6 +377,16 @@ fun BottomNavApp(di: DI,
             //I'm guessing I can put my Chat button here?
             composable(BottomNavItem.Chat.route) {
                 // Show a list of nodes, let the user pick one
+                ConversationsHomeScreen(
+                    onConversationSelected = { userIdentifier ->
+                        // userIdentifier will be either an IP address (for online users)
+                        // or a conversation ID (for offline users)
+                        Log.d("Navigation", "Selected conversation/user: $userIdentifier")
+                        //navigate to the chat screen with this identifier
+                        navController.navigate("chatScreen/${userIdentifier}")
+                    }
+                )
+                /*
                 ChatNodeListScreen(
                     onNodeSelected = { ip ->
                         val remoteAddr = InetAddress.getByName(ip)
@@ -350,12 +403,149 @@ fun BottomNavApp(di: DI,
                         // Navigate to the chat screen
                         navController.navigate("chatScreen/$ip")
                     }
+
                 )
+                */
             }
         }
     }
 }
 
+
+@Composable
+fun ConversationChatScreen (
+        conversationId: String,
+        onBackClick: () -> Unit
+){
+    Log.d("ConversationChatScreen", "Starting to load conversation: $conversationId")
+
+    var conversationState = remember { mutableStateOf<Conversation?>(null) }
+    var isLoading = remember { mutableStateOf(true) }
+    var errorMessage = remember { mutableStateOf<String?>(null) }
+    //val conversation = conversationState.value
+    val context = LocalContext.current
+
+    val coroutineScope = rememberCoroutineScope()
+
+    // Load the conversation data
+    LaunchedEffect(conversationId) {
+        Log.d("ConversationChatScreen", "LaunchedEffect triggered for ID: $conversationId")
+        coroutineScope.launch {
+            try {
+                Log.d("ConversationChatScreen", "Attempting to fetch conversation")
+                val result = GlobalApp.GlobalUserRepo.conversationRepository.getConversationById(conversationId)
+                Log.d("ConversationChatScreen", "Fetch result: ${result != null}")
+                //conversationState.value = result
+
+                if (result == null) {
+                    errorMessage.value = "Conversation not found"
+                    isLoading.value = false
+                    /*
+                    Log.e("ConversationChatScreen", "Conversation not found: $conversationId")
+                    Toast.makeText(
+                        context,
+                        "Conversation not found",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    onBackClick()
+                    */
+                }else {
+                    conversationState.value = result
+                    isLoading.value = false
+                    Log.d("ConversationChatScreen", "Loaded conversation: ${result.userName}, online=${result.isOnline}")
+                }
+            } catch (e: Exception) {
+                Log.e("ConversationChatScreen", "Error loading conversation", e)
+                errorMessage.value = e.message
+                isLoading.value = false
+                /*
+                Toast.makeText(
+                    context,
+                    "Error loading conversation: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+                onBackClick()
+                 */
+            }
+        }
+    }
+
+    // Show loading state while fetching conversation
+    if (isLoading.value) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    /*
+    // Show loading state while fetching conversation
+    if (conversation == null) {
+        Log.d("ConversationChatScreen", "Showing loading indicator")
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+     */
+
+    //show error if loading failed
+    if (errorMessage.value != null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Error: ${errorMessage.value}")
+                Button(onClick = onBackClick) {
+                    Text("Go Back")
+                }
+            }
+        }
+        return
+    }
+
+    //get the conversation from state
+    val conversation = conversationState.value
+    if (conversation == null) {
+        Toast.makeText(context, "Conversation not found", Toast.LENGTH_SHORT).show()
+        onBackClick()
+        return
+    }
+
+    Log.d("ConversationChatScreen", "Conversation loaded, creating virtual address")
+
+    // Create a virtual address based on the conversation data
+    val virtualAddress = if (conversation?.userAddress.isNullOrEmpty()) {
+        //use offline test device address if this is the offline test conversation
+        if (conversation.userName == TestDeviceService.TEST_DEVICE_NAME_OFFLINE) {
+            Log.d("ConversationChatScreen", "Using offline test device address")
+            InetAddress.getByName(TestDeviceService.TEST_DEVICE_IP_OFFLINE)
+        } else {
+            //use a placeholder address for regular offline users
+            Log.d("ConversationChatScreen", "Using placeholder address for offline user")
+            InetAddress.getByName("0.0.0.0")
+        }
+    } else {
+        //use the actual address if available
+        Log.d("ConversationChatScreen", "Using actual address: ${conversation.userAddress}")
+        InetAddress.getByName(conversation.userAddress)
+    }
+
+    Log.d("ConversationChatScreen", "Showing chat screen for: ${conversation.userName}")
+
+    // Show the chat screen
+    ChatScreen(
+        virtualAddress = virtualAddress,
+        userName = conversation.userName,
+        isOffline = !conversation.isOnline,
+        onClickButton = {
+            // Disable ping for offline users
+            Toast.makeText(
+                context,
+                "Cannot ping offline users",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    )
+}
 /*fun isipvalid(theip:String): Boolean{//this is a function for checking if the IP address is valid, if this is redundant let me know and I'll make changes
     try{
         InetAddress.getByName(theip)

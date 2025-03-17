@@ -10,9 +10,12 @@ import java.net.InetAddress
 class TestDeviceService {
     companion object {
         const val TEST_DEVICE_IP = "192.168.0.99"
-        const val TEST_DEVICE_NAME = "Test Echo Device"
+        const val TEST_DEVICE_NAME = "Test Echo Device (Online)"
+        const val TEST_DEVICE_IP_OFFLINE = "192.168.0.98"
+        const val TEST_DEVICE_NAME_OFFLINE = "Test Echo Device (Offline)"
 
         private var isInitialized = false
+        private var offlineDeviceInitialized = false
 
         fun initialize() {
             try {
@@ -39,11 +42,53 @@ class TestDeviceService {
                     }
                     isInitialized = true
                     Log.d("TestDeviceService", "Test device initialized successfully with IP: $TEST_DEVICE_IP")
+
+                    //initialize offline test device
+                    initializeOfflineDevice()
                 }
             } catch (e: Exception) {
                 Log.e("TestDeviceService", "Failed to initialize test device", e)
             }
         }
+
+        fun initializeOfflineDevice() {
+            try {
+                if (!offlineDeviceInitialized) {
+                    runBlocking {
+                        val existingUser = userRepository.getUserByIp(TEST_DEVICE_IP_OFFLINE)
+                        if (existingUser == null) {
+                            // Create a new offline test device
+                            val pseudoUuid = "temp-offline-$TEST_DEVICE_IP_OFFLINE"
+                            userRepository.insertOrUpdateUser(
+                                uuid = pseudoUuid,
+                                name = TEST_DEVICE_NAME_OFFLINE,
+                                address = null // NULL address means offline
+                            )
+                        } else {
+                            // Update existing offline device
+                            userRepository.insertOrUpdateUser(
+                                uuid = existingUser.uuid,
+                                name = TEST_DEVICE_NAME_OFFLINE,
+                                address = null // Make sure it's offline
+                            )
+                        }
+                    }
+                    offlineDeviceInitialized = true
+                    Log.d("TestDeviceService", "Offline test device initialized successfully")
+                }
+            } catch (e: Exception) {
+                Log.e("TestDeviceService", "Failed to initialize offline test device", e)
+            }
+        }
+
+        fun isOnlineTestDevice(address: InetAddress): Boolean {
+            return address.hostAddress == TEST_DEVICE_IP
+        }
+
+        fun isOfflineTestDevice(address: InetAddress): Boolean {
+            return address.hostAddress == TEST_DEVICE_IP_OFFLINE
+        }
+
 
         fun getTestDeviceAddress(): InetAddress {
             return InetAddress.getByName(TEST_DEVICE_IP)

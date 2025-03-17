@@ -7,7 +7,10 @@ import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.greybox.projectmesh.db.MeshDatabase
+import com.greybox.projectmesh.messaging.repository.ConversationRepository
 import com.greybox.projectmesh.server.AppServer
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.asInetAddress
@@ -29,6 +32,9 @@ import java.io.File
 import java.net.InetAddress
 import java.time.Duration
 import com.greybox.projectmesh.user.UserRepository
+import com.greybox.projectmesh.messaging.data.entities.Message
+import com.greybox.projectmesh.testing.TestDeviceService
+import com.greybox.projectmesh.user.UserEntity
 /*
 initialize global variables and DI(dependency injection) container
 why use DI?
@@ -69,6 +75,7 @@ class GlobalApp : Application(), DIAware {
         // Lateinit or lazy property
         lateinit var userRepository: UserRepository
         lateinit var prefs: SharedPreferences
+        lateinit var conversationRepository: ConversationRepository
     }
     override fun onCreate() {
         super.onCreate()
@@ -77,6 +84,108 @@ class GlobalApp : Application(), DIAware {
         GlobalUserRepo.userRepository = repo
         val settingPref: SharedPreferences by di.instance(tag = "settings")
         GlobalUserRepo.prefs = settingPref
+        val convRepo: ConversationRepository by di.instance()
+        GlobalUserRepo.conversationRepository = convRepo
+
+        //add test convos
+        insertTestConversations()
+    }
+
+    fun insertTestConversations() {
+        GlobalScope.launch {
+            try {
+                //get database instance
+                val db: MeshDatabase by di.instance()
+
+                //check if test convos aready exist
+                val currentConversations = GlobalUserRepo.conversationRepository.getAllConversations().first()
+                if (currentConversations.isNotEmpty()){
+                    Log.d("GlobalApp", "Test conversations already exist, skipping insertion")
+                    return@launch
+                }
+
+                val localUuid = GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
+
+                //insert test convo with test device
+                val testDevice = TestDeviceService.getTestDeviceAddress()
+                val testUser = UserEntity(
+                    uuid = "test-device-uuid",
+                    name = TestDeviceService.TEST_DEVICE_NAME,
+                    address = testDevice.hostAddress
+                )
+
+                //make sure the test user exists in the database
+                GlobalUserRepo.userRepository.insertOrUpdateUser(
+                    testUser.uuid,
+                    testUser.name,
+                    testUser.address
+                )
+
+                //create convo with the test device
+                val onlineConversation = GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                    localUuid = localUuid,
+                    remoteUser = testUser
+                )
+
+                //Create online test message
+                val onlineTestMessage = Message(
+                    id = 0,
+                    dateReceived = System.currentTimeMillis(),
+                    content = "hello world! this is a test message.",
+                    sender = TestDeviceService.TEST_DEVICE_NAME,
+                    chat = TestDeviceService.TEST_DEVICE_NAME  // THIS IS THE KEY! The chat name must match
+                )
+
+                db.messageDao().addMessage(onlineTestMessage)
+
+                //update convo with a test message
+                GlobalUserRepo.conversationRepository.updateWithMessage(
+                    conversationId = onlineConversation.id,
+                    message = onlineTestMessage
+                )
+
+                //create offline test conversation
+                val offlineUser = UserEntity(
+                    uuid = "offline-test-device-uuid",
+                    name = TestDeviceService.TEST_DEVICE_NAME_OFFLINE,
+                    address = null // null address means offline
+                )
+
+                //make sure the offine test user exists in the database
+                GlobalUserRepo.userRepository.insertOrUpdateUser(
+                    offlineUser.uuid,
+                    offlineUser.name,
+                    offlineUser.address
+                )
+
+                //Create convo with the offline test device
+                val offlineConversation = GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                    localUuid = localUuid,
+                    remoteUser = offlineUser
+                )
+
+                //create offline test message
+                val offlineTestMessage = Message(
+                    id = 0,
+                    dateReceived = System.currentTimeMillis() - 3600000, // 1 hour ago
+                    content = "I'm currently offline. Messages won't be delivered.",
+                    sender = TestDeviceService.TEST_DEVICE_NAME_OFFLINE,
+                    chat = TestDeviceService.TEST_DEVICE_NAME_OFFLINE  // This chat name must match
+                )
+
+                //save to message database directly
+                db.messageDao().addMessage(offlineTestMessage)
+
+                GlobalUserRepo.conversationRepository.updateWithMessage(
+                    conversationId = offlineConversation.id,
+                    message = offlineTestMessage
+                )
+
+                Log.d("GlobalApp", "Test conversations inserted successfully")
+            }catch (e: Exception ) {
+                Log.e("GlobalApp", "Error inserting test conversation", e)
+            }
+        }
     }
     private val diModule = DI.Module("project_mesh") {
         // create a single instance of "InetAddress" for the entire lifetime of the application
@@ -154,7 +263,27 @@ class GlobalApp : Application(), DIAware {
                 MeshDatabase::class.java,
                 "mesh-database"
             )
-                .fallbackToDestructiveMigration() // add this line to handle migrations destructively
+                .addMigrations(object : Migration(3,4){
+                    override fun migrate(database: SupportSQLiteDatabase){
+
+                        //create convo table
+                        database.execSQL(
+                            """
+                                CREATE TABLE IF NOT EXISTS conversations ( 
+                                    id TEXT PRIMARY KEY NOT NULL, 
+                                    user_uuid TEXT NOT NULL, 
+                                    user_name TEXT NOT NULL, 
+                                    user_address TEXT, 
+                                    last_message TEXT, 
+                                    last_message_time INTEGER NOT NULL, 
+                                    unread_count INTEGER NOT NULL DEFAULT 0, 
+                                    is_online INTEGER NOT NULL DEFAULT 0
+                            )
+                            """
+                        )
+                    }
+                })
+                .fallbackToDestructiveMigration() // handle migrations destructively
 //                .allowMainThreadQueries() // this should generally be avoided for production apps
                 .build()
         }
@@ -164,6 +293,10 @@ class GlobalApp : Application(), DIAware {
         }
         bind<UserRepository>() with singleton {
             UserRepository(instance<MeshDatabase>().userDao())
+        }
+
+        bind<ConversationRepository>() with singleton {
+            ConversationRepository(instance<MeshDatabase>().conversationDao(), di)
         }
 
         bind<AppServer>() with singleton {

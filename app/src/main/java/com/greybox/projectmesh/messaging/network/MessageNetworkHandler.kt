@@ -67,13 +67,16 @@ class MessageNetworkHandler(
             val sender = user?.name ?: "Unknown"
 
             //determine the correct chat name
-            val chatName = if (TestDeviceService.isOnlineTestDevice(senderIp)) {
-                TestDeviceService.TEST_DEVICE_NAME
-            } else if (ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE || user?.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE) {
-                TestDeviceService.TEST_DEVICE_NAME_OFFLINE
-            } else {
-                user?.name ?: ipStr
+            val userUuid = when {
+                TestDeviceService.isOnlineTestDevice(senderIp) ->
+                    "test-device-uuid"
+                ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE || user?.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE ->
+                    "offline-test-device-uuid"
+                else -> user?.uuid ?: "unknown-${senderIp.hostAddress}"
             }
+
+            val localUuid = GlobalApp.GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
+            val chatName = createConversationId(localUuid, userUuid)
 
             Log.d("MessageNetworkHandler", "Creating message with chat name: $chatName, sender: $sender")
 
@@ -89,8 +92,6 @@ class MessageNetworkHandler(
             //update convo with new message
             if(user != null){
                 try {
-                    val localUuid = GlobalApp.GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
-
                     //get/create convo
                     val conversation = runBlocking {
                         GlobalApp.GlobalUserRepo.conversationRepository.getOrCreateConversation(
@@ -113,6 +114,17 @@ class MessageNetworkHandler(
                 }
             }
             return message
+        }
+
+        private fun createConversationId(uuid1: String, uuid2: String): String {
+            //special cases for test devices - use fixed IDs
+            if (uuid2 == "test-device-uuid"){
+                return "local-user-test-device-uuid"
+            }
+            if (uuid2 == "offline-test-device-uuid"){
+                return "local-user-offline-test-device-uuid"
+            }
+            return listOf(uuid1, uuid2).sorted().joinToString("-")
         }
     }
 }

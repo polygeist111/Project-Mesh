@@ -33,6 +33,7 @@ import java.net.InetAddress
 import java.time.Duration
 import com.greybox.projectmesh.user.UserRepository
 import com.greybox.projectmesh.messaging.data.entities.Message
+import com.greybox.projectmesh.messaging.utils.MessageMigrationUtils
 import com.greybox.projectmesh.testing.TestDeviceService
 import com.greybox.projectmesh.user.UserEntity
 /*
@@ -87,6 +88,26 @@ class GlobalApp : Application(), DIAware {
         val convRepo: ConversationRepository by di.instance()
         GlobalUserRepo.conversationRepository = convRepo
 
+        //version checking migrating messages
+        val hasMigratedMessages = settingPref.getBoolean("has_migrated_messages", false)
+        if (!hasMigratedMessages) {
+            GlobalScope.launch {
+                try {
+                    Log.d("GlobalApp", "Starting message migration...")
+                    val migrationUtils = MessageMigrationUtils(di)
+                    migrationUtils.migrateMessagesToChatIds()
+                    // Mark migration as complete
+                    settingPref.edit().putBoolean("has_migrated_messages", true).apply()
+                    Log.d("GlobalApp", "Message migration completed and marked as done")
+                } catch (e: Exception) {
+                    Log.e("GlobalApp", "Error during message migration", e)
+                    // Don't mark as complete if there was an error
+                }
+            }
+        } else {
+            Log.d("GlobalApp", "Message migration already performed, skipping")
+        }
+
         //add test convos
         insertTestConversations()
     }
@@ -97,91 +118,107 @@ class GlobalApp : Application(), DIAware {
                 //get database instance
                 val db: MeshDatabase by di.instance()
 
-                //check if test convos aready exist
-                val currentConversations = GlobalUserRepo.conversationRepository.getAllConversations().first()
-                if (currentConversations.isNotEmpty()){
-                    Log.d("GlobalApp", "Test conversations already exist, skipping insertion")
-                    return@launch
+                // Check if any messages exist first
+                val existingMessages = db.messageDao().getAll()
+                Log.d("GlobalApp", "Found ${existingMessages.size} existing messages")
+
+                if (existingMessages.isEmpty()) {
+                    Log.d("GlobalApp", "No messages found, creating test messages...")
+
+                    val localUuid = GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
+
+                    //insert test convo with online test device
+                    val testDevice = TestDeviceService.getTestDeviceAddress()
+                    val testUser = UserEntity(
+                        uuid = "test-device-uuid",
+                        name = TestDeviceService.TEST_DEVICE_NAME,
+                        address = testDevice.hostAddress
+                    )
+
+                    //make sure the test user exists in the database
+                    GlobalUserRepo.userRepository.insertOrUpdateUser(
+                        testUser.uuid,
+                        testUser.name,
+                        testUser.address
+                    )
+
+                    //create convo with the test device
+                    val onlineConversation =
+                        GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                            localUuid = localUuid,
+                            remoteUser = testUser
+                        )
+
+                    //create online test message
+                    val onlineTestMessage = Message(
+                        id = 0,
+                        dateReceived = System.currentTimeMillis() - 3600000, // 1 hour ago
+                        content = "Hello world! This is a test message.",
+                        sender = TestDeviceService.TEST_DEVICE_NAME,
+                        chat = "local-user-test-device-uuid"  // Use ONLY conversation ID format
+                    )
+
+                    //insert the message
+                    db.messageDao().addMessage(onlineTestMessage)
+
+                    Log.d(
+                        "GlobalApp",
+                        "Inserted online test message with chat name: local-user-test-device-uuid"
+                    )
+
+                    //update convo with a test message
+                    GlobalUserRepo.conversationRepository.updateWithMessage(
+                        conversationId = onlineConversation.id,
+                        message = onlineTestMessage
+                    )
+
+                    //create offline test user and conversation
+                    val offlineUser = UserEntity(
+                        uuid = "offline-test-device-uuid",
+                        name = TestDeviceService.TEST_DEVICE_NAME_OFFLINE,
+                        address = null // null address means offline
+                    )
+
+                    //make sure the offline test user exists in the database
+                    GlobalUserRepo.userRepository.insertOrUpdateUser(
+                        offlineUser.uuid,
+                        offlineUser.name,
+                        offlineUser.address
+                    )
+
+                    //create convo with the offline test device
+                    val offlineConversation =
+                        GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                            localUuid = localUuid,
+                            remoteUser = offlineUser
+                        )
+
+                    //create offline test message - use ONLY the conversation ID format
+                    val offlineTestMessage = Message(
+                        id = 0,
+                        dateReceived = System.currentTimeMillis() - 3600000, // 1 hour ago
+                        content = "I'm currently offline. Messages won't be delivered.",
+                        sender = TestDeviceService.TEST_DEVICE_NAME_OFFLINE,
+                        chat = "local-user-offline-test-device-uuid"  // Use ONLY conversation ID format
+                    )
+
+                    // Insert the message
+                    db.messageDao().addMessage(offlineTestMessage)
+
+                    Log.d(
+                        "GlobalApp",
+                        "Inserted offline test message with chat name: local-user-offline-test-device-uuid"
+                    )
+
+                    //update convo with the message
+                    GlobalUserRepo.conversationRepository.updateWithMessage(
+                        conversationId = offlineConversation.id,
+                        message = offlineTestMessage
+                    )
+                    Log.d("GlobalApp", "Test messages inserted successfully")
+                }else {
+                    Log.d("GlobalApp", "Messages already exist, skipping insertion")
                 }
-
-                val localUuid = GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
-
-                //insert test convo with test device
-                val testDevice = TestDeviceService.getTestDeviceAddress()
-                val testUser = UserEntity(
-                    uuid = "test-device-uuid",
-                    name = TestDeviceService.TEST_DEVICE_NAME,
-                    address = testDevice.hostAddress
-                )
-
-                //make sure the test user exists in the database
-                GlobalUserRepo.userRepository.insertOrUpdateUser(
-                    testUser.uuid,
-                    testUser.name,
-                    testUser.address
-                )
-
-                //create convo with the test device
-                val onlineConversation = GlobalUserRepo.conversationRepository.getOrCreateConversation(
-                    localUuid = localUuid,
-                    remoteUser = testUser
-                )
-
-                //Create online test message
-                val onlineTestMessage = Message(
-                    id = 0,
-                    dateReceived = System.currentTimeMillis(),
-                    content = "hello world! this is a test message.",
-                    sender = TestDeviceService.TEST_DEVICE_NAME,
-                    chat = TestDeviceService.TEST_DEVICE_NAME  // THIS IS THE KEY! The chat name must match
-                )
-
-                db.messageDao().addMessage(onlineTestMessage)
-
-                //update convo with a test message
-                GlobalUserRepo.conversationRepository.updateWithMessage(
-                    conversationId = onlineConversation.id,
-                    message = onlineTestMessage
-                )
-
-                //create offline test conversation
-                val offlineUser = UserEntity(
-                    uuid = "offline-test-device-uuid",
-                    name = TestDeviceService.TEST_DEVICE_NAME_OFFLINE,
-                    address = null // null address means offline
-                )
-
-                //make sure the offine test user exists in the database
-                GlobalUserRepo.userRepository.insertOrUpdateUser(
-                    offlineUser.uuid,
-                    offlineUser.name,
-                    offlineUser.address
-                )
-
-                //Create convo with the offline test device
-                val offlineConversation = GlobalUserRepo.conversationRepository.getOrCreateConversation(
-                    localUuid = localUuid,
-                    remoteUser = offlineUser
-                )
-
-                //create offline test message
-                val offlineTestMessage = Message(
-                    id = 0,
-                    dateReceived = System.currentTimeMillis() - 3600000, // 1 hour ago
-                    content = "I'm currently offline. Messages won't be delivered.",
-                    sender = TestDeviceService.TEST_DEVICE_NAME_OFFLINE,
-                    chat = TestDeviceService.TEST_DEVICE_NAME_OFFLINE  // This chat name must match
-                )
-
-                //save to message database directly
-                db.messageDao().addMessage(offlineTestMessage)
-
-                GlobalUserRepo.conversationRepository.updateWithMessage(
-                    conversationId = offlineConversation.id,
-                    message = offlineTestMessage
-                )
-
-                Log.d("GlobalApp", "Test conversations inserted successfully")
             }catch (e: Exception ) {
                 Log.e("GlobalApp", "Error inserting test conversation", e)
             }
@@ -317,9 +354,9 @@ class GlobalApp : Application(), DIAware {
 
         onReady {
             // clears all data in the existing tables
-            GlobalScope.launch {
-                instance<MeshDatabase>().messageDao().clearTable()
-            }
+            //GlobalScope.launch {
+              //  instance<MeshDatabase>().messageDao().clearTable()
+            //}
             instance<AppServer>().start()
             Log.d("AppServer", "Server started successfully on port: ${AppServer.DEFAULT_PORT}")
         }

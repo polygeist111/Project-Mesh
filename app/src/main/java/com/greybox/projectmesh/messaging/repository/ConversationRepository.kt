@@ -61,6 +61,7 @@ class ConversationRepository(
 
     //update conversation with the latest message
     suspend fun updateWithMessage(conversationId: String, message: Message) {
+
         conversationDao.updateLastMessage(
             conversationId = conversationId,
             lastMessage = message.content,
@@ -71,6 +72,13 @@ class ConversationRepository(
         if (message.sender != "Me") {
             conversationDao.incrementUnreadCount(conversationId)
         }
+
+        conversationDao.updateLastMessage(
+            conversationId = conversationId,
+            lastMessage = message.content,
+            timestamp = message.dateReceived
+        )
+
     }
 
     //mark conversation as read

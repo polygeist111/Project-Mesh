@@ -41,25 +41,29 @@ class ChatScreenViewModel(
     // Use the retrieved user name (fallback to "Unknown" if no user is found)
     private val deviceName = userEntity?.name ?: "Unknown"
 
-    private val chatName: String = when {
+    private val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
+    private val localUuid = sharedPrefs.getString("UUID", null) ?: "local-user"
+
+    private val userUuid: String = when {
         //if its the online test device
         TestDeviceService.isOnlineTestDevice(virtualAddress) ->
-            TestDeviceService.TEST_DEVICE_NAME
+            "test-device-uuid"
 
-        // If it's the offline test device
+        //if it's the offline test device
         ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE ||
                 userEntity?.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE ->
-            TestDeviceService.TEST_DEVICE_NAME_OFFLINE
+            "offline-test-device-uuid"
 
-        // For any other user, use their name if available, otherwise use IP
-        else -> userEntity?.name ?: ipStr
+        //for any other user, use their name if available, otherwise use IP
+        else -> userEntity?.uuid ?: "unknown-${virtualAddress.hostAddress}"
     }
+
+    private val conversationId = createConversationId(localUuid, userUuid)
+    private val chatName = conversationId //use conversation id as chat name
 
     private val addressDotNotation = virtualAddress.requireAddressAsInt().addressToDotNotation()
 
     private val conversationRepository: ConversationRepository by di.instance()
-    private val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
-    private val localUuid = sharedPrefs.getString("UUID", null) ?: "local-user"
 
     private val _uiState = MutableStateFlow(
         ChatScreenModel(
@@ -67,6 +71,7 @@ class ChatScreenViewModel(
             virtualAddress = virtualAddress
         )
     )
+
     // uiState is a read-only property that shows the current UI state
     val uiState: Flow<ChatScreenModel> = _uiState.asStateFlow()
     // di is used to get the AndroidVirtualNode instance
@@ -74,16 +79,27 @@ class ChatScreenViewModel(
 
     private val appServer: AppServer by di.instance()
 
+    private fun createConversationId(uuid1: String, uuid2: String): String {
+        //special cases for test devices
+        if (uuid2 == "test-device-uuid") {
+            return "local-user-test-device-uuid"
+        }
+        if (uuid2 == "offline-test-device-uuid") {
+            return "local-user-offline-test-device-uuid"
+        }
+        return listOf(uuid1, uuid2).sorted().joinToString("-")
+    }
 
     // launch a coroutine
     init {
         viewModelScope.launch {
-            // Log the chat name we're using
-            Log.d("ChatDebug", "Initializing with chatName: $chatName")
+            // Debug logs
+            Log.d("ChatDebug", "Will query messages with chatName: $chatName")
+            Log.d("ChatDebug", "Conversation ID: $conversationId")
+            Log.d("ChatDebug", "User UUID: $userUuid")
 
-            // IMPORTANT: Move database query to a background thread
+            //check database content in background
             withContext(Dispatchers.IO) {
-                // Log all messages in the database (safely on a background thread)
                 val allMessages = db.messageDao().getAll()
                 Log.d("ChatDebug", "All messages in database: ${allMessages.size}")
                 for (msg in allMessages) {
@@ -91,15 +107,32 @@ class ChatScreenViewModel(
                 }
             }
 
-            // This flow operation is safe because Room is configured to run on a background thread
-            db.messageDao().getChatMessagesFlow(chatName).collect{ newChatMessages ->
-                Log.d("ChatDebug", "Received ${newChatMessages.size} messages for chat: $chatName")
+            //determine which flow to collect from
+            val isTestDevice = (userUuid == "test-device-uuid" || userUuid == "offline-test-device-uuid")
+            val messagesFlow = if (isTestDevice) {
+                val testDeviceName = when (userUuid) {
+                    "test-device-uuid" -> TestDeviceService.TEST_DEVICE_NAME
+                    "offline-test-device-uuid" -> TestDeviceService.TEST_DEVICE_NAME_OFFLINE
+                    else -> null
+                }
 
-                // update the UI state with the new state
-                _uiState.update { prev ->
-                    prev.copy(
-                        allChatMessages = newChatMessages
+                if (testDeviceName != null) {
+                    Log.d("ChatDebug", "Using multi-name query with: [$chatName, $testDeviceName]")
+                    db.messageDao().getChatMessagesFlowMultipleNames(
+                        listOf(chatName, testDeviceName)
                     )
+                } else {
+                    db.messageDao().getChatMessagesFlow(chatName)
+                }
+            } else {
+                db.messageDao().getChatMessagesFlow(chatName)
+            }
+
+            //collect messages from the chosen flow
+            messagesFlow.collect { newChatMessages ->
+                Log.d("ChatDebug", "Received ${newChatMessages.size} messages")
+                _uiState.update { prev ->
+                    prev.copy(allChatMessages = newChatMessages)
                 }
             }
         }
@@ -120,25 +153,15 @@ class ChatScreenViewModel(
         }
     }
 
-    private fun createConversationId(uuid1: String, uuid2: String): String {
-        return listOf(uuid1, uuid2).sorted().joinToString("-")
-    }
 
     fun sendChatMessage(virtualAddress: InetAddress, message: String) {
         val sendTime: Long = System.currentTimeMillis()
 
-        val chatNameForMessage = when {
-            TestDeviceService.isOnlineTestDevice(virtualAddress) ->
-                TestDeviceService.TEST_DEVICE_NAME
-            ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE ||
-                    userEntity?.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE ->
-                TestDeviceService.TEST_DEVICE_NAME_OFFLINE
-            else -> userEntity?.name ?: ipStr
-        }
+        //use same conversationid as chat name
+        val messageEntity = Message(0, sendTime, message, "Me", chatName)
 
-        Log.d("ChatDebug", "Sending message to chat: $chatNameForMessage")
+        Log.d("ChatDebug", "Sending message to chat: $chatName")
 
-        val messageEntity = Message(0, sendTime, message, "Me", chatNameForMessage)
 
         viewModelScope.launch {
             //save to local database
@@ -147,21 +170,6 @@ class ChatScreenViewModel(
             //update convo with the new message
             if (userEntity != null){
                 try {
-
-                    //check if it is a test device and use a correct uuid
-                    val userUuid = when {
-                        TestDeviceService.isOnlineTestDevice(virtualAddress) ->
-                            "test-device-uuid"  // MUST match the UUID in GlobalApp.insertTestConversations()
-
-                        TestDeviceService.isOfflineTestDevice(virtualAddress) ||
-                                userEntity.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE ->
-                            "offline-test-device-uuid"  // MUST match the UUID for offline test device
-
-                        else -> userEntity.uuid
-                    }
-
-                    Log.d("ChatScreenViewModel", "Using UUID: $userUuid for conversation update")
-
 
                     //get or create conversation
                     val remoteUser = UserEntity(

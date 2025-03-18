@@ -21,6 +21,9 @@ interface MessageDao {
     @Query("DELETE FROM message")
     fun clearTable()
 
+    @Query("SELECT * FROM message WHERE chat IN (:chatNames) ORDER BY dateReceived ASC")
+    fun getChatMessagesFlowMultipleNames(chatNames: List<String>): Flow<List<Message>>
+
     @Insert
     suspend fun addMessage(m: Message)
 

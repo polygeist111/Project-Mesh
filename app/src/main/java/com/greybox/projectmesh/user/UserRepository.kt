@@ -26,24 +26,6 @@ class UserRepository(private val userDao: UserDao) {
         }
     }
 
- //   suspend fun insertOrUpdateUserByIp(ip: String, name: String) {
- //       Log.d("UserRepository", "insertOrUpdateUserByIp called with name=$name, ip=$ip")
-    //        val existing = userDao.getUserByIp(ip)
- //  if (existing == null) {
- //         // Decide on a pseudo-uuid if you don't have a real one:
- //         val pseudoUuid = "temp-$ip"
-    //         val newUser = UserEntity(
-    //          uuid = pseudoUuid,
-    //          name = name,
-    //          address = ip
-    //      )
-    //      userDao.insertUser(newUser)
- //  } else {
- //         // just update the name
-    //         val updated = existing.copy(name = name)
-    //      userDao.updateUser(updated)
-    //  }
- //}
     suspend fun getUserByIp(ip: String): UserEntity? {
         return userDao.getUserByIp(ip)
     }
@@ -52,6 +34,10 @@ class UserRepository(private val userDao: UserDao) {
     }
     suspend fun getAllConnectedUsers(): List<UserEntity> {
         return userDao.getAllConnectedUsers()
+    }
+
+    suspend fun getAllUsers(): List<UserEntity> {
+        return userDao.getAllUsers()
     }
 
     suspend fun hasUser(uuid: String): Boolean {

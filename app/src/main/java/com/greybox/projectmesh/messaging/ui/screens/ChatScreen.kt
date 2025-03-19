@@ -1,5 +1,9 @@
 package com.greybox.projectmesh.messaging.ui.screens
 
+import android.graphics.BitmapFactory
+import android.net.Uri
+//import android.util.Log
+import androidx.compose.foundation.Image
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -27,7 +31,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.Color
+//import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -36,23 +40,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
+import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.messaging.ui.models.ChatScreenModel
 import com.greybox.projectmesh.messaging.ui.viewmodels.ChatScreenViewModel
+import com.greybox.projectmesh.server.AppServer
 import com.greybox.projectmesh.views.LongPressCopyableText
 import com.greybox.projectmesh.testing.TestDeviceService
 import kotlinx.coroutines.runBlocking
+import org.kodein.di.compose.BuildConfig
 import org.kodein.di.compose.localDI
+import java.io.File
 import java.net.InetAddress
+import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -151,6 +164,21 @@ fun ChatScreen(
             .fillMaxWidth()
             .align(Alignment.BottomCenter)
             .padding(4.dp)) {//attach a button for connecting to file picker
+            //hard-code an URI?
+            /*val imgpath = File("/sdcard/IMG_5059.jpeg")//test image path
+            //future implementation should implement file picker
+            if (imgpath.exists()) {
+                Log.d("AppServer", "File exists at: $imgpath")
+            } else {
+                Log.e("AppServer", "File does not exist at: $imgpath")
+            }
+            val fp : Uri? = if(LocalContext.current!= null && imgpath.exists()){
+                FileProvider.getUriForFile(LocalContext.current, "${LocalContext.current.packageName}.fileprovider", imgpath)//URI.create(imgpath)
+            } else {
+                null
+            }
+            val filepath = URI.create(fp.toString())*/
+            //TextField(modifier = Modifier.weight(3f),
 
             TextField(
                 modifier = Modifier.weight(3f),
@@ -162,8 +190,14 @@ fun ChatScreen(
             )
             Button(modifier = Modifier.weight(1f), onClick = {
                 val message = textMessage.trimEnd()
+                val imgpath = "sdcard/padorubastard.jpg"//test image path
+                //future implementation should implement file picker
+                val filepath = /*FileProvider.getUriForFile(LocalContext.current, "${BuildConfig.APPLICATION_ID}.fileprovider", imgpath)*/Uri.parse(imgpath)
                 if(message.isNotEmpty()) {
-                    viewModel.sendChatMessage(virtualAddress, message)
+                    viewModel.sendChatMessage(virtualAddress, message, URI.create(filepath.toString()))
+                    if(filepath != null && filepath.toString().isNotEmpty()) {
+                        val oti = viewModel.addOutgoingTransfer(filepath, virtualAddress)
+                    }
                     // resets the text field
                     textMessage = ""
                 }
@@ -373,6 +407,38 @@ fun MessageBubble(
                     style = MaterialTheme.typography.labelSmall
                 )
             }
+            /*chatMessage.file?.let { fileUri ->
+                val context = LocalContext.current
+                val imageBitmap = remember(fileUri) {
+                    try {
+                        val inputStream = context.contentResolver.openInputStream(Uri.parse(fileUri.toString()))
+                        BitmapFactory.decodeStream(inputStream)
+                    } catch (e: Exception) {
+                        Log.e("MessageBubble", "Error loading image: ${e.message}")
+                        null
+                    }
+                }
+                imageBitmap?.let {
+                    Image(
+                        bitmap = it.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(100.dp)
+                    )
+                }
+            }*/
+//            Text(
+//                text = "",
+//                //text = "$sender [${SimpleDateFormat("HH:mm").format(Date(chatMessage.dateReceived))}]: ",
+//                style = MaterialTheme.typography.labelSmall,
+//                textAlign = TextAlign.End
+//            )
+//            Text(
+//                text = "",
+//                //text = "$sender [${SimpleDateFormat("HH:mm").format(Date(chatMessage.dateReceived))}]: ",
+//                style = MaterialTheme.typography.labelSmall,
+//                textAlign = TextAlign.End
+//            )
+
         }
     }
 }

@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import com.google.gson.Gson
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.messaging.data.entities.Message
@@ -48,7 +49,16 @@ import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import java.net.URLDecoder
 import kotlinx.coroutines.runBlocking
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody
+//import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import java.io.IOException
+import java.net.URI
 import okhttp3.RequestBody.Companion.toRequestBody
+
 /*
 This File is the Server for transferring files
 The Meshrabiya test app uses NanoHttpD as the server, OkHttp as the client
@@ -103,7 +113,7 @@ class AppServer(
         Log.d("AppServer", "Server restarted successfully on port: $localPort")
     }
 
-
+//change to json
     /*
     This data class contains all the information about the outgoing transfer (Sending a file)
     Why not using Serializable annotation?
@@ -228,6 +238,26 @@ class AppServer(
                     )
                 }
             }
+        else if (path.startsWith("/updateUserInfo")) {
+            // Read the POST body (assumed JSON)
+            val postData = session.inputStream.bufferedReader().readText()
+            try {
+                // Decode the JSON payload into a UserEntity
+                val updatedUser = json.decodeFromString(UserEntity.serializer(), postData)
+                // Update or insert the user info in the database
+                runBlocking {
+                    userRepository.insertOrUpdateUser(updatedUser.uuid, updatedUser.name, updatedUser.address)
+                }
+                return newFixedLengthResponse(
+                    Response.Status.OK, "application/json", """{"status":"OK"}"""
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return newFixedLengthResponse(
+                    Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid user data"}"""
+                )
+            }
+        }
             // 2) /download/
             else if (path.startsWith("/download/")) {
             // Extracts the transfer ID (Integer)from the path by taking the last part of the path
@@ -308,7 +338,7 @@ class AppServer(
             return response
         }
         // Check if it is a sending request
-        else if(path.startsWith("/send")) {
+        else if(path.startsWith("/send")) {//change to json
             // Parse the query parameters from the URL, converting them to a key-value map
             val searchParams = session.queryParameterString.split("&")
                 .map {
@@ -380,11 +410,13 @@ class AppServer(
             val chatMessage = session.parameters["chatMessage"]?.first()
             val time = session.parameters["time"]?.first()?.toLong() ?: 0
             val senderIp = InetAddress.getByName(session.parameters["senderIp"]?.first())
+            val incomingfile = URI.create(session.parameters["incomingfile"]?.first())//test this
 
             val message = MessageNetworkHandler.handleIncomingMessage(
                 chatMessage,
                 time,
-                senderIp
+                senderIp,
+                incomingfile
             )
 
             scope.launch {
@@ -409,6 +441,7 @@ class AppServer(
                 // GET /getDeviceName
                 val uri = "http://$ipStr:$port/getDeviceName"
                 val request = Request.Builder().url(uri).build()
+                Log.d("AppServer", "Request: $request")
                 val response = httpClient.newCall(request).execute()
                 Log.d("AppServer", "Response: $response")
 
@@ -446,14 +479,33 @@ class AppServer(
             }
         }
     }
+    /*fun requestRemoteUserInfo(remoteAddr: InetAddress, port: Int = DEFAULT_PORT) {//old
+        scope.launch {
+            try {
+                val url = "http://${remoteAddr.hostAddress}:$port/myinfo"
+                val request = Request.Builder().url(url).build()
+                val response = httpClient.newCall(request).execute()
+                val userJson = response.body?.string()
+                response.close()
 
-
+                if (!userJson.isNullOrEmpty()) {
+                    // Decode JSON into a UserEntity
+                    val remoteUser = json.decodeFromString(UserEntity.serializer(), userJson)
+                    // Insert or update in DB
+                    userRepository.insertOrUpdateUser(remoteUser.uuid, remoteUser.name)
+                    // Possibly store lastSeen, remote IP, etc., if your entity includes those fields
+                }
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to fetch /myinfo from $remoteAddr", e)
+            }
+        }
+    }*/
 
     /**
      * Add an outgoing transfer. This is done using a Uri so that we don't have to make our own
      * copy of the file the user wants to transfer.
      */
-    fun addOutgoingTransfer(
+    fun addOutgoingTransfer(//change to json
         uri: Uri,   // The uri of the file to be transferred
         toNode: InetAddress,    // The recipient's IP address
         toPort: Int = DEFAULT_PORT, // The recipient's port number
@@ -475,20 +527,30 @@ class AppServer(
             toHost = toNode,
             size = nameAndSize.size.toInt(),
         )
+        val gs = Gson()//json
+        val json = gs.toJson(outgoingTransfer)
+        //Log.d("AppServer", "json: $json")
         // Build the request to tell the other side about the transfer
+        val bodtype = "application/json; charset=utf-8".toMediaTypeOrNull()
+        val bod = json.toRequestBody(bodtype)
         val request = Request.Builder().url("http://${toNode.hostAddress}:$toPort/" +
                 "send?id=$transferId&filename=${URLEncoder.encode(validName, "UTF-8")}" +
                 "&size=${nameAndSize.size}&from=${localVirtualAddr.hostAddress}")
-//            .addHeader("connection", "close")
-            .build()
+            .post(bod)
+            .build()//changed this to send a post request
         Log.d("Appserver", "$logPrefix notifying $toNode of incoming transfer")
         Log.d("AppServer", "request: $request")
 
         // Send the request to the other side using OkHttp3
-        val response = httpClient.newCall(request).execute()
-        val serverResponse = response.body?.string()
-        Log.d("AppServer", "$logPrefix - received response: $serverResponse")
-        /*
+        try {
+            //val response = httpClient.newCall(request).execute()
+            val resp = httpClient.newCall(request).execute()
+            val serverResponse = resp.body?.string()
+            Log.d("AppServer", "$logPrefix - received response: $serverResponse")
+        } catch(e: Exception){
+            Log.d("AppServer", "$logPrefix - exception: $e")
+        }/*
+
          Update the _outgoingTransfers list with the new transfer
          Add the new transfer to the beginning of the list, then append the existing list
          */
@@ -675,8 +737,9 @@ class AppServer(
         }
     }
 
-    fun sendChatMessage(address: InetAddress, time: Long, message: String) {
-        scope.launch {
+    fun sendChatMessage(address: InetAddress, time: Long, message: String, f: URI?) {//need to test this
+        scope.launch {//check to see if this accommodates for json
+            //not sending URI, i don't think the json is working
             try {
                 Log.d("AppServer", "chat message: $message")
                 if (TestDeviceService.isTestDevice(address)) {
@@ -686,7 +749,8 @@ class AppServer(
                         dateReceived = System.currentTimeMillis(),
                         content = "Echo: $message",
                         sender = TestDeviceService.TEST_DEVICE_NAME,
-                        chat = TestDeviceService.TEST_DEVICE_NAME
+                        chat = TestDeviceService.TEST_DEVICE_IP,
+                        file = f//ok this is working
                     )
 
                     // Store the echo response in our database
@@ -705,16 +769,36 @@ class AppServer(
                     .addQueryParameter("time", time.toString())
                     .addQueryParameter("senderIp", localVirtualAddr.hostAddress)
                     .build()
-
+                val gs = Gson()
+                val msg = Message(//test this
+                    id = 0,
+                    dateReceived = time,
+                    sender = localVirtualAddr.hostName,
+                    chat = address.hostAddress,
+                    content = message,
+                    file = null//made the file null so that the file doesn't send
+                )
+                Log.d("AppServer", "Messagefile: ${msg.file.toString()}")
+                val msgJson = gs.toJson(msg)
+                //modified http
+                val httpURL = HttpUrl.Builder() .scheme("http") .host(address.hostAddress) .port(DEFAULT_PORT) .addPathSegment("chat").build()
+                Log.d("AppServer", "HTTP URL: $httpURL")
+                //post request body
+                val mt = "application/json; charset=utf-8".toMediaType()
+                val rbody = msgJson.toRequestBody(mt)
                 Log.d("Appserver", "HTTP URL: $httpUrl")
                 val request = Request.Builder()
                     .url(httpUrl)
                     .build()
+                val req = Request.Builder().url(httpURL).post(rbody).build()
+                //back to old code
 
                 Log.d("AppServer", "Request: $request")
 
-                val response = httpClient.newCall(request).execute()
-                Log.d("AppServer", "Response: $response")
+                //val response = httpClient.newCall(request).execute()
+                //Log.d("AppServer", "Response: $response")
+                val respo = httpClient.newCall(req).execute()
+
             }
             catch (e: Exception) {
                 e.printStackTrace()
@@ -763,8 +847,11 @@ class AppServer(
             try {
                 val url = "http://${remoteAddr.hostAddress}:$port/myinfo"
                 val request = Request.Builder().url(url).build()
+                Log.d("AppServer", "Requesting remote user info from $url")
+
                 val response = httpClient.newCall(request).execute()
                 val userJson = response.body?.string()
+                Log.d("AppServer", "Received user info from ${remoteAddr.hostAddress}: $userJson")
                 response.close()
 
                 if (!userJson.isNullOrEmpty()) {

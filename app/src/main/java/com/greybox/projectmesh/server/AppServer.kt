@@ -40,6 +40,7 @@ import java.net.InetAddress
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import com.greybox.projectmesh.extension.getUriNameAndSize
+import com.greybox.projectmesh.messaging.data.entities.JSONSchema
 import com.greybox.projectmesh.user.UserEntity
 import com.greybox.projectmesh.user.UserRepository
 import org.kodein.di.DI
@@ -213,6 +214,10 @@ class AppServer(
     override fun serve(session: IHTTPSession): Response {
         // Extracts the URI from the session, which is the path of the request
         val path = session.uri
+
+        //Create instance of the JSON Schema
+        val JSONschema = JSONSchema()
+
         // check if the path is for download, indicating the request wants to download a file
             // 1) /myinfo route
         if (path.startsWith("/myinfo")) {
@@ -221,6 +226,14 @@ class AppServer(
             else if (path.startsWith("/updateUserInfo")) {
                 // Read the POST body (assumed JSON)
                 val postData = session.inputStream.bufferedReader().readText()
+
+                //Validates JSON payload
+                if(!JSONschema.schemaValidation(postData)){
+                    return newFixedLengthResponse(
+                        Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid JSON schema"}"""
+                    )
+                }
+
                 try {
                     // Decode the JSON payload into a UserEntity
                     val updatedUser = json.decodeFromString(UserEntity.serializer(), postData)

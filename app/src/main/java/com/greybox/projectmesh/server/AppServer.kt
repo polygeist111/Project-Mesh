@@ -749,7 +749,7 @@ class AppServer(
                         dateReceived = System.currentTimeMillis(),
                         content = "Echo: $message",
                         sender = TestDeviceService.TEST_DEVICE_NAME,
-                        chat = TestDeviceService.TEST_DEVICE_IP,
+                        chat = TestDeviceService.TEST_DEVICE_NAME,
                         file = f//ok this is working
                     )
 

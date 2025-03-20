@@ -32,7 +32,8 @@ class MessageService(
         messageNetworkHandler.sendChatMessage(
             address = address,
             time = message.dateReceived,
-            message = message.content
+            message = message.content,
+            f = null
         )
     }
 

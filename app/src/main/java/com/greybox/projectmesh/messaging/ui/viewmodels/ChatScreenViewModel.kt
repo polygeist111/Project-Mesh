@@ -1,5 +1,6 @@
 package com.greybox.projectmesh.messaging.ui.viewmodels
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.greybox.projectmesh.GlobalApp
@@ -12,6 +13,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.kodein.di.DI
 import com.greybox.projectmesh.server.AppServer
+import com.greybox.projectmesh.server.AppServer.Companion.DEFAULT_PORT
+import com.greybox.projectmesh.server.AppServer.OutgoingTransferInfo
+import com.greybox.projectmesh.server.AppServer.Status
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
 import kotlinx.coroutines.Dispatchers
@@ -27,11 +31,13 @@ import com.greybox.projectmesh.messaging.repository.ConversationRepository
 import com.greybox.projectmesh.user.UserEntity
 import android.content.SharedPreferences
 import android.util.Log
+import java.net.URI
 
 class ChatScreenViewModel(
     di: DI,
     virtualAddress: InetAddress
 ): ViewModel() {
+
     // _uiState will be updated whenever there is a change in the UI state
     private val ipStr: String = virtualAddress.hostAddress
     private val userEntity = runBlocking {
@@ -154,18 +160,25 @@ class ChatScreenViewModel(
     }
 
 
-    fun sendChatMessage(virtualAddress: InetAddress, message: String) {
+    fun sendChatMessage(virtualAddress: InetAddress, message: String, file: URI?) {//add file field here
         val sendTime: Long = System.currentTimeMillis()
 
         //use same conversationid as chat name
-        val messageEntity = Message(0, sendTime, message, "Me", chatName)
+        val messageEntity = Message(0, sendTime, message, "Me", chatName, file)
 
         Log.d("ChatDebug", "Sending message to chat: $chatName")
 
 
         viewModelScope.launch {
+
             //save to local database
-            db.messageDao().addMessage(messageEntity)
+            if(file != null){
+                db.messageDao().addMessage(Message(0, sendTime, message, "Me", chatName, file))//add file field
+
+            }else{
+                db.messageDao().addMessage(messageEntity)
+
+            }
 
             //update convo with the new message
             if (userEntity != null){
@@ -195,6 +208,16 @@ class ChatScreenViewModel(
                 }
             }
         }
-        appServer.sendChatMessage(virtualAddress, sendTime, message)
+        appServer.sendChatMessage(virtualAddress, sendTime, message, file)//add file field
     }
+
+    fun addOutgoingTransfer(//change to json
+        uri: Uri,   // The uri of the file to be transferred
+        toNode: InetAddress,    // The recipient's IP address
+        toPort: Int = DEFAULT_PORT, // The recipient's port number
+    ): OutgoingTransferInfo {
+        val oti = appServer.addOutgoingTransfer(uri, toNode, toPort)
+        return oti
+    }
+    //add file picker
 }

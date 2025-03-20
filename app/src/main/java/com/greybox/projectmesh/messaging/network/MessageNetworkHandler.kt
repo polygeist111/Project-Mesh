@@ -3,6 +3,7 @@ package com.greybox.projectmesh.messaging.network
 
 import android.util.Log
 import androidx.compose.runtime.remember
+import com.google.gson.Gson
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.server.AppServer
@@ -21,6 +22,7 @@ import kotlinx.coroutines.runBlocking
 import android.content.SharedPreferences
 import com.greybox.projectmesh.testing.TestDeviceService
 import org.kodein.di.instance
+import java.net.URI
 
 class MessageNetworkHandler(
     private val httpClient: OkHttpClient,
@@ -31,7 +33,8 @@ class MessageNetworkHandler(
     private val conversationRepository: ConversationRepository by di.instance()
     private val settingsPrefs: SharedPreferences by di.instance(tag = "settings")
 
-    fun sendChatMessage(address: InetAddress, time: Long, message: String) {
+    //fun sendChatMessage(address: InetAddress, time: Long, message: String) {
+    fun sendChatMessage(address: InetAddress, time: Long, message: String, f:URI?/* test this*/) {
         scope.launch {
             try {
                 val httpUrl = HttpUrl.Builder()
@@ -47,7 +50,18 @@ class MessageNetworkHandler(
                 val request = Request.Builder()
                     .url(httpUrl)
                     .build()
-
+                //Turn this into JSON
+                val gs = Gson()
+                val msg = Message(
+                    id = 0,
+                    dateReceived = time,
+                    content = message,
+                    sender = localVirtualAddr.hostName,
+                    chat = address.hostAddress,
+                    file = f
+                )
+                val jsmsg = gs.toJson(msg)
+                //send
                 httpClient.newCall(request).execute().use { /* response closes automatically */ }
                 Log.d("MessageNetworkHandler", "Message sent successfully")
             } catch (e: Exception) {
@@ -56,65 +70,67 @@ class MessageNetworkHandler(
         }
     }
 
-    companion object {
-        fun handleIncomingMessage(
-            chatMessage: String?,
-            time: Long,
-            senderIp: InetAddress
-        ): Message {
-            val ipStr = senderIp.hostAddress
-            val user = runBlocking {GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)  }// might be null if unknown
-            val sender = user?.name ?: "Unknown"
+    companion object {//does this handle json?
+    fun handleIncomingMessage(
+        chatMessage: String?,
+        time: Long,
+        senderIp: InetAddress,
+        incomingfile: URI?
+    ): Message {
+        val ipStr = senderIp.hostAddress
+        val user = runBlocking {GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)  }// might be null if unknown
+        val sender = user?.name ?: "Unknown"
 
-            //determine the correct chat name
-            val userUuid = when {
-                TestDeviceService.isOnlineTestDevice(senderIp) ->
-                    "test-device-uuid"
-                ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE || user?.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE ->
-                    "offline-test-device-uuid"
-                else -> user?.uuid ?: "unknown-${senderIp.hostAddress}"
-            }
-
-            val localUuid = GlobalApp.GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
-            val chatName = createConversationId(localUuid, userUuid)
-
-            Log.d("MessageNetworkHandler", "Creating message with chat name: $chatName, sender: $sender")
-
-            //Create the message
-            val message = Message(
-                id = 0,
-                dateReceived = time,
-                content = chatMessage ?: "Error! No message found.",
-                sender = sender,
-                chat = chatName
-            )
-
-            //update convo with new message
-            if(user != null){
-                try {
-                    //get/create convo
-                    val conversation = runBlocking {
-                        GlobalApp.GlobalUserRepo.conversationRepository.getOrCreateConversation(
-                            localUuid = localUuid,
-                            remoteUser = user
-                        )
-                    }
-
-                    //update convo with the new message
-                    runBlocking {
-                        GlobalApp.GlobalUserRepo.conversationRepository.updateWithMessage(
-                            conversationId = conversation.id,
-                            message = message
-                        )
-                    }
-
-                    Log.d("MessageNetworkHandler", "Updated conversation with new message")
-                }catch (e: Exception){
-                    Log.e("MessageNetworkHandler", "Failed to update conversation", e)
-                }
-            }
-            return message
+        //determine the correct chat name
+        val userUuid = when {
+            TestDeviceService.isOnlineTestDevice(senderIp) ->
+                "test-device-uuid"
+            ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE || user?.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE ->
+                "offline-test-device-uuid"
+            else -> user?.uuid ?: "unknown-${senderIp.hostAddress}"
         }
+
+        val localUuid = GlobalApp.GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
+        val chatName = createConversationId(localUuid, userUuid)
+
+        Log.d("MessageNetworkHandler", "Creating message with chat name: $chatName, sender: $sender")
+
+        //Create the message
+        val message = Message(
+            id = 0,
+            dateReceived = time,
+            content = chatMessage ?: "Error! No message found.",
+            sender = sender,
+            chat = chatName,
+            file = incomingfile//crashes
+        )
+
+        //update convo with new message
+        if(user != null){
+            try {
+                //get/create convo
+                val conversation = runBlocking {
+                    GlobalApp.GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                        localUuid = localUuid,
+                        remoteUser = user
+                    )
+                }
+
+                //update convo with the new message
+                runBlocking {
+                    GlobalApp.GlobalUserRepo.conversationRepository.updateWithMessage(
+                        conversationId = conversation.id,
+                        message = message
+                    )
+                }
+
+                Log.d("MessageNetworkHandler", "Updated conversation with new message")
+            }catch (e: Exception){
+                Log.e("MessageNetworkHandler", "Failed to update conversation", e)
+            }
+        }
+        return message
+    }
 
         private fun createConversationId(uuid1: String, uuid2: String): String {
             //special cases for test devices - use fixed IDs

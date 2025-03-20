@@ -307,19 +307,6 @@ fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit) {
     Log.d("ChatDebug", "DisplayAllMessages called with ${uiState.allChatMessages.size} messages")
 
     LazyColumn{
-        item{
-            Row(modifier = Modifier.fillMaxWidth()){
-                Text(modifier = Modifier.weight(3f),
-                    text = "Device name: ${uiState.deviceName}, IP address: ${uiState.virtualAddress.hostAddress}"
-                )
-                Button(
-                    modifier = Modifier.weight(1f),
-                    onClick = onClickButton
-                ) {
-                    Text(text = "Ping")
-                }
-            }
-        }
         if (uiState.allChatMessages.isEmpty()){
             item {
                 Text (

@@ -10,6 +10,7 @@ import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.messaging.network.MessageNetworkHandler
+import com.greybox.projectmesh.db.entities.Message
 import com.greybox.projectmesh.extension.updateItem
 import com.greybox.projectmesh.testing.TestDeviceService
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback
@@ -59,6 +60,7 @@ import okhttp3.Response
 import java.io.IOException
 import java.net.URI
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.greybox.projectmesh.util.NotificationHelper
 
 /*
 This File is the Server for transferring files
@@ -193,6 +195,7 @@ class AppServer(
                 json.decodeFromString(IncomingTransferInfo.serializer(), it.readText())
                 // if no files match the criteria, return an empty list
             } ?: emptyList()
+            NotificationHelper.createNotificationChannel(appContext)
             /*
              updates the _incomingTransfers MutableStateFlow with the list of incoming files
              It combines the previous list with newly read files from the directory
@@ -393,6 +396,8 @@ class AppServer(
                         addAll(prev)
                     }
                 }
+                // Show notification
+                NotificationHelper.showFileReceivedNotification(appContext, filename)
                 // Return "OK", Confirming the transfer request has been handled
                 return newFixedLengthResponse("OK")
             }else {
@@ -418,6 +423,11 @@ class AppServer(
             }
             // return "OK", indicating the decline request has been handled
             return newFixedLengthResponse("OK")
+        }
+        else if(path.startsWith("/getDeviceName")){
+            Log.d("AppServer", "local ip address: ${localVirtualAddr.hostAddress}")
+            val settingPref: SharedPreferences by di.instance(tag="settings")
+            return newFixedLengthResponse(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
         }
         else if(path.startsWith("/chat")) {
             val chatMessage = session.parameters["chatMessage"]?.first()
@@ -445,7 +455,7 @@ class AppServer(
         }
     }
 
-    fun sendDeviceName(wifiAddress: InetAddress, port: Int = 4242) {
+    suspend fun sendDeviceName(wifiAddress: InetAddress, port: Int = DEFAULT_PORT){
         scope.launch {
             try {
                 val ipStr = wifiAddress.hostAddress
@@ -955,7 +965,7 @@ class AppServer(
     }
 
     companion object {
-        const val DEFAULT_PORT = 4242
+        const val DEFAULT_PORT = 9614//MAIN HAD MODIFIED IT TO 9614 FROM 4242
         val CHAT_TYPE_PLAINTEXT = "text/plain; charset=utf-8".toMediaType()
     }
 }

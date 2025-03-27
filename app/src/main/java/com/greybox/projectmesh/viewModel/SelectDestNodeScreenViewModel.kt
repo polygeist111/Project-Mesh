@@ -2,13 +2,14 @@ package com.greybox.projectmesh.viewModel
 
 import android.net.Uri
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.greybox.projectmesh.model.SelectDestNodeScreenModel
 import com.greybox.projectmesh.server.AppServer
 import com.ustadmobile.meshrabiya.ext.addressToByteArray
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
+import com.ustadmobile.meshrabiya.vnet.VirtualNode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -22,8 +23,15 @@ import org.kodein.di.DI
 import org.kodein.di.instance
 import java.net.InetAddress
 
+data class SelectDestNodeScreenModel(
+    val allNodes: Map<Int, VirtualNode.LastOriginatorMessage> = emptyMap(),
+    val uris: List<Uri> = emptyList(),
+    val contactingInProgressDevice: String? = null,
+)
+
 class SelectDestNodeScreenViewModel(
     di: DI,
+    savedStateHandle: SavedStateHandle,
     private val sendUris: List<Uri>,
     private val popBackWhenDone: () -> Unit
 ): ViewModel(){

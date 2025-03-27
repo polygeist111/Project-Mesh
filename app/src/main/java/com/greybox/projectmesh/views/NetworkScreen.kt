@@ -9,7 +9,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.ViewModelFactory
-import com.greybox.projectmesh.model.NetworkScreenModel
+import com.greybox.projectmesh.viewModel.HomeScreenViewModel
+import com.greybox.projectmesh.viewModel.NetworkScreenModel
 import com.greybox.projectmesh.viewModel.NetworkScreenViewModel
 import org.kodein.di.compose.localDI
 import com.greybox.projectmesh.extension.WifiListItem
@@ -20,7 +21,7 @@ fun NetworkScreen(
     factory = ViewModelFactory(
         di = localDI(),
         owner = LocalSavedStateRegistryOwner.current,
-        vmFactory = { NetworkScreenViewModel(it) },
+        vmFactory = { di, savedStateHandle -> NetworkScreenViewModel(di, savedStateHandle)},
         defaultArgs = null))
 ) {
     // declare the UI state, we can use the uiState to access the current state of the viewModel

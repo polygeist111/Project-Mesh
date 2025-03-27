@@ -3,6 +3,7 @@ package com.greybox.projectmesh
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Environment
 import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -11,12 +12,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.messaging.repository.ConversationRepository
+import com.greybox.projectmesh.extension.networkDataStore
 import com.greybox.projectmesh.server.AppServer
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.asInetAddress
+import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.randomApipaAddr
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -31,6 +35,8 @@ import org.kodein.di.singleton
 import java.io.File
 import java.net.InetAddress
 import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
+
 import com.greybox.projectmesh.user.UserRepository
 import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.messaging.utils.MessageMigrationUtils
@@ -46,7 +52,7 @@ class GlobalApp : Application(), DIAware {
     private val addressKey = intPreferencesKey("virtual_node_address")
     /*data object DeviceInfoManager {
         // Global HashMap to store IP-DeviceName mapping
-        val deviceNameMap = HashMap<String, String?>()
+        private val deviceNameMap = ConcurrentHashMap<String, String?>()
 
         // Helper method to add/update a device name
         fun addDevice(ipAddress: String, name: String?) {
@@ -67,9 +73,6 @@ class GlobalApp : Application(), DIAware {
 
         fun getChatName(inetAddress: InetAddress): String {
             return inetAddress.hostAddress
-//            val deviceName = getDeviceName(inetAddress) ?: "Unknown"
-//            val addressDotNotation = inetAddress.hostAddress
-//            return "$deviceName ($addressDotNotation)"
         }
     }*/
     object GlobalUserRepo {

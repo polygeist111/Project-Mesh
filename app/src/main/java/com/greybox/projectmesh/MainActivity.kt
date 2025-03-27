@@ -39,6 +39,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.greybox.projectmesh.debug.CrashHandler
 import com.greybox.projectmesh.debug.CrashScreenActivity
+import com.greybox.projectmesh.navigation.BottomNavApp
 import com.greybox.projectmesh.navigation.BottomNavItem
 import com.greybox.projectmesh.navigation.BottomNavigationBar
 import com.greybox.projectmesh.server.AppServer
@@ -88,11 +89,14 @@ import kotlinx.coroutines.launch
 import com.greybox.projectmesh.messaging.data.entities.Conversation
 
 
+import com.greybox.projectmesh.views.RequestPermissionsScreen
 
 class MainActivity : ComponentActivity(), DIAware {
     override val di by closestDI()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // crash screen
+        CrashHandler.init(applicationContext,CrashScreenActivity::class.java)
         val settingPref: SharedPreferences by di.instance(tag="settings")
         val appServer: AppServer by di.instance()
 
@@ -131,24 +135,32 @@ class MainActivity : ComponentActivity(), DIAware {
                 Log.d("DirectoryCheck", "Default directory already exists: ${defaultDirectory.absolutePath}")
             }
             var appTheme by remember {
+        // check if the default directory exist (Download/Project Mesh)
+        ensureDefaultDirectory()
+        setContent {
+            // Check if the app was launched from a notification
+            val launchedFromNotification = intent?.getBooleanExtra("from_notification", false) ?: false
+            // Request all permission in order
+            RequestPermissionsScreen(skipPermissions = launchedFromNotification)
+            var appTheme by rememberSaveable {
                 mutableStateOf(AppTheme.valueOf(
                     settingPref.getString("app_theme", AppTheme.SYSTEM.name) ?:
                     AppTheme.SYSTEM.name))
             }
-            var languageCode by remember {
+            var languageCode by rememberSaveable {
                 mutableStateOf(settingPref.getString(
                     "language", "en") ?: "en")
             }
-            var restartServerKey by remember {mutableStateOf(0)}
-            var deviceName by remember {
+            var restartServerKey by rememberSaveable {mutableStateOf(0)}
+            var deviceName by rememberSaveable {
                 mutableStateOf(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
             }
 
-            var autoFinish by remember {
+            var autoFinish by rememberSaveable {
                 mutableStateOf(settingPref.getBoolean("auto_finish", false))
             }
 
-            var saveToFolder by remember {
+            var saveToFolder by rememberSaveable {
                 mutableStateOf(
                     settingPref.getString("save_to_folder", null)
                         ?: "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/Project Mesh"
@@ -160,6 +172,11 @@ class MainActivity : ComponentActivity(), DIAware {
 
             // Remember the current screen across recompositions
             var currentScreen by rememberSaveable { mutableStateOf(initialRoute) }
+            LaunchedEffect(intent?.getStringExtra("navigateTo")) {
+                if (intent?.getStringExtra("navigateTo") == BottomNavItem.Receive.route) {
+                    currentScreen = BottomNavItem.Receive.route
+                }
+            }
             LaunchedEffect(restartServerKey) {
                 if (restartServerKey > 0){
                     appServer.restart()
@@ -188,10 +205,24 @@ class MainActivity : ComponentActivity(), DIAware {
                 }
             }
         }
-        // crash screen
-        CrashHandler.init(applicationContext,CrashScreenActivity::class.java)
-        if (!isBatteryOptimizationDisabled(this)) {
-            promptDisableBatteryOptimization(this)
+    }
+
+    private fun ensureDefaultDirectory() {
+        val defaultDirectory = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            "Project Mesh"
+        )
+        if (!defaultDirectory.exists()) {
+            // Create the directory if it doesn't exist
+            if (defaultDirectory.mkdirs()) {
+                Log.d("DirectoryCheck", "Default directory created: ${defaultDirectory.absolutePath}")
+            }
+            else {
+                Log.e("DirectoryCheck", "Failed to create default directory: ${defaultDirectory.absolutePath}")
+            }
+        }
+        else {
+            Log.d("DirectoryCheck", "Default directory already exists: ${defaultDirectory.absolutePath}")
         }
     }
 

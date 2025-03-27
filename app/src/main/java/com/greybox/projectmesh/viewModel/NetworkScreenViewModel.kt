@@ -1,6 +1,7 @@
 package com.greybox.projectmesh.viewModel
 
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.Flow
@@ -12,15 +13,27 @@ import com.greybox.projectmesh.model.NetworkScreenModel
 import com.greybox.projectmesh.server.AppServer
 import com.ustadmobile.meshrabiya.ext.addressToByteArray
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
+import com.ustadmobile.meshrabiya.vnet.VirtualNode
 import com.ustadmobile.meshrabiya.vnet.wifi.state.WifiStationState
 import com.greybox.projectmesh.testing.TestDeviceEntry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.kodein.di.DI
 import org.kodein.di.instance
 import java.net.InetAddress
 import com.greybox.projectmesh.GlobalApp
 
-class NetworkScreenViewModel(di:DI): ViewModel() {
+data class NetworkScreenModel(
+    val connectingInProgressSsid: String? = null,
+    val allNodes: Map<Int, VirtualNode.LastOriginatorMessage> = emptyMap(),
+)
+
+class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewModel() {
     // _uiState will be updated whenever there is a change in the UI state
     private val _uiState = MutableStateFlow(NetworkScreenModel())
     // uiState is a read-only property that shows the current UI state
@@ -102,4 +115,5 @@ class NetworkScreenViewModel(di:DI): ViewModel() {
             appServer.sendDeviceName(inetAddress)
         }
     }
+
 }

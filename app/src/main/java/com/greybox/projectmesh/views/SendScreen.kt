@@ -27,6 +27,8 @@ import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.buttonStyle.WhiteButton
 import com.greybox.projectmesh.model.SendScreenModel
 import com.greybox.projectmesh.user.UserRepository
+import com.greybox.projectmesh.ui.theme.TransparentButton
+import com.greybox.projectmesh.viewModel.SendScreenModel
 import com.greybox.projectmesh.viewModel.SendScreenViewModel
 import kotlinx.coroutines.runBlocking
 import org.kodein.di.compose.localDI
@@ -38,7 +40,7 @@ fun SendScreen(
         factory = ViewModelFactory(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
-            vmFactory = { SendScreenViewModel(it, onSwitchToSelectDestNode) },
+            vmFactory = { di, savedStateHandle -> SendScreenViewModel(di, savedStateHandle, onSwitchToSelectDestNode)},
             defaultArgs = null,
         )
     ),
@@ -59,7 +61,7 @@ fun SendScreen(
             .padding(bottom = 72.dp)) {
             DisplayAllPendingTransfers(uiState)
         }
-        WhiteButton(onClick = { openDocumentLauncher.launch(arrayOf("*/*")) },
+        TransparentButton(onClick = { openDocumentLauncher.launch(arrayOf("*/*")) },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(16.dp),
@@ -131,4 +133,4 @@ fun autoConvertMS(ms: Int): String {
     } else {
         "${ms}ms"
     }
-    }
+}

@@ -1,9 +1,9 @@
 package com.greybox.projectmesh.viewModel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.greybox.projectmesh.GlobalApp
-import com.greybox.projectmesh.model.ReceiveScreenModel
 import com.greybox.projectmesh.server.AppServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -16,7 +16,11 @@ import org.kodein.di.DI
 import org.kodein.di.instance
 import java.io.File
 
-class ReceiveScreenViewModel(di: DI): ViewModel(){
+data class ReceiveScreenModel(
+    val incomingTransfers: List<AppServer.IncomingTransferInfo> = emptyList(),
+)
+
+class ReceiveScreenViewModel(di: DI, savedStateHandle: SavedStateHandle): ViewModel(){
     private val _uiState = MutableStateFlow(ReceiveScreenModel())
     val uiState: Flow<ReceiveScreenModel> = _uiState.asStateFlow()
     private val appServer: AppServer by di.instance()

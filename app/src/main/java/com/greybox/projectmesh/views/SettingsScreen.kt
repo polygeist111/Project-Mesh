@@ -1,7 +1,10 @@
 package com.greybox.projectmesh.views
 
 import android.content.Intent
+import android.content.SharedPreferences
+import android.graphics.Paint.Align
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
@@ -50,10 +52,14 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.R
 import com.greybox.projectmesh.ViewModelFactory
-import com.greybox.projectmesh.buttonStyle.GradientButton
 import com.greybox.projectmesh.ui.theme.AppTheme
+import com.greybox.projectmesh.ui.theme.GradientButton
+import com.greybox.projectmesh.ui.theme.GradientLongButton
+import com.greybox.projectmesh.viewModel.HomeScreenViewModel
+import com.greybox.projectmesh.viewModel.SendScreenViewModel
 import com.greybox.projectmesh.viewModel.SettingsScreenViewModel
 import org.kodein.di.compose.localDI
+import org.kodein.di.instance
 
 
 @Composable
@@ -62,7 +68,7 @@ fun SettingsScreen(
         factory = ViewModelFactory(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
-            vmFactory = { SettingsScreenViewModel(it) },
+            vmFactory = { di, savedStateHandle -> SettingsScreenViewModel(di, savedStateHandle)},
             defaultArgs = null,
         )),
     onThemeChange: (AppTheme) -> Unit,
@@ -72,6 +78,7 @@ fun SettingsScreen(
     onAutoFinishChange: (Boolean) -> Unit,
     onSaveToFolderChange: (String) -> Unit
 ) {
+    val di = localDI()
     val context = LocalContext.current
     val currTheme = viewModel.theme.collectAsState()
     val currLang = viewModel.lang.collectAsState()
@@ -81,148 +88,95 @@ fun SettingsScreen(
 
     var showDialog by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .verticalScroll(rememberScrollState()))
+    val settingPref: SharedPreferences by di.instance(tag = "settings")
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()))
     {
         Spacer(modifier = Modifier.height(36.dp))
+        // Title "Settings"
         Text(
-            text=stringResource(id = R.string.settings), style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
-            modifier = Modifier.align(Alignment.CenterHorizontally))
-        Spacer(modifier = Modifier.height(18.dp))
+            text = stringResource(id = R.string.settings),
+            style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
         Column(modifier = Modifier.padding(36.dp)) {
-            Text(stringResource(id = R.string.general), style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
-            HorizontalDivider(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(0.dp, 10.dp),
-                thickness = 2.dp,
-                color = Color.Red
-            )
-            Row(modifier = Modifier
-                .fillMaxWidth()
-                .padding(0.dp, 16.dp))
-            {
-                Text(
-                    stringResource(id = R.string.language), style = TextStyle(fontSize = 18.sp), modifier = Modifier
-                        .align(Alignment.CenterVertically))
-                Spacer(modifier = Modifier.weight(1f))
-                LanguageSetting(currentLanguage = currLang.value,
-                    onLanguageSelected = { selectedLanguageCode ->
-                        viewModel.saveLang(selectedLanguageCode)
-                        onLanguageChange(selectedLanguageCode)
-                    }
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(modifier = Modifier
-                .fillMaxWidth()
-                .padding(0.dp, 16.dp))
-            {
-                Text(
-                    text = stringResource(id = R.string.theme), style = TextStyle(fontSize = 18.sp), modifier = Modifier
-                        .align(Alignment.CenterVertically))
-                Spacer(modifier = Modifier.weight(1f))
-                ThemeSetting(currentTheme = currTheme.value,
-                    onThemeSelected = { selectedTheme ->
-                        viewModel.saveTheme(selectedTheme)
-                        onThemeChange(selectedTheme)
-                    }
-                )
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(stringResource(id = R.string.network), style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
-            HorizontalDivider(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(0.dp, 10.dp),
-                thickness = 2.dp,
-                color = Color.Red
-            )
-            Row(modifier = Modifier
-                .fillMaxWidth()
-                .padding(0.dp, 16.dp))
-            {
-                Text(
-                    stringResource(id = R.string.server), style = TextStyle(fontSize = 18.sp), modifier = Modifier
-                        .align(Alignment.CenterVertically))
-                Spacer(modifier = Modifier.weight(1f))
-                GradientButton(
-                    text = stringResource(id = R.string.restart),
-                    onClick = {
-                        // restart the server
-                        onRestartServer()
-                    }
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(modifier = Modifier
-                .fillMaxWidth()
-                .padding(0.dp, 16.dp))
-            {
-                Text(
-                    text = stringResource(id = R.string.device_name),
-                    style = TextStyle(fontSize = 18.sp),
-                    modifier = Modifier.align(Alignment.CenterVertically)
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                GradientButton(
-                    text = currDeviceName.value,
-                    onClick = {
-                        // pop a dialog to change the device name
-                        showDialog = true
-                    }
-                )
-                if(showDialog){
-                    ChangeDeviceNameDialog(
-                        onDismiss = { showDialog = false },
-                        onConfirm = { newDeviceName ->
-                            viewModel.saveDeviceName(newDeviceName)
-                            onDeviceNameChange(newDeviceName)
-                            showDialog = false
-                        },
-                        deviceName = currDeviceName.value
+            // General Setting Section (Language, Theme)
+            SectionHeader(title = R.string.general)
+            SettingItem(
+                label = stringResource(id = R.string.language),
+                trailingContent = {
+                    LanguageSetting(
+                        currentLanguage = currLang.value,
+                        onLanguageSelected = { selectedLanguageCode ->
+                            viewModel.saveLang(selectedLanguageCode)
+                            onLanguageChange(selectedLanguageCode)
+                        }
                     )
                 }
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(stringResource(id = R.string.receive), style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
-            HorizontalDivider(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(0.dp, 10.dp),
-                thickness = 2.dp,
-                color = Color.Red
             )
-            Row(modifier = Modifier
-                .fillMaxWidth()
-                .padding(0.dp, 16.dp))
-            {
-                Text(
-                    stringResource(id = R.string.auto_finish), style = TextStyle(fontSize = 18.sp), modifier = Modifier
-                        .align(Alignment.CenterVertically))
-                Spacer(modifier = Modifier.weight(1f))
-                Box(modifier = Modifier
-                    .align(Alignment.CenterVertically)
-                    .width(130.dp)
-                    .height(70.dp))
-                {
-                    Switch(checked = currAutoFinish.value,
-                        onCheckedChange = { isChecked ->
-                            viewModel.saveAutoFinish(isChecked)
-                            onAutoFinishChange(isChecked)},
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            uncheckedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF4CAF50),
-                            uncheckedTrackColor = Color.LightGray,
-                        ),
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .scale(1.3f))
+            SettingItem(
+                label = stringResource(id = R.string.theme),
+                trailingContent = {
+                    ThemeSetting(
+                        currentTheme = currTheme.value,
+                        onThemeSelected = { selectedTheme ->
+                            viewModel.saveTheme(selectedTheme)
+                            onThemeChange(selectedTheme)
+                        }
+                    )
                 }
+            )
+            // Network Setting Section (Server Restart, Device Name Change)
+            SectionHeader(title = R.string.network)
+            SettingItem(
+                label = stringResource(id = R.string.server),
+                trailingContent = {
+                    GradientButton(
+                        text = stringResource(id = R.string.restart),
+                        onClick = onRestartServer
+                    )
+                }
+            )
+            SettingItem(
+                label = stringResource(id = R.string.device_name),
+                trailingContent = {
+                    GradientButton(text = currDeviceName.value, onClick = { showDialog = true })
+                }
+            )
+            if (showDialog) {
+                ChangeDeviceNameDialog(
+                    onDismiss = { showDialog = false },
+                    onConfirm = { newDeviceName ->
+                        viewModel.saveDeviceName(newDeviceName)
+                        onDeviceNameChange(newDeviceName)
+                        showDialog = false
+                    },
+                    deviceName = currDeviceName.value
+                )
             }
-            Spacer(modifier = Modifier.height(10.dp))
+            // Receive Setting Section (Auto Finish, Save to folder)
+            SectionHeader(title = R.string.receive)
+            SettingItem(label = stringResource(id = R.string.auto_finish),
+                trailingContent = {
+                    Box(modifier = Modifier.width(130.dp).height(70.dp))
+                    {
+                        Switch(
+                            checked = currAutoFinish.value,
+                            onCheckedChange = { isChecked ->
+                                viewModel.saveAutoFinish(isChecked)
+                                onAutoFinishChange(isChecked)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                uncheckedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF4CAF50),
+                                uncheckedTrackColor = Color.LightGray,
+                            ),
+                            modifier = Modifier.scale(1.3f).align(Alignment.Center)
+                        )
+                    }
+                }
+            )
             val directoryLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.OpenDocumentTree()
             ) { uri: Uri? ->
@@ -239,30 +193,72 @@ fun SettingsScreen(
                     Toast.makeText(context, "No directory selected", Toast.LENGTH_LONG).show()
                 }
             }
-            Row(modifier = Modifier
-                .fillMaxWidth()
-                .padding(0.dp, 16.dp))
-            {
-                Text(
-                    text = stringResource(id = R.string.save_to_folder),
-                    style = TextStyle(fontSize = 18.sp),
-                    modifier = Modifier.align(Alignment.CenterVertically)
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                val folderNameToShow = if (currSaveToFolder.value.startsWith("content://")) {
-                    // Decode Uri and extract the folder name for content URIs
-                    Uri.decode(currSaveToFolder.value).split(":").lastOrNull() ?: "Unknown"
-                } else {
-                    // Extract the last directory from the file path for plain file paths
-                    currSaveToFolder.value.split("/").lastOrNull() ?: "Unknown"
+            val folderNameToShow = if (currSaveToFolder.value.startsWith("content://")) {
+                // Decode Uri and extract the folder name for content URIs
+                Uri.decode(currSaveToFolder.value).split(":").lastOrNull() ?: "Unknown"
+            } else {
+                // Extract the last directory from the file path for plain file paths
+                currSaveToFolder.value.split("/").lastOrNull() ?: "Unknown"
+            }
+            SettingItem(label = stringResource(id = R.string.save_to_folder),
+                trailingContent = {
+                    GradientButton(text = folderNameToShow,
+                        onClick = { directoryLauncher.launch(null) }
+                    )
                 }
-                GradientButton(text = folderNameToShow, onClick = {
-                    directoryLauncher.launch(null)
-                })
+            )
+            // STA/AP Concurrency Setting Section (Only for Android 10 and below)
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                SectionHeader(title = R.string.concurrency)
+                SettingItem(label = "",
+                    trailingContent = {
+                        GradientLongButton(
+                            text = stringResource(id = R.string.reset),
+                            onClick = {
+                                viewModel.updateConcurrencySettings(false, true)
+                                Toast.makeText(
+                                    context,
+                                    "Reset STA/AP Concurrency Status -> Unknown",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    }
+                )
             }
         }
     }
 }
+@Composable
+fun SectionHeader(title: Int) {
+    Spacer(modifier = Modifier.height(20.dp))
+    Text(
+        text = stringResource(id = title),
+        style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)
+    )
+    HorizontalDivider(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(0.dp, 10.dp),
+        thickness = 2.dp,
+        color = Color.Red
+    )
+}
+
+@Composable
+fun SettingItem(label: String, trailingContent: @Composable () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = label, style = TextStyle(fontSize = 18.sp))
+        Spacer(modifier = Modifier.weight(1f))
+        trailingContent()
+    }
+}
+
 @Composable
 fun LanguageSetting(
     currentLanguage: String,

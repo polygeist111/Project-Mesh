@@ -2,6 +2,7 @@ package com.greybox.projectmesh.messaging.ui.screens
 
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Bundle
 //import android.util.Log
 import androidx.compose.foundation.Image
 import android.util.Log
@@ -80,8 +81,12 @@ fun ChatScreen(
         factory = ViewModelFactory(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
-            vmFactory = { ChatScreenViewModel(it, virtualAddress) },
-            defaultArgs = null
+            vmFactory = { di, savedStateHandle ->
+                ChatScreenViewModel(di, savedStateHandle) // ✅ Correct now
+            },
+            defaultArgs = Bundle().apply {
+                putSerializable("virtualAddress", virtualAddress) // 👈 This passes the InetAddress to the SavedStateHandle
+            }
         )
     )
 ) {

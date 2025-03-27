@@ -31,12 +31,14 @@ import com.greybox.projectmesh.messaging.repository.ConversationRepository
 import com.greybox.projectmesh.user.UserEntity
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import java.net.URI
 
 class ChatScreenViewModel(
     di: DI,
-    virtualAddress: InetAddress
-): ViewModel() {
+    savedStateHandle: SavedStateHandle
+) : ViewModel() {
+    private val virtualAddress: InetAddress = savedStateHandle.get<InetAddress>("virtualAddress")!!
 
     // _uiState will be updated whenever there is a change in the UI state
     private val ipStr: String = virtualAddress.hostAddress

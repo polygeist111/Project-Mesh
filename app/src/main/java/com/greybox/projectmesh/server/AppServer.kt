@@ -10,7 +10,6 @@ import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.messaging.network.MessageNetworkHandler
-import com.greybox.projectmesh.db.entities.Message
 import com.greybox.projectmesh.extension.updateItem
 import com.greybox.projectmesh.testing.TestDeviceService
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback

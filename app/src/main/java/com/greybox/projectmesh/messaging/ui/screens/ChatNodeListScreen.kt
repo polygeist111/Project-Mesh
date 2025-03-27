@@ -7,11 +7,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.ViewModelFactory
-import com.greybox.projectmesh.model.NetworkScreenModel
 import com.greybox.projectmesh.viewModel.NetworkScreenViewModel
 import com.greybox.projectmesh.extension.WifiListItem
 import org.kodein.di.compose.localDI
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
+import com.greybox.projectmesh.viewModel.NetworkScreenModel
 
 @Composable
 fun ChatNodeListScreen(
@@ -21,7 +21,9 @@ fun ChatNodeListScreen(
         factory = ViewModelFactory(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
-            vmFactory = { NetworkScreenViewModel(it) },
+            vmFactory = { di, savedStateHandle ->
+                NetworkScreenViewModel(di, savedStateHandle)
+            },
             defaultArgs = null
         )
     )

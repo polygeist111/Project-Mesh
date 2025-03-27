@@ -42,11 +42,13 @@ fun ConversationsHomeScreen(
         factory = ViewModelFactory(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
-            vmFactory = { ConversationsHomeScreenViewModel(it) },
+            vmFactory = { di, _ ->
+                ConversationsHomeScreenViewModel(di)
+            },
             defaultArgs = null
         )
     )
-) {
+){
     val uiState: ConversationsHomeScreenModel by viewModel.uiState.collectAsState(
         initial = ConversationsHomeScreenModel(isLoading = true)
     )

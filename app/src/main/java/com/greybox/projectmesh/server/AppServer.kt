@@ -549,33 +549,33 @@ class AppServer(
             toHost = toNode,
             size = nameAndSize.size.toInt(),
         )
-        val gs = Gson()//json
-        val json = gs.toJson(outgoingTransfer)
-        //Log.d("AppServer", "json: $json")
-        // Build the request to tell the other side about the transfer
-        val bodtype = "application/json; charset=utf-8".toMediaTypeOrNull()
-        val bod = json.toRequestBody(bodtype)
-        val request = Request.Builder().url("http://${toNode.hostAddress}:$toPort/" +
-                "send?id=$transferId&filename=${URLEncoder.encode(validName, "UTF-8")}" +
-                "&size=${nameAndSize.size}&from=${localVirtualAddr.hostAddress}")
-            .post(bod)
-            .build()//changed this to send a post request
-        Log.d("Appserver", "$logPrefix notifying $toNode of incoming transfer")
-        Log.d("AppServer", "request: $request")
 
-        // Send the request to the other side using OkHttp3
-        try {
-            //val response = httpClient.newCall(request).execute()
-            val resp = httpClient.newCall(request).execute()
-            val serverResponse = resp.body?.string()
-            Log.d("AppServer", "$logPrefix - received response: $serverResponse")
-        } catch(e: Exception){
-            Log.d("AppServer", "$logPrefix - exception: $e")
-        }/*
+        scope.launch(Dispatchers.IO){
+            try{
 
-         Update the _outgoingTransfers list with the new transfer
-         Add the new transfer to the beginning of the list, then append the existing list
-         */
+                val gs = Gson()
+                val json = gs.toJson(outgoingTransfer)
+
+                val bodtype = "application/json; charset=utf-8".toMediaTypeOrNull()
+                val bod = json.toRequestBody(bodtype)
+                val request = Request.Builder().url("http://${toNode.hostAddress}:$toPort/" +
+                        "send?id=$transferId&filename=${URLEncoder.encode(validName, "UTF-8")}" +
+                        "&size=${nameAndSize.size}&from=${localVirtualAddr.hostAddress}")
+                    .post(bod)
+                    .build()//changed this to send a post request
+
+                Log.d("Appserver", "$logPrefix notifying $toNode of incoming transfer")
+                Log.d("AppServer", "request: $request")
+
+                val resp = httpClient.newCall(request).execute()
+                val serverResponse = resp.body?.string()
+                Log.d("AppServer", "$logPrefix - received response: $serverResponse")
+
+            } catch(e: Exception){
+                Log.d("AppServer", "$logPrefix - exception: $e")
+            }
+        }
+
         _outgoingTransfers.update { prev ->
             buildList {
                 add(outgoingTransfer)
@@ -791,35 +791,15 @@ class AppServer(
                     .addQueryParameter("time", time.toString())
                     .addQueryParameter("senderIp", localVirtualAddr.hostAddress)
                     .build()
-                val gs = Gson()
-                val msg = Message(//test this
-                    id = 0,
-                    dateReceived = time,
-                    sender = localVirtualAddr.hostName,
-                    chat = address.hostAddress,
-                    content = message,
-                    file = null//made the file null so that the file doesn't send
-                )
-                Log.d("AppServer", "Messagefile: ${msg.file.toString()}")
-                val msgJson = gs.toJson(msg)
-                //modified http
-                val httpURL = HttpUrl.Builder() .scheme("http") .host(address.hostAddress) .port(DEFAULT_PORT) .addPathSegment("chat").build()
-                Log.d("AppServer", "HTTP URL: $httpURL")
-                //post request body
-                val mt = "application/json; charset=utf-8".toMediaType()
-                val rbody = msgJson.toRequestBody(mt)
-                Log.d("Appserver", "HTTP URL: $httpUrl")
+
+                Log.d("AppServer", "Request URL: $httpUrl")
+
                 val request = Request.Builder()
                     .url(httpUrl)
                     .build()
-                val req = Request.Builder().url(httpURL).post(rbody).build()
-                //back to old code
 
-                Log.d("AppServer", "Request: $request")
-
-                //val response = httpClient.newCall(request).execute()
-                //Log.d("AppServer", "Response: $response")
-                val respo = httpClient.newCall(req).execute()
+                val response = httpClient.newCall(request).execute()
+                Log.d("AppServer", "Response: ${response.code}")
 
             }
             catch (e: Exception) {
@@ -899,6 +879,23 @@ class AppServer(
                         isOnline = true,
                         userAddress = remoteUserWithIp.address
                     )
+
+                    //try to create a conversation
+                    try {
+                        //get local UUID
+                        val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
+                        val localUuid = sharedPrefs.getString("UUID", null)
+                        if ( localUuid != null){
+                            //create convo
+                            GlobalApp.GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                                localUuid = localUuid,
+                                remoteUser = remoteUserWithIp
+                            )
+                            Log.d("AppServer", "Created conversation with ${remoteUserWithIp.name}")
+                        }
+                    }catch (e: Exception) {
+                        Log.e("AppServer", "Failed to create conversation", e)
+                    }
 
                     Log.d("AppServer", "Updated local DB with remote user info: $remoteUserWithIp")
                 }

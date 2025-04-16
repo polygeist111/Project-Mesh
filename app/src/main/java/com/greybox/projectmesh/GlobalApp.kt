@@ -35,6 +35,7 @@ import org.kodein.di.singleton
 import java.io.File
 import java.net.InetAddress
 import java.time.Duration
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 import com.greybox.projectmesh.user.UserRepository
@@ -83,16 +84,25 @@ class GlobalApp : Application(), DIAware {
     }
     override fun onCreate() {
         super.onCreate()
-        // Once you have the DI container, retrieve the userRepository instance:
+
+        val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
+        val uuid = sharedPrefs.getString("UUID", null)
+        if (uuid == null) {
+            // Generate a new UUID if one doesn't exist
+            val newUuid = java.util.UUID.randomUUID().toString()
+            sharedPrefs.edit().putString("UUID", newUuid).apply()
+            Log.d("GlobalApp", "Generated new UUID: $newUuid")
+        }
+
+        //get the repositories from DI
         val repo: UserRepository by di.instance()
         GlobalUserRepo.userRepository = repo
-        val settingPref: SharedPreferences by di.instance(tag = "settings")
-        GlobalUserRepo.prefs = settingPref
+        GlobalUserRepo.prefs = sharedPrefs
         val convRepo: ConversationRepository by di.instance()
         GlobalUserRepo.conversationRepository = convRepo
 
         //version checking migrating messages
-        val hasMigratedMessages = settingPref.getBoolean("has_migrated_messages", false)
+        val hasMigratedMessages = sharedPrefs.getBoolean("has_migrated_messages", false)
         if (!hasMigratedMessages) {
             GlobalScope.launch {
                 try {
@@ -100,7 +110,7 @@ class GlobalApp : Application(), DIAware {
                     val migrationUtils = MessageMigrationUtils(di)
                     migrationUtils.migrateMessagesToChatIds()
                     // Mark migration as complete
-                    settingPref.edit().putBoolean("has_migrated_messages", true).apply()
+                    sharedPrefs.edit().putBoolean("has_migrated_messages", true).apply()
                     Log.d("GlobalApp", "Message migration completed and marked as done")
                 } catch (e: Exception) {
                     Log.e("GlobalApp", "Error during message migration", e)

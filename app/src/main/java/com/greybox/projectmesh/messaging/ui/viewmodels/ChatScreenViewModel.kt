@@ -32,6 +32,7 @@ import com.greybox.projectmesh.user.UserEntity
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
+import com.greybox.projectmesh.DeviceStatusManager
 import java.net.URI
 
 class ChatScreenViewModel(
@@ -163,29 +164,28 @@ class ChatScreenViewModel(
 
 
     fun sendChatMessage(virtualAddress: InetAddress, message: String, file: URI?) {//add file field here
+        val ipAddress = virtualAddress.hostAddress
         val sendTime: Long = System.currentTimeMillis()
+
+        //check if device is online first
+        val isOnline = DeviceStatusManager.isDeviceOnline(ipAddress)
 
         //use same conversationid as chat name
         val messageEntity = Message(0, sendTime, message, "Me", chatName, file)
 
         Log.d("ChatDebug", "Sending message to chat: $chatName")
-
-
         viewModelScope.launch {
-
             //save to local database
             if(file != null){
                 db.messageDao().addMessage(Message(0, sendTime, message, "Me", chatName, file))//add file field
 
             }else{
                 db.messageDao().addMessage(messageEntity)
-
             }
 
             //update convo with the new message
             if (userEntity != null){
                 try {
-
                     //get or create conversation
                     val remoteUser = UserEntity(
                         uuid = userUuid,
@@ -210,7 +210,17 @@ class ChatScreenViewModel(
                 }
             }
         }
-        appServer.sendChatMessage(virtualAddress, sendTime, message, file)//add file field
+        if(isOnline) {
+            appServer.sendChatMessage(virtualAddress, sendTime, message, file)
+            Log.d("ChatScreenViewModel", "Sending Message to $ipAddress")
+        }else{
+            Log.d("ChatScreenViewModel", "Device $ipAddress appears to be offline, message saved locally only")
+            //update UI to show offline status
+            _uiState.update { prev ->
+                prev.copy(offlineWarning = "Device appears to be offline. Message saved locally only.")
+            }
+        }
+
     }
 
     fun addOutgoingTransfer(//change to json

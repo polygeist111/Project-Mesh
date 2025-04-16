@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +54,7 @@ import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.greybox.projectmesh.DeviceStatusManager
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.messaging.data.entities.Message
@@ -104,6 +106,7 @@ fun ChatScreen(
         }
     }
 
+
     val isUserOnline = remember {
         if (!isOffline) {
             //if not explicitly marked as offline, check if test device or has valid IP
@@ -119,6 +122,16 @@ fun ChatScreen(
     // declare the UI state, we can use the uiState to access the current state of the viewModel
     val uiState: ChatScreenModel by viewModel.uiState.collectAsState(initial = ChatScreenModel())
     var textMessage by rememberSaveable { mutableStateOf("") }
+
+    val deviceStatus = remember {
+        mutableStateOf(DeviceStatusManager.isDeviceOnline(virtualAddress.hostAddress))
+    }
+
+    LaunchedEffect(virtualAddress) {
+        DeviceStatusManager.deviceStatusMap.collect { statusMap ->
+            deviceStatus.value = statusMap[virtualAddress.hostAddress] ?: false
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier
@@ -136,7 +149,7 @@ fun ChatScreen(
             DisplayAllMessages(uiState, onClickButton)
 
             //add an offline indicator if user is offline
-            if(!isUserOnline){
+            if(!deviceStatus.value){
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()

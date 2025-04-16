@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.greybox.projectmesh.DeviceStatusManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 import org.kodein.di.instance
 import java.net.InetAddress
 import com.greybox.projectmesh.GlobalApp
+import com.greybox.projectmesh.testing.TestDeviceService
 
 data class NetworkScreenModel(
     val connectingInProgressSsid: String? = null,
@@ -65,6 +67,16 @@ class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewMod
                             null
                         }
                 )}
+
+                //update DeviceStatusanager with the current State
+                nodeState.originatorMessages.forEach { (addressInt, message) ->
+                    val ipAddress = InetAddress.getByAddress(addressInt.addressToByteArray()).hostAddress
+                    DeviceStatusManager.updateDeviceStatus(ipAddress, true)
+                }
+
+                //Update test device status
+                val testEntryIpAddress = InetAddress.getByAddress(testEntry.first.addressToByteArray()).hostAddress
+                DeviceStatusManager.updateDeviceStatus(testEntryIpAddress, true)
             }
         }
 
@@ -81,6 +93,8 @@ class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewMod
                                 //ping user by requesting online info to update status
                                 appServer.requestRemoteUserInfo(addr)
 
+                                //Update central status manager to show device as online
+                                DeviceStatusManager.updateDeviceStatus(ipStr, true)
                                 Log.d("NetworkScreenViewModel", "Pinged user: ${user.name} at $ipStr")
                             } catch (e: Exception) {
                                 //if ping fails, mark user as offline
@@ -89,6 +103,9 @@ class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewMod
                                     isOnline = false,
                                     userAddress = null
                                 )
+
+                                //update central status manager to show device as offline
+                                DeviceStatusManager.updateDeviceStatus(ipStr, false)
                                 Log.d("NetworkScreenViewModel", "User ${user.name} appears to be offline")
                             }
                         }

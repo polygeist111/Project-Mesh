@@ -1,5 +1,6 @@
 package com.greybox.projectmesh.messaging.ui.viewmodels
 
+import android.content.SharedPreferences
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -25,6 +26,9 @@ class ConversationsHomeScreenViewModel(
     //get repository instances
     private val conversationRepository: ConversationRepository by di.instance()
 
+    // Get access to SharedPreferences for the local UUID
+    private val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
+
     init {
         loadConversations()
     }
@@ -35,15 +39,33 @@ class ConversationsHomeScreenViewModel(
                 //start with loading state
                 _uiState.update { it.copy (isLoading = true, error = null )}
 
+                //get local device id
+                val localUuid = sharedPrefs.getString("UUID", null) ?: "local-user"
+                Log.d("ConversationsViewModel", "Local UUID: $localUuid")
+
                 //collect conversations from repository
                 conversationRepository.getAllConversations().collect { conversations ->
                     Log.d("ConversationsViewModel", "Loaded ${conversations.size} conversations")
+
+                    //filter out conversations with self
+                    val filteredConversations = conversations.filter { conversation ->
+                        conversation.userUuid != localUuid
+                    }
+
+                    conversations.forEach { conversation ->
+                        Log.d("ConversationsViewModel", "Conversation: ID=${conversation.id}, UserUUID=${conversation.userUuid}, Name=${conversation.userName}")
+                    }
+
+                    Log.d("ConversationsViewModel", "Filtering out conversations with UUID: $localUuid")
+
+                    Log.d("ConversationsViewModel", "After filtering self: ${filteredConversations.size} conversations")
+
 
                     //update the UI state with the conversations
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            conversations = conversations,
+                            conversations = filteredConversations,
                             error = null
                         )
                     }

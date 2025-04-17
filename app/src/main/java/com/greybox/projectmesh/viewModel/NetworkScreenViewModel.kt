@@ -22,6 +22,7 @@ import org.kodein.di.instance
 import java.net.InetAddress
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.testing.TestDeviceService
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class NetworkScreenModel(
     val connectingInProgressSsid: String? = null,
@@ -85,17 +86,38 @@ class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewMod
                 try {
                     //get all connected users
                     val connectedUsers = GlobalApp.GlobalUserRepo.userRepository.getAllConnectedUsers()
+
+                    val onlineDevices = DeviceStatusManager.getOnlineDevices()
+
                     for (user in connectedUsers) {
                         user.address?.let { ipStr ->
                             try {
-                                val addr = InetAddress.getByName(ipStr)
+                                //skip test devices:
+                                if (ipStr == TestDeviceService.TEST_DEVICE_IP) {
+                                    // Online test device should always be online
+                                    DeviceStatusManager.updateDeviceStatus(ipStr, true)
+                                }
+                                if (ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE) {
+                                    // Offline test device should always be offline
+                                    DeviceStatusManager.updateDeviceStatus(ipStr, false)
+                                }else{
+                                    val addr = InetAddress.getByName(ipStr)
+                                    val isReachable = withTimeoutOrNull(3000) {
+                                        addr.isReachable(2000) // 2 second timeout
+                                    } ?: false
 
-                                //ping user by requesting online info to update status
-                                appServer.requestRemoteUserInfo(addr)
+                                    if (!isReachable) {
+                                        // Device is not reachable at basic network level
+                                        throw Exception("Device is not reachable")
+                                    }
 
-                                //Update central status manager to show device as online
-                                DeviceStatusManager.updateDeviceStatus(ipStr, true)
-                                Log.d("NetworkScreenViewModel", "Pinged user: ${user.name} at $ipStr")
+                                    //ping user by requesting online info to update status
+                                    appServer.requestRemoteUserInfo(addr)
+
+                                    //Update central status manager to show device as online
+                                    DeviceStatusManager.updateDeviceStatus(ipStr, true)
+                                    Log.d("NetworkScreenViewModel", "Pinged user: ${user.name} at $ipStr")
+                                }
                             } catch (e: Exception) {
                                 //if ping fails, mark user as offline
                                 GlobalApp.GlobalUserRepo.conversationRepository.updateUserStatus(
@@ -108,6 +130,38 @@ class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewMod
                                 DeviceStatusManager.updateDeviceStatus(ipStr, false)
                                 Log.d("NetworkScreenViewModel", "User ${user.name} appears to be offline")
                             }
+                        }
+                    }
+
+                    //check any online devices that may not be in the users list
+                    //i.e.: devices marked online but not properly registered as users
+                    for (deviceIp in onlineDevices) {
+                        if (connectedUsers.any { it.address == deviceIp } ||
+                            deviceIp == TestDeviceService.TEST_DEVICE_IP ||
+                            deviceIp == TestDeviceService.TEST_DEVICE_IP_OFFLINE) continue
+
+                        // Skip devices we already checked in the user loop
+                        if (connectedUsers.any { it.address == deviceIp }) continue
+
+                        // Skip test device - it's handled differently
+                        if (deviceIp == TestDeviceService.TEST_DEVICE_IP) continue
+
+                        try {
+                            val addr = InetAddress.getByName(deviceIp)
+                            val isReachable = withTimeoutOrNull(3000) {
+                                addr.isReachable(2000)
+                            } ?: false
+
+                            if (!isReachable) {
+                                Log.d(
+                                    "NetworkScreenViewModel",
+                                    "Marking device $deviceIp as offline - not reachable"
+                                )
+                                DeviceStatusManager.updateDeviceStatus(deviceIp, false)
+                            }
+                        }catch (e: Exception){
+                            Log.d("NetworkScreenViewModel", "Error checking device $deviceIp: ${e.message}")
+                            DeviceStatusManager.updateDeviceStatus(deviceIp, false)
                         }
                     }
                 }catch (e: Exception) {

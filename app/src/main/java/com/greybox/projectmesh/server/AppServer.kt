@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import com.google.gson.Gson
+import com.greybox.projectmesh.DeviceStatusManager
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.messaging.data.entities.Message
@@ -845,6 +846,20 @@ class AppServer(
         }
     }
     fun requestRemoteUserInfo(remoteAddr: InetAddress, port: Int = DEFAULT_PORT) {
+        //Special handling for test devices
+        val ipAddress = remoteAddr.hostAddress
+
+        // Online test device should always be "online"
+        if (ipAddress == TestDeviceService.TEST_DEVICE_IP) {
+            DeviceStatusManager.updateDeviceStatus(ipAddress, true)
+            return
+        }
+
+        // Offline test device should always be "offline"
+        if (ipAddress == TestDeviceService.TEST_DEVICE_IP_OFFLINE) {
+            DeviceStatusManager.updateDeviceStatus(ipAddress, false)
+            return
+        }
         scope.launch {
             try {
                 val url = "http://${remoteAddr.hostAddress}:$port/myinfo"
@@ -880,6 +895,9 @@ class AppServer(
                         userAddress = remoteUserWithIp.address
                     )
 
+                    // 5) update device status manager to show device online
+                    DeviceStatusManager.updateDeviceStatus(remoteAddr.hostAddress, true)
+
                     //try to create a conversation
                     try {
                         //get local UUID
@@ -895,6 +913,19 @@ class AppServer(
                         }
                     }catch (e: Exception) {
                         Log.e("AppServer", "Failed to create conversation", e)
+
+                        //Update Device Status Manager to show device is offline when connection fails
+                        DeviceStatusManager.updateDeviceStatus(remoteAddr.hostAddress, false)
+
+                        //update convo status for this user
+                        val user = runBlocking { userRepository.getUserByIp(remoteAddr.hostAddress) }
+                        if (user != null) {
+                            updateUserOnlineStatus(
+                                userUuid = user.uuid,
+                                isOnline = false,
+                                userAddress = null
+                            )
+                        }
                     }
 
                     Log.d("AppServer", "Updated local DB with remote user info: $remoteUserWithIp")

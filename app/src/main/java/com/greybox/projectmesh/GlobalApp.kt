@@ -215,6 +215,10 @@ class GlobalApp : Application(), DIAware {
                         chat = "local-user-offline-test-device-uuid"  // Use ONLY conversation ID format
                     )
 
+                    //update test device statuses
+                    DeviceStatusManager.updateDeviceStatus(TestDeviceService.TEST_DEVICE_IP, true)
+                    DeviceStatusManager.updateDeviceStatus(TestDeviceService.TEST_DEVICE_IP_OFFLINE, false)
+
                     // Insert the message
                     db.messageDao().addMessage(offlineTestMessage)
 

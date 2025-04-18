@@ -38,7 +38,6 @@ fun NetworkScreen(
             items = uiState.allNodes.entries.toList(),
             key = {it.key}
         ){ eachItem ->
-            viewModel.getDeviceName(eachItem.key)
             WifiListItem(
                 wifiAddress = eachItem.key,
                 wifiEntry = eachItem.value,

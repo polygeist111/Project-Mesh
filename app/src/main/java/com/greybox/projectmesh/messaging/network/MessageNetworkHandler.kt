@@ -23,6 +23,7 @@ import android.content.SharedPreferences
 import com.greybox.projectmesh.testing.TestDeviceService
 import org.kodein.di.instance
 import java.net.URI
+import com.greybox.projectmesh.messaging.utils.ConversationUtils
 
 class MessageNetworkHandler(
     private val httpClient: OkHttpClient,
@@ -91,7 +92,7 @@ class MessageNetworkHandler(
         }
 
         val localUuid = GlobalApp.GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
-        val chatName = createConversationId(localUuid, userUuid)
+        val chatName = ConversationUtils.createConversationId(localUuid, userUuid)
 
         Log.d("MessageNetworkHandler", "Creating message with chat name: $chatName, sender: $sender")
 
@@ -131,16 +132,5 @@ class MessageNetworkHandler(
         }
         return message
     }
-
-        private fun createConversationId(uuid1: String, uuid2: String): String {
-            //special cases for test devices - use fixed IDs
-            if (uuid2 == "test-device-uuid"){
-                return "local-user-test-device-uuid"
-            }
-            if (uuid2 == "offline-test-device-uuid"){
-                return "local-user-offline-test-device-uuid"
-            }
-            return listOf(uuid1, uuid2).sorted().joinToString("-")
-        }
     }
 }

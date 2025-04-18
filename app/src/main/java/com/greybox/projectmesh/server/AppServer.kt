@@ -221,6 +221,11 @@ class AppServer(
         //Create instance of the JSON Schema
         val JSONschema = JSONSchema()
 
+        if (path.startsWith("/ping")) {
+            //Simple endpoint to check if server is responsive
+            return newFixedLengthResponse("PONG")
+        }
+
         // check if the path is for download, indicating the request wants to download a file
             // 1) /myinfo route
         if (path.startsWith("/myinfo")) {
@@ -691,6 +696,24 @@ class AppServer(
         }
     }
 
+    /**
+     * Checks if a device is reachable at the application level
+     * This performs a lightweight check without doing a full user info exchange
+     */
+    fun checkDeviceReachable(remoteAddr: InetAddress, port: Int = DEFAULT_PORT): Boolean {
+        try {
+            val url = "http://${remoteAddr.hostAddress}:$port/ping"
+            val request = Request.Builder().url(url).build()
+
+            httpClient.newCall(request).execute().use { response ->
+                return response.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e("AppServer", "Failed to check if device ${remoteAddr.hostAddress} is reachable", e)
+            return false
+        }
+    }
+
     /*
     Decline an incoming transfer
     It sends an HTTP request to notify the sender that the file transfer has been
@@ -760,6 +783,66 @@ class AppServer(
         }
     }
 
+    /**
+     * Send a chat message and return delivery status
+     */
+    suspend fun sendChatMessageWithStatus(address: InetAddress, time: Long, message: String, f: URI?): Boolean {
+        try {
+            if (TestDeviceService.isTestDevice(address)) {
+                // Create an echo response from our test device
+                val testMessage = Message(
+                    id = 0,
+                    dateReceived = System.currentTimeMillis(),
+                    content = "Echo: $message",
+                    sender = TestDeviceService.TEST_DEVICE_NAME,
+                    chat = TestDeviceService.TEST_DEVICE_NAME,
+                    file = f
+                )
+
+                // Store the echo response in our database
+                db.messageDao().addMessage(testMessage)
+                Log.d("AppServer", "Test device echoed message: $message")
+                return true
+            }
+
+            // Original code for real devices
+            val httpUrl = HttpUrl.Builder()
+                .scheme("http")
+                .host(address.hostAddress)
+                .port(DEFAULT_PORT)
+                .addPathSegment("chat")
+                .addQueryParameter("chatMessage", message)
+                .addQueryParameter("time", time.toString())
+                .addQueryParameter("senderIp", localVirtualAddr.hostAddress)
+                .build()
+
+            Log.d("AppServer", "Request URL: $httpUrl")
+
+            val request = Request.Builder()
+                .url(httpUrl)
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val successful = response.isSuccessful
+            response.close()
+
+            if (successful) {
+                Log.d("AppServer", "Message successfully sent to ${address.hostAddress}")
+            } else {
+                Log.d("AppServer", "Failed to send message to ${address.hostAddress}, status code: ${response.code}")
+            }
+
+            return successful
+        }
+        catch (e: Exception) {
+            e.printStackTrace()
+            Log.d("AppServer", "Failed to send message to ${address.hostAddress}: ${e.message}")
+            return false
+        }
+    }
+
+    /*
+
     fun sendChatMessage(address: InetAddress, time: Long, message: String, f: URI?) {//need to test this
         scope.launch {//check to see if this accommodates for json
             //not sending URI, i don't think the json is working
@@ -809,6 +892,8 @@ class AppServer(
             }
         }
     }
+
+     */
     fun pushUserInfoTo(remoteAddr: InetAddress, port: Int = DEFAULT_PORT) {
         scope.launch {
             // Retrieve your local user info (assume you store your UUID in SharedPreferences)

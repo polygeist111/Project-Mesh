@@ -44,7 +44,7 @@ class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewMod
             //create test device entry
             val testEntry = TestDeviceEntry.createTestEntry()
 
-            node.state.collect{ nodeState ->
+            node.state.collect { nodeState ->
                 // get the test device entry
                 // Combine real nodes with test device
                 val allNodesWithTest = nodeState.originatorMessages.toMutableMap()
@@ -55,32 +55,33 @@ class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewMod
                 Log.d("NetworkScreenViewModel", "All nodes: ${allNodesWithTest.keys}")
 
                 // update the UI state with the new state
-                _uiState.update { prev -> prev.copy(
-                    // update all nodes
-                    allNodes = allNodesWithTest,
-                    //allNodes = it.originatorMessages,
-                    // update the ssid of the connecting station
-                    connectingInProgressSsid =
-                        if (nodeState.wifiState.wifiStationState.status == WifiStationState.Status.CONNECTING){
+                _uiState.update { prev ->
+                    prev.copy(
+                        // update all nodes
+                        allNodes = allNodesWithTest,
+                        //allNodes = it.originatorMessages,
+                        // update the ssid of the connecting station
+                        connectingInProgressSsid =
+                        if (nodeState.wifiState.wifiStationState.status == WifiStationState.Status.CONNECTING) {
                             nodeState.wifiState.wifiStationState.config?.ssid
-                        }
-                        else{
+                        } else {
                             null
                         }
-                )}
-
-                //update DeviceStatusanager with the current State
-                nodeState.originatorMessages.forEach { (addressInt, message) ->
-                    val ipAddress = InetAddress.getByAddress(addressInt.addressToByteArray()).hostAddress
-                    DeviceStatusManager.updateDeviceStatus(ipAddress, true)
+                    )
                 }
 
-                //Update test device status
-                val testEntryIpAddress = InetAddress.getByAddress(testEntry.first.addressToByteArray()).hostAddress
-                DeviceStatusManager.updateDeviceStatus(testEntryIpAddress, true)
+                //just mark nodes as online initially - DeviceStatusManager will verify
+                allNodesWithTest.forEach { (addressInt, _) ->
+                    val ipAddress =
+                        InetAddress.getByAddress(addressInt.addressToByteArray()).hostAddress
+                    // Update with verified=false to let the manager handle verification
+                    DeviceStatusManager.updateDeviceStatus(ipAddress, true, verified = false)
+                }
             }
         }
 
+        /*
+        THIS LOGIC SHOULDNT BE NEEDED ANY MORE IF DEVICE STATUS MANAGER WORKS
         viewModelScope.launch {
             while (true) {
                 try {
@@ -172,12 +173,12 @@ class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewMod
             }
         }
     }
-
-    fun getDeviceName(wifiAddress: Int){
-        viewModelScope.launch {
-            val inetAddress = InetAddress.getByAddress(wifiAddress.addressToByteArray())
-            appServer.sendDeviceName(inetAddress)
+    */
+        fun getDeviceName(wifiAddress: Int) {
+            viewModelScope.launch {
+                val inetAddress = InetAddress.getByAddress(wifiAddress.addressToByteArray())
+                appServer.sendDeviceName(inetAddress)
+            }
         }
     }
-
 }

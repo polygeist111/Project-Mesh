@@ -98,8 +98,13 @@ class GlobalApp : Application(), DIAware {
         val repo: UserRepository by di.instance()
         GlobalUserRepo.userRepository = repo
         GlobalUserRepo.prefs = sharedPrefs
+
         val convRepo: ConversationRepository by di.instance()
         GlobalUserRepo.conversationRepository = convRepo
+
+        //initialize deviceStatus Manager:
+        val appServer: AppServer by di.instance()
+        DeviceStatusManager.initialize(appServer)
 
         //version checking migrating messages
         val hasMigratedMessages = sharedPrefs.getBoolean("has_migrated_messages", false)

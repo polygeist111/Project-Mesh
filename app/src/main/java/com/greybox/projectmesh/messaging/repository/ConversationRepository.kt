@@ -4,6 +4,7 @@ import android.util.Log
 import com.greybox.projectmesh.messaging.data.dao.ConversationDao
 import com.greybox.projectmesh.messaging.data.entities.Conversation
 import com.greybox.projectmesh.messaging.data.entities.Message
+import com.greybox.projectmesh.messaging.utils.ConversationUtils
 import com.greybox.projectmesh.user.UserEntity
 import kotlinx.coroutines.flow.Flow
 import org.kodein.di.DI
@@ -29,7 +30,7 @@ class ConversationRepository(
 
     suspend fun getOrCreateConversation(localUuid: String, remoteUser: UserEntity): Conversation {
         //create a unique conversation ID using both UUIDs in order to ensure consistency
-        val conversationId = createConversationId(localUuid, remoteUser.uuid)
+        val conversationId = ConversationUtils.createConversationId(localUuid, remoteUser.uuid)
 
         Log.d("ConversationRepository", "Looking for conversation with ID: $conversationId")
         Log.d("ConversationRepository", "Local UUID: $localUuid, Remote UUID: ${remoteUser.uuid}")
@@ -95,19 +96,4 @@ class ConversationRepository(
         )
     }
 
-    //helper function creating a consistent conversation ID
-    private fun createConversationId(uuid1: String, uuid2: String): String {
-        //Special case for test devices - use fixed IDs
-        if (uuid2 == "test-device-uuid") {
-            Log.d("ConversationRepository", "Using fixed conversation ID for online test device")
-            return "local-user-test-device-uuid"
-        }
-        if (uuid2 == "offline-test-device-uuid") {
-            Log.d("ConversationRepository", "Using fixed conversation ID for offline test device")
-            return "local-user-offline-test-device-uuid"
-        }
-
-        //Sort the UUIDs to make sure its the same id regardless of who initiated the convo
-        return listOf(uuid1, uuid2).sorted().joinToString("-")
-    }
 }

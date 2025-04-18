@@ -18,6 +18,7 @@ import com.greybox.projectmesh.server.AppServer.OutgoingTransferInfo
 import com.greybox.projectmesh.server.AppServer.Status
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
+import com.greybox.projectmesh.messaging.utils.ConversationUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
@@ -67,12 +68,14 @@ class ChatScreenViewModel(
         else -> userEntity?.uuid ?: "unknown-${virtualAddress.hostAddress}"
     }
 
-    private val conversationId = createConversationId(localUuid, userUuid)
+    private val conversationId = ConversationUtils.createConversationId(localUuid, userUuid)
     private val chatName = conversationId //use conversation id as chat name
 
     private val addressDotNotation = virtualAddress.requireAddressAsInt().addressToDotNotation()
 
     private val conversationRepository: ConversationRepository by di.instance()
+
+
 
     private val _uiState = MutableStateFlow(
         ChatScreenModel(
@@ -87,17 +90,6 @@ class ChatScreenViewModel(
     private val db: MeshDatabase by di.instance()
 
     private val appServer: AppServer by di.instance()
-
-    private fun createConversationId(uuid1: String, uuid2: String): String {
-        //special cases for test devices
-        if (uuid2 == "test-device-uuid") {
-            return "local-user-test-device-uuid"
-        }
-        if (uuid2 == "offline-test-device-uuid") {
-            return "local-user-offline-test-device-uuid"
-        }
-        return listOf(uuid1, uuid2).sorted().joinToString("-")
-    }
 
     // launch a coroutine
     init {
@@ -151,7 +143,7 @@ class ChatScreenViewModel(
         try {
             if(userEntity != null){
                 //Create a convo id using both UUIDs
-                val conversationId = createConversationId(localUuid, userEntity.uuid)
+                val conversationId = ConversationUtils.createConversationId(localUuid, userEntity.uuid)
 
                 //Mark this conversation as read
                 conversationRepository.markAsRead(conversationId)
@@ -211,8 +203,26 @@ class ChatScreenViewModel(
             }
         }
         if(isOnline) {
-            appServer.sendChatMessage(virtualAddress, sendTime, message, file)
-            Log.d("ChatScreenViewModel", "Sending Message to $ipAddress")
+            viewModelScope.launch {
+                try {
+                    val delivered = appServer.sendChatMessageWithStatus(virtualAddress, sendTime, message, file)
+
+                    if (!delivered) {
+                        // If message delivery failed, update UI to show offline status
+                        _uiState.update { prev ->
+                            prev.copy(offlineWarning = "Message delivery failed. Device may be offline.")
+                        }
+
+                        // Force a device status verification
+                        DeviceStatusManager.verifyDeviceStatus(ipAddress)
+                    }
+                } catch (e: Exception) {
+                    Log.e("ChatScreenViewModel", "Error sending message: ${e.message}", e)
+                    _uiState.update { prev ->
+                        prev.copy(offlineWarning = "Error sending message: ${e.message}")
+                    }
+                }
+            }
         }else{
             Log.d("ChatScreenViewModel", "Device $ipAddress appears to be offline, message saved locally only")
             //update UI to show offline status

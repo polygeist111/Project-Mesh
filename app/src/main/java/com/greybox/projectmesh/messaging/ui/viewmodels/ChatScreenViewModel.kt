@@ -34,6 +34,7 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import com.greybox.projectmesh.DeviceStatusManager
+import kotlinx.coroutines.flow.StateFlow
 import java.net.URI
 
 class ChatScreenViewModel(
@@ -91,6 +92,9 @@ class ChatScreenViewModel(
 
     private val appServer: AppServer by di.instance()
 
+    private val _deviceOnlineStatus = MutableStateFlow(false)
+    val deviceOnlineStatus: StateFlow<Boolean> = _deviceOnlineStatus.asStateFlow()
+
     // launch a coroutine
     init {
         viewModelScope.launch {
@@ -134,6 +138,33 @@ class ChatScreenViewModel(
                 Log.d("ChatDebug", "Received ${newChatMessages.size} messages")
                 _uiState.update { prev ->
                     prev.copy(allChatMessages = newChatMessages)
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            // If this is a real device (not placeholder address)
+            if (virtualAddress.hostAddress != "0.0.0.0" &&
+                virtualAddress.hostAddress != TestDeviceService.TEST_DEVICE_IP_OFFLINE) {
+                DeviceStatusManager.deviceStatusMap.collect { statusMap ->
+                    val ipAddress = virtualAddress.hostAddress
+                    val isOnline = statusMap[ipAddress] ?: false
+
+                    // Only update if status changed
+                    if (_deviceOnlineStatus.value != isOnline) {
+                        Log.d(
+                            "ChatDebug",
+                            "Device status changed: $ipAddress is now ${if (isOnline) "online" else "offline"}"
+                        )
+                        _deviceOnlineStatus.value = isOnline
+
+                        // Update the UI state with offline warning if needed
+                        _uiState.update { prev ->
+                            prev.copy(
+                                offlineWarning = if (!isOnline) "Device appears to be offline. Messages will be saved locally." else null
+                            )
+                        }
+                    }
                 }
             }
         }

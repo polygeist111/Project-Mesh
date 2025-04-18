@@ -43,9 +43,25 @@ class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewMod
         viewModelScope.launch {
             //create test device entry
             val testEntry = TestDeviceEntry.createTestEntry()
+            var previousNodes = emptySet<Int>()
 
             node.state.collect { nodeState ->
-                // get the test device entry
+                // Get current nodes from this state update
+                val currentNodes = nodeState.originatorMessages.keys
+
+                // Check for nodes that disappeared (disconnected)
+                val disconnectedNodes = previousNodes - currentNodes
+
+                // For each disconnected node, notify DeviceStatusManager
+                disconnectedNodes.forEach { nodeAddress ->
+                    val ipAddress = InetAddress.getByAddress(nodeAddress.addressToByteArray()).hostAddress
+                    DeviceStatusManager.handleNetworkDisconnect(ipAddress)
+                    Log.d("NetworkScreenViewModel", "Detected disconnection of node: $ipAddress")
+                }
+
+                // Update previous nodes for next comparison
+                previousNodes = currentNodes
+
                 // Combine real nodes with test device
                 val allNodesWithTest = nodeState.originatorMessages.toMutableMap()
                 allNodesWithTest[testEntry.first] = testEntry.second
@@ -59,7 +75,6 @@ class NetworkScreenViewModel(di:DI, savedStateHandle: SavedStateHandle): ViewMod
                     prev.copy(
                         // update all nodes
                         allNodes = allNodesWithTest,
-                        //allNodes = it.originatorMessages,
                         // update the ssid of the connecting station
                         connectingInProgressSsid =
                         if (nodeState.wifiState.wifiStationState.status == WifiStationState.Status.CONNECTING) {

@@ -38,6 +38,9 @@ object DeviceStatusManager {
     //reference to AppServer - will be set during initialization
     private var appServer: AppServer? = null
 
+    //track consecutive failures
+    private val failureCountMap = mutableMapOf<String, Int>()
+
     //special test device addresses that should be handled differently
     private val specialDevices = setOf(
         "192.168.0.99",  // Online test device
@@ -120,67 +123,167 @@ object DeviceStatusManager {
 
     //verify if a device is actually online by attempting to connect
     fun verifyDeviceStatus(ipAddress: String) {
-        //skip verification for special test devices
+        // Skip verification for special test devices
         if (ipAddress in specialDevices) {
             return
         }
 
-        //check if we've verified recently
+        // Check if we've verified recently
         val lastChecked = lastCheckedTimes[ipAddress] ?: 0L
         val now = System.currentTimeMillis()
 
         if (now - lastChecked < MIN_STATUS_CHECK_INTERVAL) {
-            //checked too recently, skip
+            // Checked too recently, skip
             return
         }
 
         scope.launch {
+            // Add a log to track verification attempts
+            Log.d("DeviceStatusManager", "Verifying device status for $ipAddress")
+
             lastCheckedTimes[ipAddress] = System.currentTimeMillis()
 
             try {
-                val addr = InetAddress.getByName(ipAddress)
+                // IMPORTANT: Check if there are any recent messages from this device
+                // This information is maintained in NetworkScreenViewModel
+                // We can check if the IP is in the current known nodes list
 
-                //first try a basic network-level check
+                // Instead of directly accessing originatorMessages, we'll use the current
+                // deviceStatusMap to see if the device was marked as online by any component
+                val isCurrentlyOnline = _deviceStatusMap.value[ipAddress] ?: false
+
+                // If the device was marked as online by any component and we're doing
+                // a verification check, give it more attempts before marking offline
+                val attemptsNeeded = if (isCurrentlyOnline) 3 else 1
+
+                val addr = InetAddress.getByName(ipAddress)
                 val isReachable = withTimeoutOrNull(3000) {
                     addr.isReachable(2000)
                 } ?: false
 
-                if (!isReachable) {
-                    //device is not reachable at network level
+                if (isReachable) {
+                    // Reset failure count if reachable
+                    failureCountMap.remove(ipAddress)
+
+                    // Update status to online
                     _deviceStatusMap.update { current ->
                         val mutable = current.toMutableMap()
-                        mutable[ipAddress] = false
-                        Log.d("DeviceStatusManager", "Device $ipAddress is unreachable (network level), marking offline")
+                        mutable[ipAddress] = true
+                        Log.d("DeviceStatusManager", "Device $ipAddress is reachable, marking online")
                         mutable
                     }
-                    return@launch
+                } else {
+                    // Not reachable - increment failure count
+                    val failures = (failureCountMap[ipAddress] ?: 0) + 1
+                    failureCountMap[ipAddress] = failures
+
+                    // Only mark as offline after multiple consecutive failures
+                    if (failures >= attemptsNeeded) {
+                        _deviceStatusMap.update { current ->
+                            val mutable = current.toMutableMap()
+                            mutable[ipAddress] = false
+                            Log.d("DeviceStatusManager",
+                                "Device $ipAddress is unreachable after $failures attempts, marking offline")
+                            mutable
+                        }
+                    } else {
+                        Log.d("DeviceStatusManager",
+                            "Device $ipAddress is unreachable (attempt $failures/$attemptsNeeded), still considered online")
+                    }
                 }
 
-                //then try a more meaningful app-level check
-                appServer?.let { server ->
-                    //attempt to request user info
-                    val checkResult = server.checkDeviceReachable(addr)
+                // Then try the app-level check if the device is believed to be online
+                if (isReachable || (isCurrentlyOnline && failureCountMap[ipAddress] ?: 0 < attemptsNeeded)) {
+                    appServer?.let { server ->
+                        // Only do this check if we have the AppServer instance
+                        try {
+                            // Try a quick check to app server endpoints
+                            val checkResult = server.checkDeviceReachable(addr)
 
-                    _deviceStatusMap.update { current ->
-                        val mutable = current.toMutableMap()
-                        mutable[ipAddress] = checkResult
-                        Log.d("DeviceStatusManager", "Verified device $ipAddress status: ${if (checkResult) "online" else "offline"} (app level)")
-                        mutable
-                    }
+                            if (checkResult) {
+                                // Reset failure count on successful app-level check
+                                failureCountMap.remove(ipAddress)
 
-                    //if device is online, update user info and conversation status
-                    if (checkResult) {
-                        server.requestRemoteUserInfo(addr)
+                                _deviceStatusMap.update { current ->
+                                    val mutable = current.toMutableMap()
+                                    mutable[ipAddress] = true
+                                    Log.d("DeviceStatusManager",
+                                        "App-level check for $ipAddress successful, marking online")
+                                    mutable
+                                }
+
+                                // If device is online, update user info and conversation status
+                                server.requestRemoteUserInfo(addr)
+                            }else {
+                                //do nothing
+                            }
+                        } catch (e: Exception) {
+                            // Log but don't immediately change status based on this check
+                            Log.d("DeviceStatusManager", "App-level check for $ipAddress failed: ${e.message}")
+                        }
                     }
                 }
             } catch (e: Exception) {
-                //if any exception occurs, mark device as offline
-                _deviceStatusMap.update { current ->
-                    val mutable = current.toMutableMap()
-                    mutable[ipAddress] = false
-                    Log.d("DeviceStatusManager", "Error checking device $ipAddress, marking offline: ${e.message}")
-                    mutable
+                // If any exception occurs, log but don't immediately mark as offline
+                Log.d("DeviceStatusManager", "Error checking device $ipAddress: ${e.message}")
+
+                // Increment failure count
+                val failures = (failureCountMap[ipAddress] ?: 0) + 1
+                failureCountMap[ipAddress] = failures
+
+                // Mark as offline after 3 consecutive failures
+                if (failures >= 3) {
+                    _deviceStatusMap.update { current ->
+                        val mutable = current.toMutableMap()
+                        mutable[ipAddress] = false
+                        Log.d("DeviceStatusManager",
+                            "Device $ipAddress has $failures consecutive failures, marking offline")
+                        mutable
+                    }
                 }
+            }
+        }
+    }
+
+    fun handleNetworkDisconnect(ipAddress: String) {
+        Log.d("DeviceStatusManager", "Network layer reported disconnect for $ipAddress, immediately updating status")
+
+        // Skip for special test devices
+        if (ipAddress in specialDevices) {
+            return
+        }
+
+        // Immediately update status to offline
+        _deviceStatusMap.update { current ->
+            val mutable = current.toMutableMap()
+            mutable[ipAddress] = false
+            mutable
+        }
+
+        // Reset failure count
+        failureCountMap.remove(ipAddress)
+
+        // Update conversations immediately
+        updateConversations(ipAddress, false)
+    }
+
+    // Helper method to update conversations when device status changes
+    private fun updateConversations(ipAddress: String, isOnline: Boolean) {
+        scope.launch {
+            try {
+                // Get user by IP
+                val user = GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipAddress)
+                if (user != null) {
+                    // Update conversation status
+                    GlobalApp.GlobalUserRepo.conversationRepository.updateUserStatus(
+                        userUuid = user.uuid,
+                        isOnline = isOnline,
+                        userAddress = if (isOnline) ipAddress else null
+                    )
+                    Log.d("DeviceStatusManager", "Updated conversation status for ${user.name}: online=$isOnline")
+                }
+            } catch (e: Exception) {
+                Log.e("DeviceStatusManager", "Error updating conversation for $ipAddress", e)
             }
         }
     }

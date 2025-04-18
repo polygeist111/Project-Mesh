@@ -378,6 +378,8 @@ fun BottomNavApp(di: DI,
 
             //I'm guessing I can put my Chat button here?
             composable(BottomNavItem.Chat.route) {
+                //latest status of DeviceStatus manager
+                val deviceStatusRefreshTrigger = DeviceStatusManager.deviceStatusMap.collectAsState().value
                 // Show a list of nodes, let the user pick one
                 ConversationsHomeScreen(
                     onConversationSelected = { userIdentifier ->
@@ -512,7 +514,30 @@ fun ConversationChatScreen (
         return
     }
 
-    Log.d("ConversationChatScreen", "Conversation loaded, creating virtual address")
+    val shouldCheckDeviceStatus = remember {
+        // Only check for devices with real IP addresses, not placeholder or offline devices
+        conversation.userAddress != null &&
+                conversation.userAddress != "0.0.0.0" &&
+                conversation.userAddress != TestDeviceService.TEST_DEVICE_IP_OFFLINE
+    }
+
+    // Initialize isUserOnline based on conversation state first
+    var isUserOnline by remember { mutableStateOf(conversation.isOnline) }
+
+    // If we should check device status, observe DeviceStatusManager
+    if (shouldCheckDeviceStatus) {
+        val deviceStatusMap by DeviceStatusManager.deviceStatusMap.collectAsState()
+        // Update isUserOnline based on DeviceStatusManager
+        LaunchedEffect(deviceStatusMap) {
+            conversation.userAddress?.let { ipAddress ->
+                val statusFromManager = deviceStatusMap[ipAddress] ?: false
+                if (isUserOnline != statusFromManager) {
+                    Log.d("ConversationChatScreen", "Device status changed for ${conversation.userName}: ${if (statusFromManager) "online" else "offline"}")
+                    isUserOnline = statusFromManager
+                }
+            }
+        }
+    }
 
     // Create a virtual address based on the conversation data
     val virtualAddress = if (conversation?.userAddress.isNullOrEmpty()) {

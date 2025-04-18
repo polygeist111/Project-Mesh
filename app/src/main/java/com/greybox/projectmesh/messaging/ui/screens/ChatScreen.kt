@@ -1,9 +1,10 @@
+// app/src/main/java/com/greybox/projectmesh/messaging/ui/screens/ChatScreen.kt
+
 package com.greybox.projectmesh.messaging.ui.screens
 
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-//import android.util.Log
 import androidx.compose.foundation.Image
 import android.util.Log
 import androidx.compose.foundation.background
@@ -32,7 +33,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.remember
-//import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -48,9 +48,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -63,7 +63,9 @@ import com.greybox.projectmesh.messaging.ui.viewmodels.ChatScreenViewModel
 import com.greybox.projectmesh.server.AppServer
 import com.greybox.projectmesh.views.LongPressCopyableText
 import com.greybox.projectmesh.testing.TestDeviceService
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.kodein.di.compose.BuildConfig
 import org.kodein.di.compose.localDI
 import java.io.File
@@ -84,10 +86,10 @@ fun ChatScreen(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
             vmFactory = { di, savedStateHandle ->
-                ChatScreenViewModel(di, savedStateHandle) // ✅ Correct now
+                ChatScreenViewModel(di, savedStateHandle)
             },
             defaultArgs = Bundle().apply {
-                putSerializable("virtualAddress", virtualAddress) // 👈 This passes the InetAddress to the SavedStateHandle
+                putSerializable("virtualAddress", virtualAddress)
             }
         )
     )
@@ -106,16 +108,26 @@ fun ChatScreen(
         }
     }
 
+    // Track device status from DeviceStatusManager
+    var deviceStatus by remember { mutableStateOf(false) }
 
-    val isUserOnline = remember {
-        if (!isOffline) {
-            //if not explicitly marked as offline, check if test device or has valid IP
-            TestDeviceService.isOnlineTestDevice(virtualAddress) ||
-                    (virtualAddress.hostAddress != "0.0.0.0" &&
-                            virtualAddress.hostAddress != TestDeviceService.TEST_DEVICE_IP_OFFLINE)
-        } else {
-            //use explicitly provided offline status
-            false
+    // Only observe for real devices (not placeholders)
+    val shouldTrackStatus = remember {
+        virtualAddress.hostAddress != "0.0.0.0" &&
+                virtualAddress.hostAddress != TestDeviceService.TEST_DEVICE_IP_OFFLINE
+    }
+
+    if (shouldTrackStatus) {
+        // Collect directly from DeviceStatusManager
+        val statusMap by DeviceStatusManager.deviceStatusMap.collectAsState()
+
+        // Use LaunchedEffect with a key derived from the status map entry for this device
+        LaunchedEffect(statusMap[virtualAddress.hostAddress]) {
+            val newStatus = statusMap[virtualAddress.hostAddress] ?: false
+            if (deviceStatus != newStatus) {
+                Log.d("ChatScreen", "Device status changed: ${virtualAddress.hostAddress} is now ${if (newStatus) "online" else "offline"}")
+                deviceStatus = newStatus
+            }
         }
     }
 
@@ -123,38 +135,27 @@ fun ChatScreen(
     val uiState: ChatScreenModel by viewModel.uiState.collectAsState(initial = ChatScreenModel())
     var textMessage by rememberSaveable { mutableStateOf("") }
 
-    val deviceStatus = remember {
-        mutableStateOf(DeviceStatusManager.isDeviceOnline(virtualAddress.hostAddress))
-    }
-
-    LaunchedEffect(virtualAddress) {
-        DeviceStatusManager.deviceStatusMap.collect { statusMap ->
-            deviceStatus.value = statusMap[virtualAddress.hostAddress] ?: false
-        }
-    }
+    val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier
             .fillMaxSize()
             .padding(bottom = 72.dp)) {
 
-
             //add a status bar at the top of the chat
             UserStatusBar(
                 userName = userInfo,
-                isOnline = isUserOnline,
+                isOnline = deviceStatus,
                 userAddress = virtualAddress.hostAddress
             )
 
-            DisplayAllMessages(uiState, onClickButton)
-
-            //add an offline indicator if user is offline
-            if(!deviceStatus.value){
+            // Show device status indicator
+            if (!deviceStatus) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp),
-                    colors = CardDefaults.cardColors (
+                    colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer
                     )
                 ){
@@ -177,26 +178,13 @@ fun ChatScreen(
                     }
                 }
             }
+
+            DisplayAllMessages(uiState, onClickButton)
         }
         Row(modifier = Modifier
             .fillMaxWidth()
             .align(Alignment.BottomCenter)
-            .padding(4.dp)) {//attach a button for connecting to file picker
-            //hard-code an URI?
-            /*val imgpath = File("/sdcard/IMG_5059.jpeg")//test image path
-            //future implementation should implement file picker
-            if (imgpath.exists()) {
-                Log.d("AppServer", "File exists at: $imgpath")
-            } else {
-                Log.e("AppServer", "File does not exist at: $imgpath")
-            }
-            val fp : Uri? = if(LocalContext.current!= null && imgpath.exists()){
-                FileProvider.getUriForFile(LocalContext.current, "${LocalContext.current.packageName}.fileprovider", imgpath)//URI.create(imgpath)
-            } else {
-                null
-            }
-            val filepath = URI.create(fp.toString())*/
-            //TextField(modifier = Modifier.weight(3f),
+            .padding(4.dp)) {
 
             TextField(
                 modifier = Modifier.weight(3f),
@@ -204,13 +192,13 @@ fun ChatScreen(
                 onValueChange = {
                     textMessage = it
                 },
-                enabled = isUserOnline // disable text input when user is offline
+                enabled = deviceStatus // disable text input when user is offline
             )
             Button(modifier = Modifier.weight(1f), onClick = {
                 val message = textMessage.trimEnd()
                 val imgpath = "sdcard/padorubastard.jpg"//test image path
                 //future implementation should implement file picker
-                val filepath = /*FileProvider.getUriForFile(LocalContext.current, "${BuildConfig.APPLICATION_ID}.fileprovider", imgpath)*/Uri.parse(imgpath)
+                val filepath = Uri.parse(imgpath)
                 if(message.isNotEmpty()) {
                     viewModel.sendChatMessage(virtualAddress, message, URI.create(filepath.toString()))
                     if(filepath != null && filepath.toString().isNotEmpty()) {
@@ -220,7 +208,7 @@ fun ChatScreen(
                     textMessage = ""
                 }
             },
-                enabled = isUserOnline //diable button when user is offline
+                enabled = deviceStatus //disable button when user is offline
             ) {
                 Text(text = "Send")
             }
@@ -382,13 +370,11 @@ fun MessageBubble(
     modifier: Modifier
 ){
     ElevatedCard(
-        //backgroundColor: color = MaterialTheme.colorScheme.surfaceVariant,
         colors = CardDefaults.cardColors(
             containerColor = if(sentBySelf){
                 Color.Cyan
             }else{
                 MaterialTheme.colorScheme.surfaceVariant
-
             }
         ),
         modifier = modifier
@@ -412,38 +398,6 @@ fun MessageBubble(
                     style = MaterialTheme.typography.labelSmall
                 )
             }
-            /*chatMessage.file?.let { fileUri ->
-                val context = LocalContext.current
-                val imageBitmap = remember(fileUri) {
-                    try {
-                        val inputStream = context.contentResolver.openInputStream(Uri.parse(fileUri.toString()))
-                        BitmapFactory.decodeStream(inputStream)
-                    } catch (e: Exception) {
-                        Log.e("MessageBubble", "Error loading image: ${e.message}")
-                        null
-                    }
-                }
-                imageBitmap?.let {
-                    Image(
-                        bitmap = it.asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier.size(100.dp)
-                    )
-                }
-            }*/
-//            Text(
-//                text = "",
-//                //text = "$sender [${SimpleDateFormat("HH:mm").format(Date(chatMessage.dateReceived))}]: ",
-//                style = MaterialTheme.typography.labelSmall,
-//                textAlign = TextAlign.End
-//            )
-//            Text(
-//                text = "",
-//                //text = "$sender [${SimpleDateFormat("HH:mm").format(Date(chatMessage.dateReceived))}]: ",
-//                style = MaterialTheme.typography.labelSmall,
-//                textAlign = TextAlign.End
-//            )
-
         }
     }
 }

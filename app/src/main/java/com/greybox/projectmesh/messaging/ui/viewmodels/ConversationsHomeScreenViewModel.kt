@@ -4,9 +4,11 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.greybox.projectmesh.DeviceStatusManager
 import com.greybox.projectmesh.GlobalApp
 import com.greybox.projectmesh.messaging.repository.ConversationRepository
 import com.greybox.projectmesh.messaging.ui.models.ConversationsHomeScreenModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +33,61 @@ class ConversationsHomeScreenViewModel(
 
     init {
         loadConversations()
+
+        viewModelScope.launch {
+            DeviceStatusManager.deviceStatusMap
+                .collect { deviceStatusMap ->
+                    // Process immediately without debouncing
+                    updateConversationStatuses(deviceStatusMap)
+                }
+        }
     }
+
+    //Update conversations Status based on device status
+    private fun updateConversationStatuses(deviceStatusMap: Map<String, Boolean>) {
+        viewModelScope.launch(Dispatchers.IO) { // Use IO dispatcher for database operations
+            try {
+                // Get current conversations once
+                val currentConversations = _uiState.value.conversations
+
+                // Create a list to track conversations needing updates
+                val conversationsToUpdate = mutableListOf<Pair<String, Boolean>>()
+
+                // Check which conversations need updates
+                currentConversations.forEach { conversation ->
+                    conversation.userAddress?.let { ipAddress ->
+                        val isOnline = deviceStatusMap[ipAddress] ?: false
+                        if (conversation.isOnline != isOnline) {
+                            conversationsToUpdate.add(Pair(conversation.userUuid, isOnline))
+                        }
+                    }
+                }
+
+                // Batch update all needed conversations
+                conversationsToUpdate.forEach { (userUuid, isOnline) ->
+                    // Update conversation status in database
+                    conversationRepository.updateUserStatus(
+                        userUuid = userUuid,
+                        isOnline = isOnline,
+                        userAddress = if (isOnline)
+                            currentConversations.find { it.userUuid == userUuid }?.userAddress
+                        else null
+                    )
+
+                    Log.d("ConversationsViewModel",
+                        "Updated conversation status for ${currentConversations.find { it.userUuid == userUuid }?.userName}: online=$isOnline")
+                }
+
+                // If we made any updates, force a refresh of the list
+                if (conversationsToUpdate.isNotEmpty()) {
+                    refreshConversations()
+                }
+            } catch (e: Exception) {
+                Log.e("ConversationsViewModel", "Error updating conversation statuses", e)
+            }
+        }
+    }
+
 
     private fun loadConversations() {
         viewModelScope.launch {

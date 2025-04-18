@@ -89,11 +89,19 @@ class ConversationRepository(
 
     //update a user's online status
     suspend fun updateUserStatus(userUuid: String, isOnline: Boolean, userAddress: String?) {
-        conversationDao.updateUserConnectionStatus(
-            userUuid = userUuid,
-            isOnline = isOnline,
-            userAddress = userAddress
-        )
+        try {
+            // Update in database
+            conversationDao.updateUserConnectionStatus(
+                userUuid = userUuid,
+                isOnline = isOnline,
+                userAddress = userAddress
+            )
+
+            // Log for debugging
+            Log.d("ConversationRepository", "Updated user $userUuid connection status: online=$isOnline, address=$userAddress")
+        } catch (e: Exception) {
+            Log.e("ConversationRepository", "Failed to update user connection status", e)
+        }
     }
 
 }

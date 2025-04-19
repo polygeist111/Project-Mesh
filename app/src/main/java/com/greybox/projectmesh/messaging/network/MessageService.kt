@@ -33,7 +33,7 @@ class MessageService(
             address = address,
             time = message.dateReceived,
             message = message.content,
-            f = null
+            file = null
         )
     }
 

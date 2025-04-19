@@ -133,6 +133,7 @@ class MainActivity : ComponentActivity(), DIAware {
             else {
                 Log.d("DirectoryCheck", "Default directory already exists: ${defaultDirectory.absolutePath}")
             }
+
             var appTheme by remember {
                 mutableStateOf(AppTheme.valueOf(
                     settingPref.getString("app_theme", AppTheme.SYSTEM.name) ?:
@@ -163,6 +164,33 @@ class MainActivity : ComponentActivity(), DIAware {
 
             // Remember the current screen across recompositions
             var currentScreen by rememberSaveable { mutableStateOf(initialRoute) }
+
+            //check for special navigation intents
+            val action = intent.action
+            if (action == "OPEN_CHAT_SCREEN") {
+                val ip = intent.getStringExtra("ip")
+                if (ip != null) {
+                    try {
+                        // Try to create InetAddress to validate it first
+                        InetAddress.getByName(ip)
+                        // If that succeeds, navigate to chat screen with this IP
+                        val route = "chatScreen/$ip"
+                        currentScreen = route
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Invalid IP address in intent: $ip", e)
+                        // Fall back to home screen
+                        currentScreen = BottomNavItem.Home.route
+                    }
+                }
+            } else if (action == "OPEN_CHAT_CONVERSATION") {
+                val conversationId = intent.getStringExtra("conversationId")
+                if (conversationId != null) {
+                    // Navigate to chat screen with this conversation ID
+                    val route = "chatScreen/$conversationId"
+                    currentScreen = route
+                }
+            }
+
             LaunchedEffect(restartServerKey) {
                 if (restartServerKey > 0){
                     appServer.restart()
@@ -285,6 +313,8 @@ fun BottomNavApp(di: DI,
                     virtualAddress = InetAddress.getByName(ip)
                 )
             }
+
+
             composable(BottomNavItem.Send.route) {
                 val activity = LocalContext.current as ComponentActivity
                 val sharedUrisViewModel: SharedUriViewModel = viewModel(activity)
@@ -410,6 +440,49 @@ fun BottomNavApp(di: DI,
 
                 )
                 */
+            }
+
+            //handle ip address chat screen properly
+            composable("chatScreen/{ip}"){ entry ->
+                val ipParam = entry.arguments?.getString("ip")
+                if (ipParam == null) {
+                    // Handle missing parameter
+                    Text("Error: Missing address parameter")
+                } else {
+                    // Check if this is an IP address or conversation ID
+                    val isValidIpAddress = ipParam.matches(Regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\$"))
+
+                    val validatedAddress = remember(ipParam) {
+                        if (isValidIpAddress) {
+                            try {
+                                InetAddress.getByName(ipParam)
+                            } catch (e: Exception) {
+                                Log.e("Navigation", "Error creating address from parameter: $ipParam", e)
+                                null
+                            }
+                        } else {
+                            null
+                        }
+                    }
+
+                    if (isValidIpAddress && validatedAddress != null) {
+                        // It's a valid IP address
+                        ChatScreen(
+                            virtualAddress = validatedAddress,
+                            onClickButton = {
+                                navController.navigate("pingScreen/${ipParam}")
+                            }
+                        )
+                    } else {
+                        // Handle as conversation ID
+                        ConversationChatScreen(
+                            conversationId = ipParam,
+                            onBackClick = {
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+                }
             }
         }
     }

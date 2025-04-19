@@ -2,12 +2,17 @@
 
 package com.greybox.projectmesh.messaging.ui.screens
 
+import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import androidx.compose.foundation.Image
 import android.util.Log
+import android.webkit.MimeTypeMap
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,7 +27,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.SignalWifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
@@ -51,6 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -66,6 +74,7 @@ import com.greybox.projectmesh.testing.TestDeviceService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import org.acra.util.UriUtils.getMimeType
 import org.kodein.di.compose.BuildConfig
 import org.kodein.di.compose.localDI
 import java.io.File
@@ -196,14 +205,11 @@ fun ChatScreen(
             )
             Button(modifier = Modifier.weight(1f), onClick = {
                 val message = textMessage.trimEnd()
-                val imgpath = "sdcard/padorubastard.jpg"//test image path
+                //val imgpath = "sdcard/padorubastard.jpg"//test image path
                 //future implementation should implement file picker
-                val filepath = Uri.parse(imgpath)
+                //val filepath = Uri.parse(imgpath)
                 if(message.isNotEmpty()) {
-                    viewModel.sendChatMessage(virtualAddress, message, URI.create(filepath.toString()))
-                    if(filepath != null && filepath.toString().isNotEmpty()) {
-                        val oti = viewModel.addOutgoingTransfer(filepath, virtualAddress)
-                    }
+                    viewModel.sendChatMessage(virtualAddress,message, null)
                     // resets the text field
                     textMessage = ""
                 }
@@ -369,6 +375,8 @@ fun MessageBubble(
     sender: String,
     modifier: Modifier
 ){
+    val context = LocalContext.current
+
     ElevatedCard(
         colors = CardDefaults.cardColors(
             containerColor = if(sentBySelf){
@@ -378,16 +386,43 @@ fun MessageBubble(
             }
         ),
         modifier = modifier
-            .size(width = 200.dp, height = 100.dp)
             .padding(10.dp)
+            .widthIn(max = 280.dp)
     ) {
         Column(modifier = Modifier.padding(4.dp)) {
             Text(
                 text = sender,
                 style = MaterialTheme.typography.labelMedium
             )
-            messageContent()
 
+            messageContent()
+            //ONLY SHOW FILE ATTACHMENT IF PRESENT
+            if (chatMessage.file != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            RoundedCornerShape(4.dp)
+                        )
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AttachFile,
+                        contentDescription = "File",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = chatMessage.file.toString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
             // Adding timestamp to bottom right of message bubble
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -400,4 +435,68 @@ fun MessageBubble(
             }
         }
     }
+}
+
+@Composable
+fun FileAttachment(file: URI, context: Context) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    // Try to open the file when clicked
+                    try {
+                        val fileUri = Uri.parse(file.toString())
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(fileUri, getMimeType(fileUri.toString()))
+                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Cannot open file: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.AttachFile,
+                contentDescription = "File Attachment",
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = getFileNameFromUri(file.toString()),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+// Helper function to get file name from URI
+private fun getFileNameFromUri(uriString: String): String {
+    val uri = Uri.parse(uriString)
+    val path = uri.path
+    return path?.substringAfterLast('/') ?: "Attached File"
+}
+
+// Helper function to get mime type from URI
+private fun getMimeType(url: String): String {
+    var type = "*/*"
+    val extension = MimeTypeMap.getFileExtensionFromUrl(url)
+    if (extension != null) {
+        val mimeTypeMap = MimeTypeMap.getSingleton()
+        type = mimeTypeMap.getMimeTypeFromExtension(extension) ?: "*/*"
+    }
+    return type
 }

@@ -1,13 +1,19 @@
 package com.greybox.projectmesh.server
 
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
 import com.greybox.projectmesh.DeviceStatusManager
 import com.greybox.projectmesh.GlobalApp
+import com.greybox.projectmesh.MainActivity
+import com.greybox.projectmesh.R
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.messaging.network.MessageNetworkHandler
@@ -390,20 +396,45 @@ class AppServer(
                     size = size,
                     deviceName = userName
                 )
-                /*
-                 update the _incomingTransfers list with the new incoming transfer
-                 The new list is added to the top of the list, then existing list are
-                 appended after the new one.
-                 */
+
+                //find if theres an existing convo from sender
+                val user = runBlocking { userRepository.getUserByIp(ipStr) }
+
+                var routeToChatEnabled = false
+                var chatConversationId: String? = null
+
+                if (user != null ) {
+                    val localUuid = GlobalApp.GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
+                    try {
+                        val conversation = runBlocking {
+                            GlobalApp.GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                                localUuid = localUuid,
+                                remoteUser = user
+                            )
+                        }
+                        routeToChatEnabled = true
+                        chatConversationId = conversation.id
+                    } catch (e: Exception) {
+                        Log.e("AppServer", "Failed to find conversation for file sender", e)
+                    }
+                }
+
+                //update the _incomingTransfers list with new incoming transers
+                //then the new list is added to the top
                 _incomingTransfers.update { prev ->
                     buildList {
                         add(incomingTransfer)
                         addAll(prev)
                     }
                 }
-                // Show notification
-                NotificationHelper.showFileReceivedNotification(appContext, filename)
-                // Return "OK", Confirming the transfer request has been handled
+
+                //show notification based on whether we have a conversation from the sender
+                if (routeToChatEnabled && chatConversationId != null) {
+                    showFileInChatNotification(incomingTransfer, chatConversationId)
+                } else {
+                    // Fall back to the regular file notification
+                    NotificationHelper.showFileReceivedNotification(appContext, filename)
+                }
                 return newFixedLengthResponse("OK")
             }else {
                 // Return an error response if any of the required parameters are missing
@@ -435,22 +466,57 @@ class AppServer(
             return newFixedLengthResponse(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
         }
         else if(path.startsWith("/chat")) {
-            val chatMessage = session.parameters["chatMessage"]?.first()
-            val time = session.parameters["time"]?.first()?.toLong() ?: 0
-            val senderIp = InetAddress.getByName(session.parameters["senderIp"]?.first())
-            val incomingfile = URI.create(session.parameters["incomingfile"]?.first())//test this
+            val chatMessage = session.parameters["chatMessage"]?.firstOrNull()
+            val timeParam = session.parameters["time"]?.firstOrNull()
+            val time = timeParam?.toLongOrNull() ?: System.currentTimeMillis()
+            val senderIpStr = session.parameters["senderIp"]?.firstOrNull()
 
-            val message = MessageNetworkHandler.handleIncomingMessage(
-                chatMessage,
-                time,
-                senderIp,
-                incomingfile
-            )
-
-            scope.launch {
-                db.messageDao().addMessage(message)
+            if (senderIpStr == null) {
+                return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Missing senderIp parameter")
             }
-            return newFixedLengthResponse("OK")
+
+            val senderIp = try {
+                InetAddress.getByName(senderIpStr)
+            } catch (e: Exception) {
+                Log.e("AppServer", "Invalid sender IP address: $senderIpStr", e)
+                return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Invalid sender IP")
+            }
+
+            // Handle optional file parameter
+            val fileUriStr = session.parameters["incomingfile"]?.firstOrNull()
+            val incomingfile = if (fileUriStr != null) {
+                try {
+                    URI.create(fileUriStr)
+                } catch (e: Exception) {
+                    Log.e("AppServer", "Invalid file URI: $fileUriStr", e)
+                    null
+                }
+            } else {
+                null
+            }
+
+            Log.d("AppServer", "Received chat message: '$chatMessage' from $senderIpStr")
+
+            try {
+                val message = MessageNetworkHandler.handleIncomingMessage(
+                    chatMessage,
+                    time,
+                    senderIp,
+                    incomingfile
+                )
+
+                scope.launch {
+                    db.messageDao().addMessage(message)
+                    Log.d("AppServer", "Message saved to database: $message")
+                }
+
+                // Change response type to ensure it's properly formatted
+                return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK")
+            } catch (e: Exception) {
+                Log.e("AppServer", "Error processing chat message", e)
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Error processing message")
+            }
+
         }
         else {
             // Returns a NOT_FOUND response indicating that the requested path could not be found.
@@ -533,6 +599,47 @@ class AppServer(
      * Add an outgoing transfer. This is done using a Uri so that we don't have to make our own
      * copy of the file the user wants to transfer.
      */
+
+    // Add a new function to show notifications that route to the chat screen
+    private fun showFileInChatNotification(transfer: IncomingTransferInfo, conversationId: String) {
+        try {
+            val title = "File Received"
+            val content = "Tap to view ${transfer.name} in chat"
+
+            val intent = Intent(appContext, MainActivity::class.java).apply {
+                action = "OPEN_CHAT_CONVERSATION"
+                putExtra("conversationId", conversationId)
+                putExtra("from_notification", true)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+
+            val pendingIntent = PendingIntent.getActivity(
+                appContext, 1005, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val channelId = "file_receive_channel"
+
+            val notification = NotificationCompat.Builder(appContext, channelId)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle(title)
+                .setContentText(content)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_SOUND)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+
+            val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(1005, notification)
+
+            Log.d("AppServer", "Showed notification for file in chat")
+        } catch (e: Exception) {
+            Log.e("AppServer", "Failed to show file in chat notification", e)
+            // Fall back to regular notification
+            NotificationHelper.showFileReceivedNotification(appContext, transfer.name)
+        }
+    }
+
     fun addOutgoingTransfer(//change to json
         uri: Uri,   // The uri of the file to be transferred
         toNode: InetAddress,    // The recipient's IP address
@@ -787,6 +894,7 @@ class AppServer(
      * Send a chat message and return delivery status
      */
     suspend fun sendChatMessageWithStatus(address: InetAddress, time: Long, message: String, f: URI?): Boolean {
+
         try {
             if (TestDeviceService.isTestDevice(address)) {
                 // Create an echo response from our test device
@@ -796,7 +904,7 @@ class AppServer(
                     content = "Echo: $message",
                     sender = TestDeviceService.TEST_DEVICE_NAME,
                     chat = TestDeviceService.TEST_DEVICE_NAME,
-                    file = f
+                    file = f //dont send file with echo messages
                 )
 
                 // Store the echo response in our database
@@ -820,21 +928,26 @@ class AppServer(
 
             val request = Request.Builder()
                 .url(httpUrl)
+                .get()
                 .build()
 
-            val response = httpClient.newCall(request).execute()
-            val successful = response.isSuccessful
-            response.close()
-
-            if (successful) {
-                Log.d("AppServer", "Message successfully sent to ${address.hostAddress}")
-            } else {
-                Log.d("AppServer", "Failed to send message to ${address.hostAddress}, status code: ${response.code}")
+            // Execute the request with proper error handling
+            try {
+                httpClient.newCall(request).execute().use { response ->
+                    val successful = response.isSuccessful
+                    if (successful) {
+                        Log.d("AppServer", "Message successfully sent to ${address.hostAddress}")
+                    } else {
+                        Log.d("AppServer", "Failed to send message to ${address.hostAddress}, status code: ${response.code}")
+                    }
+                    return successful
+                }
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to send message to ${address.hostAddress}: ${e.message}", e)
+                return false
             }
 
-            return successful
-        }
-        catch (e: Exception) {
+        } catch (e: Exception) {
             e.printStackTrace()
             Log.d("AppServer", "Failed to send message to ${address.hostAddress}: ${e.message}")
             return false

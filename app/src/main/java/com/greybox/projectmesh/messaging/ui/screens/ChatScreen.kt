@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.SignalWifiOff
@@ -39,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
@@ -82,6 +84,7 @@ import java.net.InetAddress
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
+import android.provider.MediaStore
 
 
 @Composable
@@ -103,6 +106,7 @@ fun ChatScreen(
         )
     )
 ) {
+
     //get user info
     val userInfo = remember {
         if (userName != null) {
@@ -193,7 +197,13 @@ fun ChatScreen(
         Row(modifier = Modifier
             .fillMaxWidth()
             .align(Alignment.BottomCenter)
-            .padding(4.dp)) {
+            .padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            //File Picker Button
+            OpenDownloadsOrPhotosButton()
+
 
             TextField(
                 modifier = Modifier.weight(3f),
@@ -480,6 +490,31 @@ fun FileAttachment(file: URI, context: Context) {
                 modifier = Modifier.weight(1f)
             )
         }
+    }
+}
+
+//Button for file picker
+@Composable
+fun OpenDownloadsOrPhotosButton() {
+    val context = LocalContext.current
+
+    IconButton(
+        modifier = Modifier
+            .clip(CircleShape)
+            .border(2.dp, Color.Gray, CircleShape)
+            .size(40.dp),
+        onClick = {
+            // Create an intent to open any file
+            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "*/*" // This allows all file types
+                addCategory(Intent.CATEGORY_OPENABLE)
+            }
+            context.startActivity(Intent.createChooser(intent, "Select a file"))
+        }) {
+        Icon(
+            imageVector = Icons.Default.AttachFile,
+            contentDescription = "Action"
+        )
     }
 }
 

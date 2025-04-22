@@ -287,7 +287,7 @@ class AppServer(
             }
         }
             // 2) /download/
-            else if (path.startsWith("/download/")) {
+        else if (path.startsWith("/download/")) {
             // Extracts the transfer ID (Integer)from the path by taking the last part of the path
             val xferId = path.substringAfterLast("/").toInt()
             // Find the outgoing transfer with the given xferId

@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
+import android.se.omapi.Session
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
@@ -466,10 +467,43 @@ class AppServer(
             return newFixedLengthResponse(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
         }
         else if(path.startsWith("/chat")) {
-            val chatMessage = session.parameters["chatMessage"]?.firstOrNull()
-            val timeParam = session.parameters["time"]?.firstOrNull()
-            val time = timeParam?.toLongOrNull() ?: System.currentTimeMillis()
-            val senderIpStr = session.parameters["senderIp"]?.firstOrNull()
+            //Log.d("AppServer", "Received chat message*******")
+            //Processes JSON payload into useable data
+            val files = mutableMapOf<String, String>()
+            session.parseBody(files)
+            val jsonPayload = files["postData"]  // This is where the full body lives
+            //Log.d("AppServer", "JSON Payload******: $jsonPayload")
+
+            //Checks if payload is null/blank
+            if (jsonPayload.isNullOrBlank()) {
+                Log.e("AppServer", "Empty or missing JSON payload")
+                return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Empty or missing JSON payload")
+            }else{
+                Log.d("AppServer", "JSON payload not blank")
+            }
+
+            //Validates validity of JSON payload
+            val JSONschema = JSONSchema()
+            Log.d("AppServer", "Validating JSON payload: ${jsonPayload::class.simpleName}")
+            if (!JSONschema.schemaValidation(jsonPayload)) {
+                Log.e("AppServer", "Invalid JSON payload")
+                return newFixedLengthResponse(Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid JSON schema"}""")
+            }else{
+                Log.d("AppServer", "Valid JSON payload")
+            }
+
+            //Deserialize the JSON payload
+            val deserialzedJSON = json.decodeFromString<Message>(jsonPayload)
+
+            val chatMessage = deserialzedJSON.content ?: null
+            val time = deserialzedJSON.dateReceived ?: System.currentTimeMillis()
+            val senderIpStr = deserialzedJSON.sender ?: null
+
+            Log.d("AppServer", "Received chat message: '$chatMessage' from $senderIpStr at $time")
+//            val chatMessage = session.parameters["chatMessage"]?.firstOrNull()
+//            val timeParam = session.parameters["time"]?.firstOrNull()
+//            val time = timeParam?.toLongOrNull() ?: System.currentTimeMillis()
+//            val senderIpStr = session.parameters["senderIp"]?.firstOrNull()
 
             if (senderIpStr == null) {
                 return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Missing senderIp parameter")
@@ -483,7 +517,8 @@ class AppServer(
             }
 
             // Handle optional file parameter
-            val fileUriStr = session.parameters["incomingfile"]?.firstOrNull()
+            //val fileUriStr = session.parameters["incomingfile"]?.firstOrNull()
+            val fileUriStr = deserialzedJSON.file?.toString()
             val incomingfile = if (fileUriStr != null) {
                 try {
                     URI.create(fileUriStr)
@@ -926,9 +961,29 @@ class AppServer(
 
             Log.d("AppServer", "Request URL: $httpUrl")
 
+            val gs = Gson()
+            val msg = Message(//test this
+                id = 0,
+                dateReceived = time,
+                sender = localVirtualAddr.hostName,
+                chat = address.hostAddress,
+                content = message,
+                file = null//made the file null so that the file doesn't send
+            )
+            Log.d("AppServer", "Messagefile: ${msg.file.toString()}")
+            val msgJson = gs.toJson(msg)
+            //modified http
+            val httpURL = HttpUrl.Builder() .scheme("http") .host(address.hostAddress) .port(DEFAULT_PORT) .addPathSegment("chat").build()
+            //Log.d("AppServer", "HTTP URL: $httpURL")
+            //post request body
+            val mt = "application/json; charset=utf-8".toMediaType()
+            val rbody = msgJson.toRequestBody(mt)
+            //Log.d("Appserver", "HTTP URL: $httpUrl")
+
             val request = Request.Builder()
                 .url(httpUrl)
-                .get()
+                .post(rbody)
+                .addHeader("Content-Type", "application/json")
                 .build()
 
             // Execute the request with proper error handling

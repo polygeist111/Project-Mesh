@@ -4,6 +4,7 @@
 The messaging module is a core component of Project Mesh that enables peer-to-peer text communications between devices on the local mesh network. It provides a structured architecture for sending, receiving, storing, and displaying messages without requiring internet connectivity.
 
 ## Package Structure
+```
 messaging/
 ├── data/          # Data layer (entities and DAOs)
 │   ├── dao/       # Database Access Objects
@@ -14,7 +15,7 @@ messaging/
 ├── models/    # UI state models
 ├── screens/   # Composable UI screens
 └── viewmodels/# View state management
-
+```
 ## Core Components 
 
 ### 1. Data Models 
@@ -160,18 +161,18 @@ Special handling for test devices that simulate real users:
 ### Usage Example 
 
 #### Conversations Screen: 
-![ConversationsScreenFirstImpressions.png](images%2FConversationsScreenFirstImpressions.png)
+![ConversationsScreenFirstImpressions.png](images%2FConversationsScreenFirstImpressions.png | width=100)
 * Online and Offline Users Appear With Appropriate Read Receipts from Built-in Sample Messages
 * Connected device appears in the Conversation Screen
 
 #### Chat Screen Initial Impressions 
-![InitialChatScreenFirstTimeChatting.png](images%2FInitialChatScreenFirstTimeChatting.png)
+![InitialChatScreenFirstTimeChatting.png](images%2FInitialChatScreenFirstTimeChatting.png | width=100)
 * When chatting for the first time a prompt appears to start a chat
 
 #### Sending A Message
 
 **Example**: Bob sends Message to Alice
-![SentMessage.png](images%2FSentMessage.png)
+![SentMessage.png](images%2FSentMessage.png | width = 100)
 
 ```kotlin
 // In ChatScreenViewModel.kt
@@ -213,11 +214,11 @@ fun sendChatMessage(virtualAddress: InetAddress, message: String, file: URI?) {
 **Example**: Bob Recieves Message From Alice
 
 1. Conversation is Updated and Read Receipt is shown: 
-![RecievedMessageConvoScreen.png](images%2FRecievedMessageConvoScreen.png)
+![RecievedMessageConvoScreen.png](images%2FRecievedMessageConvoScreen.png | width = 100)
 2. Bob can View the message in the Chat Screen
-![RecievedMessageChatScreen.png](images%2FRecievedMessageChatScreen.png)
+![RecievedMessageChatScreen.png](images%2FRecievedMessageChatScreen.png | width = 100)
 3. When Going back to the Chat Screen Read Status is Updated: 
-![ReadIndicatorsUpdating.png](images%2FReadIndicatorsUpdating.png)
+![ReadIndicatorsUpdating.png](images%2FReadIndicatorsUpdating.png | width = 100)
 
 ```kotlin
 // In ChatScreenViewModel.kt

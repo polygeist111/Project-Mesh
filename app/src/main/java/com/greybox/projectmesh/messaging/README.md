@@ -172,7 +172,7 @@ Special handling for test devices that simulate real users:
 #### Sending A Message
 
 **Example**: Bob sends Message to Alice
-![SentMessage.png](images%2FSentMessage.png | width = 100)
+![SentMessage.png](images%2FSentMessage.png | width=100)
 
 ```kotlin
 // In ChatScreenViewModel.kt
@@ -214,11 +214,11 @@ fun sendChatMessage(virtualAddress: InetAddress, message: String, file: URI?) {
 **Example**: Bob Recieves Message From Alice
 
 1. Conversation is Updated and Read Receipt is shown: 
-![RecievedMessageConvoScreen.png](images%2FRecievedMessageConvoScreen.png | width = 100)
+![RecievedMessageConvoScreen.png](images%2FRecievedMessageConvoScreen.png | width=100)
 2. Bob can View the message in the Chat Screen
-![RecievedMessageChatScreen.png](images%2FRecievedMessageChatScreen.png | width = 100)
+![RecievedMessageChatScreen.png](images%2FRecievedMessageChatScreen.png | width=100)
 3. When Going back to the Chat Screen Read Status is Updated: 
-![ReadIndicatorsUpdating.png](images%2FReadIndicatorsUpdating.png | width = 100)
+![ReadIndicatorsUpdating.png](images%2FReadIndicatorsUpdating.png | width=100)
 
 ```kotlin
 // In ChatScreenViewModel.kt

@@ -85,7 +85,10 @@ import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 import android.provider.MediaStore
-
+import android.provider.OpenableColumns
+import org.kodein.di.instance
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 @Composable
 fun ChatScreen(
@@ -138,12 +141,50 @@ fun ChatScreen(
         LaunchedEffect(statusMap[virtualAddress.hostAddress]) {
             val newStatus = statusMap[virtualAddress.hostAddress] ?: false
             if (deviceStatus != newStatus) {
-                Log.d("ChatScreen", "Device status changed: ${virtualAddress.hostAddress} is now ${if (newStatus) "online" else "offline"}")
+                Log.d(
+                    "ChatScreen",
+                    "Device status changed: ${virtualAddress.hostAddress} is now ${if (newStatus) "online" else "offline"}"
+                )
                 deviceStatus = newStatus
             }
         }
     }
 
+    //Grab AppServer fromm local DI
+    val di = localDI()
+    val appServer: AppServer by di.instance()
+
+    val contextMessageForFile = LocalContext.current
+
+    // set up the system file-picker
+    val pickFileLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { selectedUri ->
+            // 1) start the transfer
+            appServer.addOutgoingTransfer(selectedUri, virtualAddress)
+
+            //Get name of file
+            var displayName = "unknown"
+            contextMessageForFile.contentResolver
+                .query(selectedUri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            .takeIf { it >= 0 }
+                            ?.let { idx ->
+                                displayName = cursor.getString(idx)
+                            }
+                    }
+                }
+            //Send a chat message when file is sent via file transfer
+            viewModel.sendChatMessage(
+                virtualAddress,
+                "File $displayName was sent",
+                null
+            )
+        }
+    }
     // declare the UI state, we can use the uiState to access the current state of the viewModel
     val uiState: ChatScreenModel by viewModel.uiState.collectAsState(initial = ChatScreenModel())
     var textMessage by rememberSaveable { mutableStateOf("") }
@@ -202,7 +243,18 @@ fun ChatScreen(
         ) {
 
             //File Picker Button
-            OpenDownloadsOrPhotosButton()
+            IconButton(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .border(2.dp, Color.Gray, CircleShape)
+                    .size(40.dp),
+                onClick = { pickFileLauncher.launch("*/*") }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AttachFile,
+                    contentDescription = "Select a file to send"
+                )
+            }
 
 
             TextField(
@@ -445,93 +497,4 @@ fun MessageBubble(
             }
         }
     }
-}
-
-@Composable
-fun FileAttachment(file: URI, context: Context) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    // Try to open the file when clicked
-                    try {
-                        val fileUri = Uri.parse(file.toString())
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(fileUri, getMimeType(fileUri.toString()))
-                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        }
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Cannot open file: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.AttachFile,
-                contentDescription = "File Attachment",
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = getFileNameFromUri(file.toString()),
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-//Button for file picker
-@Composable
-fun OpenDownloadsOrPhotosButton() {
-    val context = LocalContext.current
-
-    IconButton(
-        modifier = Modifier
-            .clip(CircleShape)
-            .border(2.dp, Color.Gray, CircleShape)
-            .size(40.dp),
-        onClick = {
-            // Create an intent to open any file
-            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "*/*" // This allows all file types
-                addCategory(Intent.CATEGORY_OPENABLE)
-            }
-            context.startActivity(Intent.createChooser(intent, "Select a file"))
-        }) {
-        Icon(
-            imageVector = Icons.Default.AttachFile,
-            contentDescription = "Action"
-        )
-    }
-}
-
-// Helper function to get file name from URI
-private fun getFileNameFromUri(uriString: String): String {
-    val uri = Uri.parse(uriString)
-    val path = uri.path
-    return path?.substringAfterLast('/') ?: "Attached File"
-}
-
-// Helper function to get mime type from URI
-private fun getMimeType(url: String): String {
-    var type = "*/*"
-    val extension = MimeTypeMap.getFileExtensionFromUrl(url)
-    if (extension != null) {
-        val mimeTypeMap = MimeTypeMap.getSingleton()
-        type = mimeTypeMap.getMimeTypeFromExtension(extension) ?: "*/*"
-    }
-    return type
 }

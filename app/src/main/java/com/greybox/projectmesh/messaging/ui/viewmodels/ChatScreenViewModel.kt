@@ -299,5 +299,3 @@ class ChatScreenViewModel(
         return appServer.addOutgoingTransfer(fileUri, toAddress)
     }
 }
-
-//add file picker

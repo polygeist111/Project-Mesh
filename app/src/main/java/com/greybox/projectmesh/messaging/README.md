@@ -166,13 +166,13 @@ Special handling for test devices that simulate real users:
 * Connected device appears in the Conversation Screen
 
 #### Chat Screen Initial Impressions 
-![InitialChatScreenFirstTimeChatting.png](images%2FInitialChatScreenFirstTimeChatting.png | width=100)
+<img src="images/InitialChatScreenFirstTimeChatting.png" width="400" alt="Initial Chat Screen">
 * When chatting for the first time a prompt appears to start a chat
 
 #### Sending A Message
 
 **Example**: Bob sends Message to Alice
-![SentMessage.png](images%2FSentMessage.png | width=100)
+<img src="images/SentMessage.png" width="400" alt="Sent Message">
 
 ```kotlin
 // In ChatScreenViewModel.kt

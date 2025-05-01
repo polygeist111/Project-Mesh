@@ -23,7 +23,7 @@ The application includes two test users:
 
 **Only Online User Shows Up as Online**:
 
-<img src="images/TestDeviceNetwork.png" width="200" alt="TestDeviceNetwork">
+<img src="images/TestDeviceNetwork.png" width="200" style="border: 2px solid black;" alt="TestDeviceNetwork">
 
 ## Test User Features
 
@@ -40,7 +40,7 @@ The application includes two test users:
 3. Send a message
 4. You should receive an echo reply within seconds
 
-<img src="images/OnlineTestDeviceChat.png" width="300" alt="OnlineTestChat">
+<img src="images/OnlineTestDeviceChat.png" width="300" style="border: 2px solid black;" alt="OnlineTestChat">
 
 ### Testing Offline Message Behavior
 1. Navigate to the Chat screen
@@ -48,7 +48,7 @@ The application includes two test users:
 3. Send a message
 4. The message will show as sent but will be stored locally with an offline indicator
 
-<img src="images/OfflineTestDeviceChat.png" width="300" alt="OfflineTestChat">
+<img src="images/OfflineTestDeviceChat.png" width="300" style="border: 2px solid black;" alt="OfflineTestChat">
 
 ## Technical Implementation
 

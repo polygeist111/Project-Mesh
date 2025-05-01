@@ -161,13 +161,15 @@ Special handling for test devices that simulate real users:
 ### Usage Example 
 
 #### Conversations Screen: 
-![ConversationsScreenFirstImpressions.png](images%2FConversationsScreenFirstImpressions.png | width=100)
+
+<img src="images/ConversationsScreenFirstImpressions.png" width="300" style="border: 2px solid black;" alt="FirstConvoScreen">
+
 * Online and Offline Users Appear With Appropriate Read Receipts from Built-in Sample Messages
 * Connected device appears in the Conversation Screen
 
 #### Chat Screen Initial Impressions 
 
-<img src="images/InitialChatScreenFirstTimeChatting.png" width="200" alt="Initial Chat Screen">
+<img src="images/InitialChatScreenFirstTimeChatting.png" width="300" style="border: 2px solid black;" alt="Initial Chat Screen">
 
 * When chatting for the first time a prompt appears to start a chat
 
@@ -175,7 +177,7 @@ Special handling for test devices that simulate real users:
 
 **Example**: Bob sends Message to Alice
 
-<img src="images/SentMessage.png" width="200" alt="Sent Message">
+<img src="images/SentMessage.png" width="300" style="border: 2px solid black;" alt="Sent Message">
 
 ```kotlin
 // In ChatScreenViewModel.kt
@@ -218,15 +220,15 @@ fun sendChatMessage(virtualAddress: InetAddress, message: String, file: URI?) {
 
 1. Conversation is Updated and Read Receipt is shown: 
 
-<img src="images/RecievedMessageConvoScreen.png" width="300" alt="RecievedMessageConvoScreen">
+<img src="images/RecievedMessageConvoScreen.png" width="300" style="border: 2px solid black;" alt="RecievedMessageConvoScreen">
 
 2. Bob can View the message in the Chat Screen
 
-<img src="images/RecievedMessageChatScreen.png" width="300" alt="RecievedMessageChatScreen">
+<img src="images/RecievedMessageChatScreen.png" width="300" style="border: 2px solid black;" alt="RecievedMessageChatScreen">
 
 3. When Going back to the Chat Screen Read Status is Updated: 
 
-<img src="images/ReadIndicatorsUpdating.png" width="300" alt="ReadIndicatorsUpdating">
+<img src="images/ReadIndicatorsUpdating.png" width="300" style="border: 2px solid black;" alt="ReadIndicatorsUpdating">
 
 ```kotlin
 // In ChatScreenViewModel.kt

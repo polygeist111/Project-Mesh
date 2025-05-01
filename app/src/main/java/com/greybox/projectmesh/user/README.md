@@ -81,7 +81,7 @@ interface UserDao {
 ## User Profile Lifecycle
 ### First-time Setup
 
-<img src="images/User_Onboarding.png" width="300" alt="User_Onboarding">
+<img src="images/User_Onboarding.png" width="300" style="border: 2px solid black;" alt="User_Onboarding">
 
 When a user first launches the app, they go through an onboarding process to set up their profile:
 ```kotlin 
@@ -111,11 +111,11 @@ fun handleFirstTimeSetup(onComplete: () -> Unit) {
 When devices connect, they exchange user information:
 **Before Name Exchange**:
 
-<img src="images/NetworkScreenBeforeUpdate.png" width="300" alt="NetworkScreenBeforeUpdate">
+<img src="images/NetworkScreenBeforeUpdate.png" width="300" style="border: 2px solid black;" alt="NetworkScreenBeforeUpdate">
 
 **After Name Exchange**:
 
-<img src="images/NetworkScreenPostUpdateBob.png" width="300" alt="NetworkScreenPostUpdate">
+<img src="images/NetworkScreenPostUpdateBob.png" width="300" style="border: 2px solid black;" alt="NetworkScreenPostUpdate">
 
 ```kotlin 
 // In AppServer.kt - requesting user info
@@ -175,11 +175,11 @@ private fun handleMyInfoRequest(): Response {
 Users can update their profile information in the Settings screen:
 *Found in Settings Under Network > Device Name*:
 
-<img src="images/UserNameSettings.png" width="300" alt="UserNameSettings">
+<img src="images/UserNameSettings.png" width="300" style="border: 2px solid black;" alt="UserNameSettings">
 
 *User name can be Updated*  :
 
-<img src="images/EditingUserName.png" width="300" alt="EditingUserName">
+<img src="images/EditingUserName.png" width="300" style="border: 2px solid black;" alt="EditingUserName">
 
 ```kotlin 
 // In SettingsScreen.kt

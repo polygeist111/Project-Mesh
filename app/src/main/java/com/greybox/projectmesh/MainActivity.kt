@@ -271,7 +271,9 @@ fun BottomNavApp(di: DI,
             composable(BottomNavItem.Home.route) { HomeScreen(deviceName = deviceName) }
             composable(BottomNavItem.Network.route) {
                 // Just call NetworkScreen with no click callback
-                NetworkScreen()
+                NetworkScreen(
+                    onNodeClick = {ip -> navController.navigate("pingScreen/$ip")}
+                )
             }
             composable("chatScreen/{ip}"){ entry ->
                 val ip = entry.arguments?.getString("ip")

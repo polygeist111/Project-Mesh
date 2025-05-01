@@ -22,7 +22,8 @@ The application includes two test users:
     - Behavior: Messages can be sent but will remain stored locally
 
 **Only Online User Shows Up as Online**:
-![TestDeviceNetwork.png](images%2FTestDeviceNetwork.png)
+
+<img src="images/TestDeviceNetwork.png" width="200" alt="TestDeviceNetwork">
 
 ## Test User Features
 
@@ -39,7 +40,7 @@ The application includes two test users:
 3. Send a message
 4. You should receive an echo reply within seconds
 
-![OnlineTestDeviceChat.png](images%2FOnlineTestDeviceChat.png)
+<img src="images/OnlineTestDeviceChat.png" width="300" alt="OnlineTestChat">
 
 ### Testing Offline Message Behavior
 1. Navigate to the Chat screen
@@ -47,7 +48,7 @@ The application includes two test users:
 3. Send a message
 4. The message will show as sent but will be stored locally with an offline indicator
 
-![OfflineTestDeviceChat.png](images%2FOfflineTestDeviceChat.png)
+<img src="images/OfflineTestDeviceChat.png" width="300" alt="OfflineTestChat">
 
 ## Technical Implementation
 

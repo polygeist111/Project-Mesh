@@ -80,7 +80,9 @@ interface UserDao {
 
 ## User Profile Lifecycle
 ### First-time Setup
-![User_Onboarding.png](images%2FUser_Onboarding.png)
+
+<img src="images/User_Onboarding.png" width="300" alt="User_Onboarding">
+
 When a user first launches the app, they go through an onboarding process to set up their profile:
 ```kotlin 
 // In OnboardingViewModel.kt
@@ -108,9 +110,12 @@ fun handleFirstTimeSetup(onComplete: () -> Unit) {
 ### User Information Exchange
 When devices connect, they exchange user information:
 **Before Name Exchange**:
-![NetworkScreenBeforeUpdate.png](images%2FNetworkScreenBeforeUpdate.png)
+
+<img src="images/NetworkScreenBeforeUpdate.png" width="300" alt="NetworkScreenBeforeUpdate">
+
 **After Name Exchange**:
-![NetworkScreenPostUpdateBob.png](images%2FNetworkScreenPostUpdateBob.png)
+
+<img src="images/NetworkScreenPostUpdateBob.png" width="300" alt="NetworkScreenPostUpdate">
 
 ```kotlin 
 // In AppServer.kt - requesting user info
@@ -169,9 +174,12 @@ private fun handleMyInfoRequest(): Response {
 ### Profile Updates
 Users can update their profile information in the Settings screen:
 *Found in Settings Under Network > Device Name*:
-![UserNameSettings.png](images%2FUserNameSettings.png)
+
+<img src="images/UserNameSettings.png" width="300" alt="UserNameSettings">
+
 *User name can be Updated*  :
-![UserNameSettings.png](images%2FUserNameSettings.png)
+
+<img src="images/EditingUserName.png" width="300" alt="EditingUserName">
 
 ```kotlin 
 // In SettingsScreen.kt
@@ -264,7 +272,9 @@ fun WifiListItem(
     // Other UI elements...
 }
 ```
+
 ### ChatScreen 
+
 ```kotlin
 // In ChatScreen.kt
 @Composable
@@ -318,8 +328,11 @@ fun UserStatusBar(
     }
 }
 ```
+
 ### Conversations
+
 User profiles are linked to conversations for messaging: 
+
 ```kotlin
 // In ConversationRepository.kt
 suspend fun getOrCreateConversation(localUuid: String, remoteUser: UserEntity): Conversation {
@@ -347,6 +360,7 @@ suspend fun getOrCreateConversation(localUuid: String, remoteUser: UserEntity): 
     return conversation
 }
 ```
+
 ## Technical Implementation Notes
 
 1. **UUID Generation**: UUIDs are generated using Java's UUID.randomUUID() and stored in SharedPreferences.
@@ -365,6 +379,7 @@ When working with user profiles:
 - **Handle connection loss**: Implement fallbacks for scenarios where user profile information cannot be retrieved.
 
 ## Troubleshooting
+
 ### Common Issues
 
 1. **Missing User Profile**: If a device appears but has no name, it may indicate a failure in the user info exchange.

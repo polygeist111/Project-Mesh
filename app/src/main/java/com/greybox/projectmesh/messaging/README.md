@@ -166,13 +166,16 @@ Special handling for test devices that simulate real users:
 * Connected device appears in the Conversation Screen
 
 #### Chat Screen Initial Impressions 
-<img src="images/InitialChatScreenFirstTimeChatting.png" width="400" alt="Initial Chat Screen">
+
+<img src="images/InitialChatScreenFirstTimeChatting.png" width="200" alt="Initial Chat Screen">
+
 * When chatting for the first time a prompt appears to start a chat
 
 #### Sending A Message
 
 **Example**: Bob sends Message to Alice
-<img src="images/SentMessage.png" width="400" alt="Sent Message">
+
+<img src="images/SentMessage.png" width="200" alt="Sent Message">
 
 ```kotlin
 // In ChatScreenViewModel.kt
@@ -214,11 +217,16 @@ fun sendChatMessage(virtualAddress: InetAddress, message: String, file: URI?) {
 **Example**: Bob Recieves Message From Alice
 
 1. Conversation is Updated and Read Receipt is shown: 
-![RecievedMessageConvoScreen.png](images%2FRecievedMessageConvoScreen.png | width=100)
+
+<img src="images/RecievedMessageConvoScreen.png" width="300" alt="RecievedMessageConvoScreen">
+
 2. Bob can View the message in the Chat Screen
-![RecievedMessageChatScreen.png](images%2FRecievedMessageChatScreen.png | width=100)
+
+<img src="images/RecievedMessageChatScreen.png" width="300" alt="RecievedMessageChatScreen">
+
 3. When Going back to the Chat Screen Read Status is Updated: 
-![ReadIndicatorsUpdating.png](images%2FReadIndicatorsUpdating.png | width=100)
+
+<img src="images/ReadIndicatorsUpdating.png" width="300" alt="ReadIndicatorsUpdating">
 
 ```kotlin
 // In ChatScreenViewModel.kt

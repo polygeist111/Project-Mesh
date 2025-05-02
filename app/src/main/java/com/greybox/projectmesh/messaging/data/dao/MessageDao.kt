@@ -24,6 +24,10 @@ interface MessageDao {
     @Query("SELECT * FROM message WHERE chat IN (:chatNames) ORDER BY dateReceived ASC")
     fun getChatMessagesFlowMultipleNames(chatNames: List<String>): Flow<List<Message>>
 
+    //Synchronously Query to get messages immediately
+    @Query("SELECT * FROM message WHERE chat = :chat ORDER BY dateReceived ASC")
+    fun getChatMessagesSync(chat: String): List<Message>
+
     @Insert
     suspend fun addMessage(m: Message)
 

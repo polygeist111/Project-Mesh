@@ -105,6 +105,7 @@ fun ChatScreen(
             },
             defaultArgs = Bundle().apply {
                 putSerializable("virtualAddress", virtualAddress)
+
             }
         )
     )
@@ -377,17 +378,37 @@ fun UserStatusBar(
 @Composable
 fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit) {
     val context = LocalContext.current
-    // display all chat messages
-    Log.d("ChatDebug", "DisplayAllMessages called with ${uiState.allChatMessages.size} messages")
+
+    //track if messages are showing:
+    val hasMessages = uiState.allChatMessages.isNotEmpty()
+
+    LaunchedEffect(uiState.allChatMessages.size) {
+        Log.d("ChatScreen", "DisplayAllMessages with ${uiState.allChatMessages.size} messages")
+    }
 
     LazyColumn{
-        if (uiState.allChatMessages.isEmpty()){
+        if (!hasMessages){
             item {
-                Text (
-                    text = "No messages yet. Start a conversation!",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "No messages yet. Start a conversation!",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    if (uiState.offlineWarning != null) {
+                        Text(
+                            text = "You're currently offline. Any messages you send will be delivered when connection is restored.",
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
         }
 

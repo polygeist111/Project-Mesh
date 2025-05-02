@@ -84,11 +84,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import kotlinx.coroutines.launch
 import com.greybox.projectmesh.messaging.data.entities.Conversation
+import com.greybox.projectmesh.messaging.ui.viewmodels.ChatScreenViewModel
 
 
 import com.greybox.projectmesh.views.RequestPermissionsScreen
+import org.kodein.di.compose.localDI
 
 class MainActivity : ComponentActivity(), DIAware {
     override val di by closestDI()
@@ -555,17 +558,6 @@ fun ConversationChatScreen (
         return
     }
 
-    /*
-    // Show loading state while fetching conversation
-    if (conversation == null) {
-        Log.d("ConversationChatScreen", "Showing loading indicator")
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-     */
-
     //show error if loading failed
     if (errorMessage.value != null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -643,7 +635,22 @@ fun ConversationChatScreen (
                 "Cannot ping offline users",
                 Toast.LENGTH_SHORT
             ).show()
-        }
+        },
+        viewModel = viewModel(
+            factory = ViewModelFactory(
+                di = localDI(),
+                owner = LocalSavedStateRegistryOwner.current,
+                vmFactory = { di, savedStateHandle ->
+                    // Make sure to set the conversation ID in the savedStateHandle
+                    savedStateHandle["conversationId"] = conversationId
+                    ChatScreenViewModel(di, savedStateHandle)
+                },
+                defaultArgs = Bundle().apply {
+                    putSerializable("virtualAddress", virtualAddress)
+                    putString("conversationId", conversationId)
+                }
+            )
+        )
     )
 }
 /*fun isipvalid(theip:String): Boolean{//this is a function for checking if the IP address is valid, if this is redundant let me know and I'll make changes

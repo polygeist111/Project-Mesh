@@ -46,6 +46,11 @@ class ChatScreenViewModel(
 
     // _uiState will be updated whenever there is a change in the UI state
     private val ipStr: String = virtualAddress.hostAddress
+
+    //get conversation id
+    private val passedConversationId = savedStateHandle.get<String>("conversationId")
+
+    //Get User info
     private val userEntity = runBlocking {
         GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)
     }
@@ -57,21 +62,28 @@ class ChatScreenViewModel(
     private val localUuid = sharedPrefs.getString("UUID", null) ?: "local-user"
 
     private val userUuid: String = when {
-        //if its the online test device
-        TestDeviceService.isOnlineTestDevice(virtualAddress) ->
-            "test-device-uuid"
-
-        //if it's the offline test device
+        passedConversationId != null && passedConversationId.contains("-") -> {
+            // Extract the UUID that's not the local UUID
+            val uuids = passedConversationId.split("-")
+            uuids.find { it != localUuid } ?: "unknown-${virtualAddress.hostAddress}"
+        }
+        // Otherwise use the standard logic
+        TestDeviceService.isOnlineTestDevice(virtualAddress) -> "test-device-uuid"
         ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE ||
-                userEntity?.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE ->
-            "offline-test-device-uuid"
-
-        //for any other user, use their name if available, otherwise use IP
+                userEntity?.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE -> "offline-test-device-uuid"
         else -> userEntity?.uuid ?: "unknown-${virtualAddress.hostAddress}"
     }
 
-    private val conversationId = ConversationUtils.createConversationId(localUuid, userUuid)
-    private val chatName = conversationId //use conversation id as chat name
+    private val savedConversationId = savedStateHandle.get<String>("conversationId")
+    //Log.d("ChatDebug", "GOT CONVERSATION ID FROM SAVED STATE: $savedConversationId")
+
+    private val conversationId = passedConversationId ?:
+    ConversationUtils.createConversationId(localUuid, userUuid)
+
+    private val chatName = savedConversationId ?: conversationId
+    //Log.d("ChatDebug", "USING CHAT NAME: $chatName (saved: $savedConversationId, generated: $conversationId)")
+
+
 
     private val addressDotNotation = virtualAddress.requireAddressAsInt().addressToDotNotation()
 
@@ -98,10 +110,21 @@ class ChatScreenViewModel(
 
     // launch a coroutine
     init {
+
+        val savedConversationId = savedStateHandle.get<String>("conversationId")
+
+        // If we have a conversation ID from navigation, use it directly
+        val effectiveChatName = if (savedConversationId != null) {
+            Log.d("ChatDebug", "USING SAVED CONVERSATION ID: $savedConversationId INSTEAD OF GENERATED: $chatName")
+            savedConversationId
+        } else {
+            chatName
+        }
+
         viewModelScope.launch {
             // Debug logs
             Log.d("ChatDebug", "Will query messages with chatName: $chatName")
-            Log.d("ChatDebug", "Conversation ID: $conversationId")
+            Log.d("ChatDebug", "Using Conversation ID for messages: $conversationId")
             Log.d("ChatDebug", "User UUID: $userUuid")
 
             //check database content in background
@@ -119,6 +142,31 @@ class ChatScreenViewModel(
             //determine which flow to collect from
             val isTestDevice =
                 (userUuid == "test-device-uuid" || userUuid == "offline-test-device-uuid")
+
+            //load messages synchronously for offline access
+            val initialChatName = chatName // Use consistent chat name
+
+            try {
+                // Get messages immediately without waiting for Flow
+                val initialMessages = withContext(Dispatchers.IO) {
+                    // We'll need to add this method to MessageDao in Step 3
+                    db.messageDao().getChatMessagesSync(chatName)
+                }
+
+                // Update UI immediately with initial messages
+                if (initialMessages.isNotEmpty()) {
+                    _uiState.update { prev ->
+                        prev.copy(allChatMessages = initialMessages)
+                    }
+                    Log.d("ChatDebug", "IMMEDIATELY LOADED ${initialMessages.size} MESSAGES FOR OFFLINE ACCESS")
+                } else {
+                    Log.d("ChatDebug", "NO INITIAL MESSAGES FOUND FOR CHAT: $chatName")
+                }
+
+            } catch (e: Exception) {
+                Log.e("ChatDebug", "ERROR LOADING INITIAL MESSAGES: ${e.message}", e)
+            }
+
             val messagesFlow = if (isTestDevice) {
                 val testDeviceName = when (userUuid) {
                     "test-device-uuid" -> TestDeviceService.TEST_DEVICE_NAME
@@ -164,11 +212,25 @@ class ChatScreenViewModel(
                         )
                         _deviceOnlineStatus.value = isOnline
 
-                        // Update the UI state with offline warning if needed
-                        _uiState.update { prev ->
-                            prev.copy(
-                                offlineWarning = if (!isOnline) "Device appears to be offline. Messages will be saved locally." else null
-                            )
+                        if (isOnline) {
+                            Log.d("ChatDebug", "Device came back online - refreshing message history")
+                            // Force refresh messages from database
+                            withContext(Dispatchers.IO) {
+                                val refreshedMessages = db.messageDao().getChatMessagesSync(chatName)
+                                _uiState.update { prev ->
+                                    prev.copy(
+                                        allChatMessages = refreshedMessages,
+                                        offlineWarning = null // Clear offline warning
+                                    )
+                                }
+                            }
+                        } else {
+                            // Update the UI state with offline warning
+                            _uiState.update { prev ->
+                                prev.copy(
+                                    offlineWarning = "Device appears to be offline. Messages will be saved locally."
+                                )
+                            }
                         }
                     }
                 }
@@ -242,21 +304,6 @@ class ChatScreenViewModel(
                     )
                 }
             }
-            /*
-            // If the message has a file attachment, also send it as a file transfer
-            if (file != null && isOnline) {
-                try {
-                    // Convert URI to Uri for the file transfer
-                    // Send file via the file transfer system
-                    val fileUri = Uri.parse(file.toString())
-                    launch(Dispatchers.IO) {
-                        appServer.addOutgoingTransfer(fileUri, virtualAddress)
-                    }
-                } catch (e: Exception) {
-                    Log.e("ChatScreenViewModel", "Failed to send file attachment: ${e.message}", e)
-                }
-
-             */
 
             if (isOnline) {
                 try {

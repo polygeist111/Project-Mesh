@@ -20,6 +20,7 @@ import org.kodein.di.instance
 
 @Composable
 fun NetworkScreen(
+    onNodeClick: (String) -> Unit,
     viewModel: NetworkScreenViewModel = viewModel(
     factory = ViewModelFactory(
         di = localDI(),
@@ -46,6 +47,9 @@ fun NetworkScreen(
                     val addr = InetAddress.getByName(ipAddress)
                     appServer.requestRemoteUserInfo(addr)
                     appServer.pushUserInfoTo(addr)
+
+                    //Navigate to Ping Screen
+                    onNodeClick(ipAddress)
                 }
             )
         }

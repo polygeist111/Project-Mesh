@@ -42,8 +42,8 @@ fun TransparentButton(
             contentColor = Color.Black    // Text color
         ),
         border = BorderStroke(1.dp, Color.Black), // Black border
-        shape = RoundedCornerShape(8.dp), // Optional: Rounded corners
-        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(vertical = 8.dp).size(50.dp),
         enabled = enabled
     ) {
         Text(text = text)
@@ -56,7 +56,7 @@ fun GradientButton(
     modifier: Modifier = Modifier,
     gradientColors: List<Color> = listOf(Color(0xFF4CAF50), Color(0xFF81C784)), // Default gradient colors
     textColor: Color = Color.White,
-    maxWidth: Dp = 120.dp,
+    maxWidth: Dp = 80.dp,
     onClick: () -> Unit
 ) {
     var isPressed by remember { mutableStateOf(false) }
@@ -75,9 +75,9 @@ fun GradientButton(
                 brush = Brush.horizontalGradient(gradientColors),
                 shape = RoundedCornerShape(12.dp)
             )
-            .height(50.dp) // Height of the button
-            .widthIn(min = 120.dp, max = maxWidth) // Width of the button
-            .padding(horizontal = 16.dp)
+            .height(40.dp) // Height of the button
+            .widthIn(min = 80.dp, max = maxWidth) // Width of the button
+            .padding(horizontal = 8.dp)
             .clickable {
                 isPressed = true
                 onClick()
@@ -87,10 +87,10 @@ fun GradientButton(
         Text(
             text = text,
             color = textColor,
-            fontSize = 14.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, // Truncate text if it overflows
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         )
     }
 }

@@ -5,13 +5,13 @@
     <string name="stop_hotspot">Stop Hotspot</string>
     <string name="connect_via_qr_code_scan">Connect via QR Code Scan</string>
     <string name="connect_via_entering_connect_uri">Connect via Entering Connect URI</string>
-    <string name="share_connect_uri">Share connect URI</string>
+    <string name="share_connect_uri">Share Connect URI</string>
     <string name="wifi_station_connection">Wifi Station (Client) Connection</string>
     <string name="prompt_scan_qr_code">Scan another device to join the Mesh</string>
     <string name="hotspot_status">Hotspot Status</string>
     <string name="hotspot_status_online">Online</string>
     <string name="hotspot_status_offline">Offline</string>
-    <string name="instruction">"Or, enter the connect URI below:\n"
+    <string name="instruction">"Enter the Connect URI below:\n"
                                 "1. Make sure Bluetooth is enabled\n"
                                 "2. Allow everyone to share data via Quick Share\n"
                                 "3. After getting the URI, click copy\n"
@@ -19,10 +19,10 @@
                                 "5. Click \"Connect via Entering Connect URI\""
     </string>
     <string name="instruction_start_hotspot">"To share the connect URI:\n"
-                        "1. Make sure Bluetooth is enabled on this device\n"
-                        "2. Click \"Share connect URI\"\n"
-                        "3. Select Quick Share\n"
-                        "4. Choose a nearby device you want to share the URI with"
+                        "1. Ensure Bluetooth is enabled\n"
+                        "2. Tap \"Share connect URI\"\n"
+                        "3. Select \"Quick Share\"\n"
+                        "4. Choose a nearby device to share the URI"
     </string>
     <string name="prompt_enter_uri">Enter Connect URI (Starts with "meshrabiya://")</string>
 
@@ -42,8 +42,10 @@
     <string name="receive">Receive</string>
     <string name="auto_finish">Auto Finish</string>
     <string name="save_to_folder">Save to folder</string>
+
     <string name="home">Home</string>
     <string name="send">Send</string>
+    <string name="chat">Chat</string>
 
     <string name="band">Band</string>
     <string name="hotspot_type">Hotspot Type</string>
@@ -56,6 +58,8 @@
     <string name="concurrency"> STA/AP Concurrency</string>
     <string name="manual_test">Manual Test</string>
     <string name="reset">Reset</string>
+
     <string name="log">Log</string>
+
 
 </resources>

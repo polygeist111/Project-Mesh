@@ -3,7 +3,6 @@ package com.greybox.projectmesh.navigation
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -17,7 +16,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -34,7 +32,6 @@ import com.greybox.projectmesh.views.PingScreen
 import com.greybox.projectmesh.views.ReceiveScreen
 import com.greybox.projectmesh.views.SelectDestNodeScreen
 import com.greybox.projectmesh.views.SendScreen
-import com.greybox.projectmesh.views.SettingsScreen
 import org.kodein.di.DI
 import org.kodein.di.compose.withDI
 import java.net.InetAddress
@@ -74,7 +71,15 @@ fun BottomNavApp(di: DI,
         NavHost(navController, startDestination = startDestination, Modifier.padding(innerPadding))
         {
             composable(BottomNavItem.Home.route) {
-                HomeScreen(deviceName = deviceName) }
+                HomeScreen(
+                    deviceName = deviceName,
+                    onThemeChange = onThemeChange,
+                    onLanguageChange = onLanguageChange,
+                    onRestartServer = onRestartServer,
+                    onDeviceNameChange = onDeviceNameChange,
+                    onAutoFinishChange = onAutoFinishChange,
+                    onSaveToFolderChange = onSaveToFolderChange
+                )}
             composable(BottomNavItem.Network.route) { NetworkScreen(
                 onClickNetworkNode = { ip ->
                     navController.navigate("chatScreen/${ip}")
@@ -126,16 +131,6 @@ fun BottomNavApp(di: DI,
             composable(BottomNavItem.Log.route) {
                 LogScreen()
             }
-            composable(BottomNavItem.Settings.route) {
-                SettingsScreen(
-                    onThemeChange = onThemeChange,
-                    onLanguageChange = onLanguageChange,
-                    onRestartServer = onRestartServer,
-                    onDeviceNameChange = onDeviceNameChange,
-                    onAutoFinishChange = onAutoFinishChange,
-                    onSaveToFolderChange = onSaveToFolderChange
-                )
-            }
         }
     }
 }
@@ -148,7 +143,6 @@ fun BottomNavigationBar(navController: NavHostController) {
         NavigationItem(BottomNavItem.Send.route, stringResource(id = R.string.send), BottomNavItem.Send.icon),
         NavigationItem(BottomNavItem.Receive.route, stringResource(id = R.string.receive), BottomNavItem.Receive.icon),
         NavigationItem(BottomNavItem.Log.route, stringResource(id = R.string.log), BottomNavItem.Log.icon),
-        NavigationItem(BottomNavItem.Settings.route, stringResource(id = R.string.settings), BottomNavItem.Settings.icon)
     )
     NavigationBar {
         val currentRoute = navController.currentDestination?.route

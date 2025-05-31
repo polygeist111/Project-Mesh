@@ -11,7 +11,7 @@
     <string name="hotspot_status">Estado del Punto de Acceso</string>
     <string name="hotspot_status_online">En línea</string>
     <string name="hotspot_status_offline">Desconectado</string>
-    <string name="instruction">O, ingrese el URI de conexión a continuación:\n1. Asegúrese de que el Bluetooth esté activado\n2. Permita que todos compartan datos mediante Quick Share\n3. Después de obtener el URI, haga clic en copiar\n4. Pegue el URI en el campo de texto a continuación\n5. Haga clic en "Conectar ingresando URI de Conexión"</string>
+    <string name="instruction">ingrese el URI de conexión a continuación:\n1. Asegúrese de que el Bluetooth esté activado\n2. Permita que todos compartan datos mediante Quick Share\n3. Después de obtener el URI, haga clic en copiar\n4. Pegue el URI en el campo de texto a continuación\n5. Haga clic en "Conectar ingresando URI de Conexión"</string>
     <string name="instruction_start_hotspot">Para compartir el URI de conexión:\n1. Asegúrese de que Bluetooth esté habilitado en este dispositivo\n2. Haga clic en "Compartir URI de Conexión"\n3. Seleccione Quick Share\n4. Elija un dispositivo cercano con el que desea compartir el URI</string>
     <string name="prompt_enter_uri">Ingrese URI de Conexión (Empieza con "meshrabiya://")</string>
     <string name="send_file">Enviar Archivo</string>
@@ -33,6 +33,7 @@
 
     <string name="home">Inicio</string>
     <string name="send">Enviar</string>
+    <string name="chat">Charlar</string><!--added by Craig to ensure chat button works-->
 
     <string name="band">Banda</string>
     <string name="hotspot_type">Tipo de punto de acceso</string>
@@ -47,4 +48,5 @@
     <string name="reset">Restablecer</string>
 
     <string name="log">Registro</string>
+
 </resources>

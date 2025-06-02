@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.greybox.projectmesh"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.greybox.projectmesh"
@@ -70,6 +70,7 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.compose.material:material-icons-core:1.6.8")
     implementation("androidx.compose.material:material-icons-extended-android:1.6.8")
+    implementation(libs.androidx.foundation)
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)

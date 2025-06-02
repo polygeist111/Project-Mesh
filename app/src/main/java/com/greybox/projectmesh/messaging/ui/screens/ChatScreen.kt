@@ -2,17 +2,10 @@
 
 package com.greybox.projectmesh.messaging.ui.screens
 
-import android.content.Context
-import android.content.Intent
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import androidx.compose.foundation.Image
 import android.util.Log
-import android.webkit.MimeTypeMap
-import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,7 +44,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,10 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.greybox.projectmesh.DeviceStatusManager
 import com.greybox.projectmesh.GlobalApp
@@ -73,22 +62,17 @@ import com.greybox.projectmesh.messaging.ui.viewmodels.ChatScreenViewModel
 import com.greybox.projectmesh.server.AppServer
 import com.greybox.projectmesh.views.LongPressCopyableText
 import com.greybox.projectmesh.testing.TestDeviceService
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
-import org.acra.util.UriUtils.getMimeType
-import org.kodein.di.compose.BuildConfig
 import org.kodein.di.compose.localDI
-import java.io.File
 import java.net.InetAddress
-import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
-import android.provider.MediaStore
 import android.provider.OpenableColumns
 import org.kodein.di.instance
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun ChatScreen(
@@ -192,6 +176,8 @@ fun ChatScreen(
 
     val context = LocalContext.current
 
+    val scrollState = rememberScrollState()
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier
             .fillMaxSize()
@@ -240,7 +226,9 @@ fun ChatScreen(
             .fillMaxWidth()
             .align(Alignment.BottomCenter)
             .padding(4.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Bottom //Change the Alignment So that it does not
+        // increase the height together with the TextField and be floating in the middle of the
+        // screen
         ) {
 
             //File Picker Button
@@ -256,14 +244,17 @@ fun ChatScreen(
                     contentDescription = "Select a file to send"
                 )
             }
-
-
             TextField(
-                modifier = Modifier.weight(3f),
+                modifier = Modifier
+                    .weight(3f)
+                    .heightIn(min = 40.dp, max = 120.dp) // Added Min and Max Height to the
+                    // TextField
+                    .verticalScroll(scrollState),
                 value = textMessage,
                 onValueChange = {
                     textMessage = it
                 },
+                maxLines = 5,
                 enabled = deviceStatus // disable text input when user is offline
             )
             Button(modifier = Modifier.weight(1f), onClick = {
@@ -519,3 +510,4 @@ fun MessageBubble(
         }
     }
 }
+

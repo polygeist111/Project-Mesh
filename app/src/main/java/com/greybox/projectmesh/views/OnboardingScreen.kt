@@ -61,7 +61,9 @@ fun OnboardingScreen(
             onValueChange = { newValue -> onboardingViewModel.onUsernameChange(newValue) }
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { onboardingViewModel.handleFirstTimeSetup { onComplete() } }) {
+        Button(onClick = {
+            onboardingViewModel.handleFirstTimeSetup { onComplete() }
+        }) {
             Text("Next")
         }
     }

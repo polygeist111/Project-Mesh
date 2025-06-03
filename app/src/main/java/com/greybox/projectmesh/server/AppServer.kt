@@ -68,6 +68,7 @@ import java.io.IOException
 import java.net.URI
 import okhttp3.RequestBody.Companion.toRequestBody
 import com.greybox.projectmesh.util.NotificationHelper
+import com.ustadmobile.meshrabiya.log.MNetLogger
 
 /*
 This File is the Server for transferring files
@@ -76,6 +77,7 @@ The Meshrabiya test app uses NanoHttpD as the server, OkHttp as the client
 class AppServer(
     private val appContext: Context,
     private val httpClient: OkHttpClient,   // OkHttp client for making HTTP requests
+    private val mLogger: MNetLogger,
     name: String,
     port: Int = 0,  // Port for NanoHTTPD server, default is 0
     val localVirtualAddr: InetAddress,
@@ -224,7 +226,7 @@ class AppServer(
     override fun serve(session: IHTTPSession): Response {
         // Extracts the URI from the session, which is the path of the request
         val path = session.uri
-
+        mLogger(Log.INFO, "$logPrefix : ${session.method} ${session.uri}")
         //Create instance of the JSON Schema
         val JSONschema = JSONSchema()
 
@@ -302,10 +304,12 @@ class AppServer(
             // If the input stream could not be opened, the function returns an HTTP response
             // with a status of INTERNAL_ERROR and an error message
             if(contentIn == null) {
+                mLogger(Log.ERROR, "$logPrefix Failed to open input stream to serve $path - ${outgoingXfer.uri}")
                 return newFixedLengthResponse(
                     Response.Status.INTERNAL_ERROR, "text/plain",
                     "Failed to open InputStream")
             }
+            mLogger(Log.INFO, "$logPrefix Sending file for xfer #$xferId")
             // Preparing the file for download
             val response = newFixedLengthResponse(
                 Response.Status.OK, "application/octet-stream",
@@ -345,7 +349,7 @@ class AppServer(
                 }else {
                     Status.FAILED
                 }
-
+                mLogger(Log.INFO, "$logPrefix Sending file for xfer #$xferId")
                 /*
                  Updating _outgoingTransfers again to set the final transferred bytes and status
                  (COMPLETED or FAILED).
@@ -366,7 +370,8 @@ class AppServer(
             return response
         }
         // Check if it is a sending request
-        else if(path.startsWith("/send")) {//change to json
+        else if(path.startsWith("/send")) {
+            mLogger(Log.INFO, "$logPrefix Received incoming transfer request")
             // Parse the query parameters from the URL, converting them to a key-value map
             val searchParams = session.queryParameterString.split("&")
                 .map {
@@ -435,9 +440,11 @@ class AppServer(
                 } else {
                     // Fall back to the regular file notification
                     NotificationHelper.showFileReceivedNotification(appContext, filename)
+                    mLogger(Log.INFO, "$logPrefix Added request id $id for $filename from ${incomingTransfer.fromHost}")
                 }
                 return newFixedLengthResponse("OK")
             }else {
+                mLogger(Log.INFO, "$logPrefix incomin transfer request - bad request - missing params")
                 // Return an error response if any of the required parameters are missing
                 return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Bad request")
             }
@@ -554,6 +561,7 @@ class AppServer(
 
         }
         else {
+            mLogger(Log.INFO, "$logPrefix : $path - NOT FOUND")
             // Returns a NOT_FOUND response indicating that the requested path could not be found.
             return newFixedLengthResponse(
                 Response.Status.NOT_FOUND, "text/plain", "not found: $path"
@@ -686,7 +694,7 @@ class AppServer(
         // customized extension function of ContentResolver
         val nameAndSize = appContext.contentResolver.getUriNameAndSize(uri)
         val validName = nameAndSize.name ?: "unknown"
-        Log.d("AppServer", "$logPrefix adding outgoing transfer of $uri " +
+        mLogger(Log.INFO, "$logPrefix adding outgoing transfer of $uri " +
                 "(name=${nameAndSize.name} size=${nameAndSize.size} to $toNode:$toPort")
 
         // create an OutgoingTransferInfo object with all transfer information
@@ -712,15 +720,14 @@ class AppServer(
                     .post(bod)
                     .build()//changed this to send a post request
 
-                Log.d("Appserver", "$logPrefix notifying $toNode of incoming transfer")
-                Log.d("AppServer", "request: $request")
+                mLogger(Log.INFO, "$logPrefix notifying $toNode of incoming transfer")
 
                 val resp = httpClient.newCall(request).execute()
                 val serverResponse = resp.body?.string()
-                Log.d("AppServer", "$logPrefix - received response: $serverResponse")
+                mLogger(Log.INFO, "$logPrefix - received response: $serverResponse")
 
             } catch(e: Exception){
-                Log.d("AppServer", "$logPrefix - exception: $e")
+                mLogger(Log.ERROR, "$logPrefix - exception: $e")
             }
         }
 
@@ -731,6 +738,12 @@ class AppServer(
             }
         }
         return outgoingTransfer
+    }
+
+    fun removeOutgoingTransfer(transferId: Int) {
+        _outgoingTransfers.update { prev ->
+            prev.filter { it.id != transferId }
+        }
     }
 
     /*
@@ -822,9 +835,12 @@ class AppServer(
                 val jsonFile = File(receiveDir, "${incomingTransfer.name}.rx.json")
                 jsonFile.writeText(json.encodeToString(IncomingTransferInfo.serializer(), incomingTransfer))
             }
-            //val speedKBS = transfer.size / transferDurationMs
+            val speedKBS = transfer.size / transferDurationMs
+            mLogger(Log.INFO, "$logPrefix acceptIncomingTransfer successful: Downloaded " +
+                    "${transfer.size}bytes in ${transfer.transferTime}ms ($speedKBS) KB/s")
         }
         catch(e: Exception) {
+            mLogger(Log.ERROR, "$logPrefix acceptIncomingTransfer ($transfer) FAILED", e)
             _incomingTransfers.update { prev ->
                 prev.updateItem(
                     condition = { it.id == transfer.id },
@@ -876,11 +892,13 @@ class AppServer(
                 .url("http://${transfer.fromHost.hostAddress}:$fromPort/decline/${transfer.id}")
                 .build()
             try {
-                httpClient.newCall(request).execute()
                 // Send the request to the sender and get the response
-                //val response = httpClient.newCall(request).execute()
-                //val strResponse = response.body?.string()
-            }catch(_: Exception) { }
+                val response = httpClient.newCall(request).execute()
+                val strResponse = response.body?.string()
+                mLogger(Log.DEBUG, "$logPrefix - onDeclineIncomingTransfer - request to: ${request.url} : response = $strResponse")
+            }catch(e: Exception) {
+                mLogger(Log.WARN, "$logPrefix - onDeclineIncomingTransfer : exception- request to: ${request.url} : FAIL", e)
+            }
         }
         // update the _incomingTransfers list, setting the status to DECLINED
         _incomingTransfers.update { prev ->
@@ -921,6 +939,11 @@ class AppServer(
             // Update the _incomingTransfers list, removing the transfer that was just deleted
             _incomingTransfers.update { prev ->
                 prev.filter { it.id != incomingTransfer.id }
+            }
+
+            // Ensure Jetpack Compose recomposes UI before handling another delete
+            withContext(Dispatchers.Main) {
+                delay(150)
             }
         }
     }

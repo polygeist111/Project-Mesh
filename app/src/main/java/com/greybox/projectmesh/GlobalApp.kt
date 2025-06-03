@@ -1,8 +1,10 @@
 package com.greybox.projectmesh
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import android.os.Environment
 import android.util.Log
 import androidx.datastore.preferences.core.edit
@@ -11,6 +13,7 @@ import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.greybox.projectmesh.db.MeshDatabase
+import com.greybox.projectmesh.extension.deviceInfo
 import com.greybox.projectmesh.messaging.repository.ConversationRepository
 import com.greybox.projectmesh.extension.networkDataStore
 import com.greybox.projectmesh.server.AppServer
@@ -43,6 +46,10 @@ import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.messaging.utils.MessageMigrationUtils
 import com.greybox.projectmesh.testing.TestDeviceService
 import com.greybox.projectmesh.user.UserEntity
+import com.ustadmobile.meshrabiya.log.MNetLogger
+import java.text.SimpleDateFormat
+import java.util.Date
+
 /*
 initialize global variables and DI(dependency injection) container
 why use DI?
@@ -84,7 +91,6 @@ class GlobalApp : Application(), DIAware {
     }
     override fun onCreate() {
         super.onCreate()
-
         val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
         val uuid = sharedPrefs.getString("UUID", null)
         if (uuid == null) {
@@ -246,6 +252,7 @@ class GlobalApp : Application(), DIAware {
             }
         }
     }
+    @SuppressLint("SimpleDateFormat")
     private val diModule = DI.Module("project_mesh") {
         // create a single instance of "InetAddress" for the entire lifetime of the application
         bind<InetAddress>(tag=TAG_VIRTUAL_ADDRESS) with singleton {
@@ -273,11 +280,25 @@ class GlobalApp : Application(), DIAware {
                 }
             }
         }
+        bind<MNetLogger>() with singleton {
+            val logFileNameDateComp = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
+            val logDir: File = instance(tag = TAG_LOG_DIR)
+            MNetLoggerAndroid(
+                deviceInfo = deviceInfo(),
+                minLogLevel = Log.DEBUG,
+                logFile = File(logDir, "${logFileNameDateComp}_${Build.MANUFACTURER}_${Build.MODEL}.log")
+            )
+        }
         bind <Json>() with singleton {
             Json {
                 encodeDefaults = true
             }
         }
+
+        bind<File>(tag = TAG_LOG_DIR) with singleton {
+            File(filesDir, "log")
+        }
+
         /*
         Ensuring a directory named "www" was created
         */
@@ -297,6 +318,7 @@ class GlobalApp : Application(), DIAware {
             // initialize the AndroidVirtualNode Constructor
             AndroidVirtualNode(
                 appContext = applicationContext,
+                logger = instance(),
                 json = instance(),
                 // inject the "InetAddress" instance
                 address = instance(tag = TAG_VIRTUAL_ADDRESS),
@@ -363,6 +385,7 @@ class GlobalApp : Application(), DIAware {
             AppServer(
                 appContext = applicationContext,
                 httpClient = instance(),
+                mLogger = instance(),
                 port = AppServer.DEFAULT_PORT,
                 name = node.addressAsInt.addressToDotNotation(),
                 localVirtualAddr = node.address,
@@ -379,8 +402,9 @@ class GlobalApp : Application(), DIAware {
             //GlobalScope.launch {
               //  instance<MeshDatabase>().messageDao().clearTable()
             //}
+            val logger: MNetLogger = instance()
             instance<AppServer>().start()
-            Log.d("AppServer", "Server started successfully on port: ${AppServer.DEFAULT_PORT}")
+            logger(Log.DEBUG,"AppServer started successfully on Port: ${AppServer.DEFAULT_PORT}")
         }
     }
 
@@ -393,5 +417,6 @@ class GlobalApp : Application(), DIAware {
         const val TAG_VIRTUAL_ADDRESS = "virtual_address"
         const val TAG_RECEIVE_DIR = "receive_dir"
         const val TAG_WWW_DIR = "www_dir"
+        const val TAG_LOG_DIR = "log_dir"
     }
 }

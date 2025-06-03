@@ -85,9 +85,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.greybox.projectmesh.messaging.data.entities.Conversation
 import com.greybox.projectmesh.messaging.ui.viewmodels.ChatScreenViewModel
+import com.greybox.projectmesh.views.LogScreen
 
 
 import com.greybox.projectmesh.views.RequestPermissionsScreen
@@ -96,47 +98,28 @@ import org.kodein.di.compose.localDI
 class MainActivity : ComponentActivity(), DIAware {
     override val di by closestDI()
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_ProjectMesh)
         super.onCreate(savedInstanceState)
         // crash screen
         CrashHandler.init(applicationContext, CrashScreenActivity::class.java)
         val settingPref: SharedPreferences by di.instance(tag = "settings")
         val appServer: AppServer by di.instance()
-
+        // Run this task asynchronously (default directory creation)
+        lifecycleScope.launch(Dispatchers.IO) {
+            ensureDefaultDirectory()
+        }
         //Initialize test device:
         TestDeviceService.initialize()
         Log.d("MainActivity", "Test device initialized")
-        // 1) Check if this is the first launch
-        val meshPrefs = getSharedPreferences("project_mesh_prefs", MODE_PRIVATE)
-        val hasRunBefore = meshPrefs.getBoolean("hasRunBefore", false)
-
-        // 2) Decide the initial route for the NavHost
-        //    If it's first run, go to "onboarding"; else use the currentScreen
-        val initialRoute = if (!hasRunBefore) {
-            "onboarding"
-        } else {
-            // Could be whatever your "normal" start route is (e.g. Home)
-            BottomNavItem.Home.route
-        }
         setContent {
-            // check if the default directory exist (Download/Project Mesh)
-            val defaultDirectory = File(
-                Environment.getExternalStoragePublicDirectory(
-                    Environment.DIRECTORY_DOWNLOADS),
-                "Project Mesh"
-            )
-            if (!defaultDirectory.exists()) {
-                // Create the directory if it doesn't exist
-                if (defaultDirectory.mkdirs()) {
-                    Log.d("DirectoryCheck", "Default directory created: ${defaultDirectory.absolutePath}")
-                }
-                else {
-                    Log.e("DirectoryCheck", "Failed to create default directory: ${defaultDirectory.absolutePath}")
-                }
+            val meshPrefs = getSharedPreferences("project_mesh_prefs", MODE_PRIVATE)
+            var hasRunBefore by rememberSaveable {
+                mutableStateOf(meshPrefs.getBoolean("hasRunBefore", false))
             }
-            else {
-                Log.d("DirectoryCheck", "Default directory already exists: ${defaultDirectory.absolutePath}")
-            }
-
+            // Check if the app was launched from a notification
+            val launchedFromNotification = intent?.getBooleanExtra("from_notification", false) ?: false
+            // Request all permission in order
+            RequestPermissionsScreen(skipPermissions = launchedFromNotification)
             var appTheme by remember {
                 mutableStateOf(AppTheme.valueOf(
                     settingPref.getString("app_theme", AppTheme.SYSTEM.name) ?:
@@ -166,7 +149,12 @@ class MainActivity : ComponentActivity(), DIAware {
             var localeState by rememberSaveable { mutableStateOf(Locale.getDefault()) }
 
             // Remember the current screen across recompositions
-            var currentScreen by rememberSaveable { mutableStateOf(initialRoute) }
+            var currentScreen by rememberSaveable { mutableStateOf(BottomNavItem.Home.route) }
+            LaunchedEffect(intent?.getStringExtra("navigateTo")) {
+                if (intent?.getStringExtra("navigateTo") == BottomNavItem.Receive.route) {
+                    currentScreen = BottomNavItem.Receive.route
+                }
+            }
 
             //check for special navigation intents
             val action = intent.action
@@ -206,26 +194,48 @@ class MainActivity : ComponentActivity(), DIAware {
             }
             key(localeState) {
                 ProjectMeshTheme(appTheme = appTheme) {
-                    BottomNavApp(
-                        di,
-                        startDestination = currentScreen,
-                        onThemeChange = { selectedTheme -> appTheme = selectedTheme},
-                        onLanguageChange = { selectedLanguage ->  languageCode = selectedLanguage},
-                        onNavigateToScreen = {screen ->
-                            currentScreen = screen },
-                        onRestartServer = {restartServerKey++},
-                        onDeviceNameChange = {deviceName = it},
-                        deviceName = deviceName,
-                        onAutoFinishChange = {autoFinish = it},
-                        onSaveToFolderChange = {saveToFolder = it}
-                    )
+                    if (!hasRunBefore) {
+                        OnboardingScreen(
+                            onComplete = {meshPrefs.edit().putBoolean("hasRunBefore", true).apply()
+                                hasRunBefore = true }
+                        )
+                    }
+                    else{
+                        BottomNavApp(
+                            di,
+                            startDestination = currentScreen,
+                            onThemeChange = { selectedTheme -> appTheme = selectedTheme},
+                            onLanguageChange = { selectedLanguage ->  languageCode = selectedLanguage},
+                            onNavigateToScreen = {screen ->
+                                currentScreen = screen },
+                            onRestartServer = {restartServerKey++},
+                            onDeviceNameChange = {deviceName = it},
+                            deviceName = deviceName,
+                            onAutoFinishChange = {autoFinish = it},
+                            onSaveToFolderChange = {saveToFolder = it}
+                        )
+                    }
                 }
             }
         }
-        // crash screen
-        CrashHandler.init(applicationContext,CrashScreenActivity::class.java)
-        if (!isBatteryOptimizationDisabled(this)) {
-            promptDisableBatteryOptimization(this)
+    }
+
+    private fun ensureDefaultDirectory() {
+        val defaultDirectory = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            "Project Mesh"
+        )
+        if (!defaultDirectory.exists()) {
+            // Create the directory if it doesn't exist
+            if (defaultDirectory.mkdirs()) {
+                Log.d("DirectoryCheck", "Default directory created: ${defaultDirectory.absolutePath}")
+            }
+            else {
+                Log.e("DirectoryCheck", "Failed to create default directory: ${defaultDirectory.absolutePath}")
+            }
+        }
+        else {
+            Log.d("DirectoryCheck", "Default directory already exists: ${defaultDirectory.absolutePath}")
         }
     }
 
@@ -253,7 +263,6 @@ fun BottomNavApp(di: DI,
 ) = withDI(di)
 {
     val appServer: AppServer by di.instance()
-
     val navController = rememberNavController()
     // Observe the current route directly through the back stack entry
     val currentRoute = navController.currentBackStackEntryFlow.collectAsState(initial = null)
@@ -319,7 +328,6 @@ fun BottomNavApp(di: DI,
                 )
             }
 
-
             composable(BottomNavItem.Send.route) {
                 val activity = LocalContext.current as ComponentActivity
                 val sharedUrisViewModel: SharedUriViewModel = viewModel(activity)
@@ -346,18 +354,19 @@ fun BottomNavApp(di: DI,
             composable(BottomNavItem.Receive.route) { ReceiveScreen(
                 onAutoFinishChange = onAutoFinishChange
             ) }
+            composable(BottomNavItem.Log.route) {
+                LogScreen()
+            }
             composable(BottomNavItem.Settings.route) {
                 // Retrieve required instances from DI with explicit types
                 val settingsPrefs: SharedPreferences by di.instance<SharedPreferences>(tag = "settings")
                 val userRepository: UserRepository by di.instance<UserRepository>()
-
                 SettingsScreen(
                     onThemeChange = onThemeChange,
                     onLanguageChange = onLanguageChange,
                     onRestartServer = onRestartServer,
                     onDeviceNameChange = { newDeviceName ->
                         Log.d("BottomNavApp", "Device name changed to: $newDeviceName")
-
                         // Retrieve the local UUID from SharedPreferences
                         val localUuid = settingsPrefs.getString("UUID", null)
                         if (localUuid != null) {
@@ -393,24 +402,6 @@ fun BottomNavApp(di: DI,
                     onSaveToFolderChange = onSaveToFolderChange,
                 )
             }
-
-            composable("onboarding") {
-                val context = LocalContext.current
-                OnboardingScreen(
-                    onComplete = {
-
-                        val meshPrefs = context.getSharedPreferences("project_mesh_prefs", MODE_PRIVATE)
-                        meshPrefs.edit().putBoolean("hasRunBefore", true).apply()
-
-                        // e.g. navigate to "home"
-                        navController.navigate("home") {
-                            popUpTo("onboarding") { inclusive = true }
-                        }
-                    }
-                )
-            }
-
-
             //I'm guessing I can put my Chat button here?
             composable(BottomNavItem.Chat.route) {
                 //latest status of DeviceStatus manager
@@ -469,7 +460,6 @@ fun BottomNavApp(di: DI,
                             null
                         }
                     }
-
                     if (isValidIpAddress && validatedAddress != null) {
                         // It's a valid IP address
                         ChatScreen(
@@ -654,48 +644,5 @@ fun ConversationChatScreen (
             )
         )
     )
-}
-/*fun isipvalid(theip:String): Boolean{//this is a function for checking if the IP address is valid, if this is redundant let me know and I'll make changes
-    try{
-        InetAddress.getByName(theip)
-        return true
-    }catch(e: Exception)
-    { return false}
-}*/
-
-@SuppressLint("ServiceCast", "ObsoleteSdkInt")
-fun isBatteryOptimizationDisabled(context: Context): Boolean {
-    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        powerManager.isIgnoringBatteryOptimizations(context.packageName)
-    } else {
-        true // Battery optimization doesn't apply below Android 6.0
-    }
-}
-
-@SuppressLint("ObsoleteSdkInt")
-fun promptDisableBatteryOptimization(context: Context) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        AlertDialog.Builder(context)
-            .setTitle("Disable Battery Optimization")
-            .setMessage(
-                "To ensure uninterrupted background functionality and maintain a stable connection," +
-                        " please disable battery optimization for this app."
-            )
-            .setPositiveButton("Go to Settings") { _, _ ->
-                try {
-                    // Navigate to Battery Optimization Settings
-                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    // Fallback to App Info screen
-                    val appSettingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                        .setData(Uri.fromParts("package", context.packageName, null))
-                    context.startActivity(appSettingsIntent)
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
 }
 

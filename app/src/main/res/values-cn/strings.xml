@@ -33,8 +33,6 @@
 
     <string name="home">首页</string>
     <string name="send">发送</string>
-    <string name="chat">交谈</string><!--added by Craig to ensure chat button works-->
-
 
     <string name="band">频段</string>
     <string name="hotspot_type">热点类型</string>
@@ -47,5 +45,9 @@
     <string name="concurrency">STA/AP 并发</string>
     <string name="manual_test">手动测试</string>
     <string name="reset">重置</string>
+
+    <string name="log">日志</string>
+
+    <string name="chat">聊天</string>
 
 </resources>

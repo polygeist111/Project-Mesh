@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,8 +31,6 @@ import com.greybox.projectmesh.messaging.ui.models.ConversationsHomeScreenModel
 import com.greybox.projectmesh.messaging.ui.viewmodels.ConversationsHomeScreenViewModel
 import com.greybox.projectmesh.messaging.utils.MessageUtils
 import org.kodein.di.compose.localDI
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun ConversationsHomeScreen(
@@ -144,7 +141,7 @@ fun ConversationItem(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = conversation.userName.first().toString(),
+                text = conversation.userName.firstOrNull()?.toString() ?: "?",
                 color = Color.White,
                 fontSize = 20.sp
             )

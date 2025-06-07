@@ -55,7 +55,6 @@ import org.kodein.di.DI
 import org.kodein.di.instance
 import java.io.File
 import androidx.compose.material3.HorizontalDivider
-import com.greybox.projectmesh.viewModel.PingScreenViewModel
 import com.greybox.projectmesh.viewModel.ReceiveScreenModel
 
 @Composable

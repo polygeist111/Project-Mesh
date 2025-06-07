@@ -56,6 +56,7 @@ import com.greybox.projectmesh.viewModel.SendScreenModel
 import com.greybox.projectmesh.viewModel.SendScreenViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.kodein.di.compose.localDI
 
 @Composable
@@ -159,6 +160,11 @@ fun DisplayAllPendingTransfers(
                                     val byteTransferred: Int = transfer.transferred
                                     val byteSize: Int = transfer.size
                                     val toHostAddress = transfer.toHost.hostAddress
+//                                    val deviceName = toHostAddress?.let { ipStr ->
+//                                        runBlocking {
+//                                            GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)?.name
+//                                        }
+//                                    }
                                     val deviceName = toHostAddress?.let {
                                         GlobalApp.DeviceInfoManager.getDeviceName(it)
                                     }

@@ -47,7 +47,7 @@ fun BottomNavigationBar(navController: NavHostController) {
                 label = {
                     Text(
                         item.label,
-                        fontSize = 6.sp,
+                        fontSize = 7.5.sp,
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Clip

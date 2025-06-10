@@ -1,5 +1,6 @@
 package com.greybox.projectmesh.views
 
+import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -62,6 +63,15 @@ fun OnboardingScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = {
+            // Check if the username is null or blank
+            if (uiState.username.isNullOrBlank()) {
+                onboardingViewModel.onUsernameChange("John Doe")
+            }
+
+            // Retrieve the updated username from the ViewModel's state
+//            val updatedUsername = onboardingViewModel.uiState.value.username ?: "John Doe"
+//            Log.d("UsernameValue", "Username = $updatedUsername")
+
             onboardingViewModel.handleFirstTimeSetup { onComplete() }
         }) {
             Text("Next")

@@ -65,7 +65,7 @@ fun OnboardingScreen(
         Button(onClick = {
             // Check if the username is null or blank
             if (uiState.username.isNullOrBlank()) {
-                onboardingViewModel.onUsernameChange("John Doe")
+                onboardingViewModel.onUsernameChange("Guest")
             }
 
             // Retrieve the updated username from the ViewModel's state

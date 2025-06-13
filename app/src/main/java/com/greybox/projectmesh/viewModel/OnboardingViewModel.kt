@@ -8,6 +8,7 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import com.greybox.projectmesh.user.UserRepository
 import android.content.SharedPreferences
+import org.acra.ACRA.log
 
 data class OnboardingUiState(
     val username: String
@@ -43,6 +44,29 @@ class OnboardingViewModel(
             prefs.edit().putString("device_name", _uiState.value.username).apply()
             prefs.edit().putBoolean("hasRunBefore", true).apply()
             onComplete()
+        }
+    }
+
+    // In order to Generate Guest Username
+    fun blankUsernameGenerator(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val allUsers = userRepository.getAllUsers()
+            val guestUsernames = allUsers.mapNotNull { it.name }
+                .filter { it.startsWith("Guest") }
+
+            val guestNumbers = guestUsernames.mapNotNull { username ->
+                username.removePrefix("Guest").toIntOrNull()
+            }
+
+            val nextGuestNumber = if (guestNumbers.isEmpty()) {
+                1
+            } else {
+                guestNumbers.maxOrNull()!! + 1
+            }
+
+            val generatedUsername = "Guest$nextGuestNumber"
+            log.d("Username","Username = $generatedUsername")
+            onResult(generatedUsername)
         }
     }
 }

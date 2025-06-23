@@ -290,7 +290,8 @@ fun LanguageSetting(
 {
     // for Language setting
     var langExpanded by remember { mutableStateOf(false) } // Track menu visibility
-    val langMenuItems = listOf("en" to "English", "es" to "Español", "cn" to "简体中文") // Menu items
+    val langMenuItems = listOf("en" to "English", "es" to "Español", "cn" to "简体中文", "fr" to
+            "Français") // Menu items
     val langSelectedOption = langMenuItems.firstOrNull {it.first == currentLanguage}?.second?:"English"
     Box()
     {

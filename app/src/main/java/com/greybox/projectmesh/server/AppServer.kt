@@ -1,14 +1,25 @@
 package com.greybox.projectmesh.server
 
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
+import android.se.omapi.Session
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.google.gson.Gson
+import com.greybox.projectmesh.DeviceStatusManager
 import com.greybox.projectmesh.GlobalApp
+import com.greybox.projectmesh.MainActivity
+import com.greybox.projectmesh.R
 import com.greybox.projectmesh.db.MeshDatabase
-import com.greybox.projectmesh.db.entities.Message
+import com.greybox.projectmesh.messaging.data.entities.Message
+import com.greybox.projectmesh.messaging.network.MessageNetworkHandler
 import com.greybox.projectmesh.extension.updateItem
+import com.greybox.projectmesh.testing.TestDeviceService
 import com.ustadmobile.meshrabiya.ext.copyToWithProgressCallback
 import com.ustadmobile.meshrabiya.util.FileSerializer
 import com.ustadmobile.meshrabiya.util.InetAddressSerializer
@@ -37,13 +48,27 @@ import java.net.InetAddress
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import com.greybox.projectmesh.extension.getUriNameAndSize
+import com.greybox.projectmesh.messaging.data.entities.JSONSchema
+import com.greybox.projectmesh.user.UserEntity
+import com.greybox.projectmesh.user.UserRepository
 import org.kodein.di.DI
 import org.kodein.di.DIAware
 import org.kodein.di.instance
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import java.net.URLDecoder
+import kotlinx.coroutines.runBlocking
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody
+//import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import java.io.IOException
+import java.net.URI
+import okhttp3.RequestBody.Companion.toRequestBody
 import com.greybox.projectmesh.util.NotificationHelper
+import com.ustadmobile.meshrabiya.log.MNetLogger
 
 /*
 This File is the Server for transferring files
@@ -52,13 +77,15 @@ The Meshrabiya test app uses NanoHttpD as the server, OkHttp as the client
 class AppServer(
     private val appContext: Context,
     private val httpClient: OkHttpClient,   // OkHttp client for making HTTP requests
+    private val mLogger: MNetLogger,
     name: String,
     port: Int = 0,  // Port for NanoHTTPD server, default is 0
-    private val localVirtualAddr: InetAddress,
+    val localVirtualAddr: InetAddress,
     private val receiveDir: File,   // Directory for receiving files
     private val json: Json,
     private val db: MeshDatabase,
     override val di: DI,
+    private val userRepository: UserRepository
 ) : NanoHTTPD(port), Closeable, DIAware {
 
     private val logPrefix: String = "[AppServer - $name] "
@@ -69,6 +96,27 @@ class AppServer(
         PENDING, IN_PROGRESS, COMPLETED, FAILED, DECLINED
     }
 
+
+    private fun handleMyInfoRequest(): Response {
+        val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
+        val localUuid = sharedPrefs.getString("UUID", null) ?: return newFixedLengthResponse(
+            Response.Status.INTERNAL_ERROR, "application/json", """{"error":"No local UUID found"}"""
+        )
+
+        val localUser = runBlocking { userRepository.getUser(localUuid) } ?: return newFixedLengthResponse(
+            Response.Status.INTERNAL_ERROR, "application/json", """{"error":"No local user record in DB"}"""
+        )
+
+        // Add the local IP to the address field so it comes through in JSON
+        val localUserWithAddr = localUser.copy(
+            address = localVirtualAddr.hostAddress // or any IP you want to send
+        )
+
+        val userJson = json.encodeToString(UserEntity.serializer(), localUserWithAddr)
+        return newFixedLengthResponse(Response.Status.OK, "application/json", userJson)
+    }
+
+
     // Restart method to stop and start the server with an optional new IP address
     fun restart() {
         stop() // Stop the server using NanoHTTPD's built-in stop method
@@ -77,6 +125,7 @@ class AppServer(
         Log.d("AppServer", "Server restarted successfully on port: $localPort")
     }
 
+//change to json
     /*
     This data class contains all the information about the outgoing transfer (Sending a file)
     Why not using Serializable annotation?
@@ -148,7 +197,7 @@ class AppServer(
     init {
         scope.launch {
             // fetch all files in receiveDir directory that end with .rx.json extension
-            val incomingFiles = receiveDir.listFiles { file, fileName: String? ->
+            val incomingFiles = receiveDir.listFiles { _ , fileName: String? ->
                 fileName?.endsWith(".rx.json") == true
             }?.map {
                 // It deserializes the JSON file into an IncomingTransferInfo object
@@ -177,8 +226,70 @@ class AppServer(
     override fun serve(session: IHTTPSession): Response {
         // Extracts the URI from the session, which is the path of the request
         val path = session.uri
+        mLogger(Log.INFO, "$logPrefix : ${session.method} ${session.uri}")
+        //Create instance of the JSON Schema
+        val JSONschema = JSONSchema()
+
+        if (path.startsWith("/ping")) {
+            //Simple endpoint to check if server is responsive
+            return newFixedLengthResponse("PONG")
+        }
+
         // check if the path is for download, indicating the request wants to download a file
-        if(path.startsWith("/download/")) {
+            // 1) /myinfo route
+        if (path.startsWith("/myinfo")) {
+                return handleMyInfoRequest()
+            }
+            else if (path.startsWith("/updateUserInfo")) {
+                // Read the POST body (assumed JSON)
+                val postData = session.inputStream.bufferedReader().readText()
+
+                //Validates JSON payload
+                if(!JSONschema.schemaValidation(postData)){
+                    return newFixedLengthResponse(
+                        Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid JSON schema"}"""
+                    )
+                }
+
+                try {
+                    // Decode the JSON payload into a UserEntity
+                    val updatedUser = json.decodeFromString(UserEntity.serializer(), postData)
+                    // Update or insert the user info in the database
+                    runBlocking {
+                        userRepository.insertOrUpdateUser(updatedUser.uuid, updatedUser.name, updatedUser.address)
+                    }
+                    return newFixedLengthResponse(
+                        Response.Status.OK, "application/json", """{"status":"OK"}"""
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    return newFixedLengthResponse(
+                        Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid user data"}"""
+                    )
+                }
+            }
+        else if (path.startsWith("/updateUserInfo")) {
+            // Read the POST body (assumed JSON)
+            val postData = session.inputStream.bufferedReader().readText()
+            try {
+                // Decode the JSON payload into a UserEntity
+                val updatedUser = json.decodeFromString(UserEntity.serializer(), postData)
+                // Update or insert the user info in the database
+                runBlocking {
+                    userRepository.insertOrUpdateUser(updatedUser.uuid, updatedUser.name, updatedUser.address)
+                }
+                return newFixedLengthResponse(
+                    Response.Status.OK, "application/json", """{"status":"OK"}"""
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return newFixedLengthResponse(
+                    Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid user data"}"""
+                )
+            }
+        }
+            // 2) /download/
+        else if (path.startsWith("/download/")) {
             // Extracts the transfer ID (Integer)from the path by taking the last part of the path
             val xferId = path.substringAfterLast("/").toInt()
             // Find the outgoing transfer with the given xferId
@@ -193,10 +304,12 @@ class AppServer(
             // If the input stream could not be opened, the function returns an HTTP response
             // with a status of INTERNAL_ERROR and an error message
             if(contentIn == null) {
+                mLogger(Log.ERROR, "$logPrefix Failed to open input stream to serve $path - ${outgoingXfer.uri}")
                 return newFixedLengthResponse(
                     Response.Status.INTERNAL_ERROR, "text/plain",
                     "Failed to open InputStream")
             }
+            mLogger(Log.INFO, "$logPrefix Sending file for xfer #$xferId")
             // Preparing the file for download
             val response = newFixedLengthResponse(
                 Response.Status.OK, "application/octet-stream",
@@ -236,7 +349,7 @@ class AppServer(
                 }else {
                     Status.FAILED
                 }
-
+                mLogger(Log.INFO, "$logPrefix Sending file for xfer #$xferId")
                 /*
                  Updating _outgoingTransfers again to set the final transferred bytes and status
                  (COMPLETED or FAILED).
@@ -258,6 +371,7 @@ class AppServer(
         }
         // Check if it is a sending request
         else if(path.startsWith("/send")) {
+            mLogger(Log.INFO, "$logPrefix Received incoming transfer request")
             // Parse the query parameters from the URL, converting them to a key-value map
             val searchParams = session.queryParameterString.split("&")
                 .map {
@@ -270,34 +384,67 @@ class AppServer(
             // if size is missing or invalid, then defaults to -1
             val size = searchParams["size"]?.toInt() ?: -1
             val fromAddr = searchParams["from"]
-            val devicename = fromAddr?.let { GlobalApp.DeviceInfoManager.getDeviceName(it) }
+
 
             // if everything is ready, create a new incomingTransferInfo object that contains all the
             // info extract from the query parameters
             if(id != null && filename != null && fromAddr != null) {
+                val ipStr = fromAddr
+                val userName = runBlocking {
+                    val user = userRepository.getUserByIp(ipStr)
+                    user?.name ?: "Unknown Device"
+                }
+
                 val incomingTransfer = IncomingTransferInfo(
                     id = id.toInt(),
                     fromHost = InetAddress.getByName(fromAddr),
                     name = filename,
                     size = size,
-                    deviceName = devicename ?: ""
+                    deviceName = userName
                 )
-                /*
-                 update the _incomingTransfers list with the new incoming transfer
-                 The new list is added to the top of the list, then existing list are
-                 appended after the new one.
-                 */
+
+                //find if theres an existing convo from sender
+                val user = runBlocking { userRepository.getUserByIp(ipStr) }
+
+                var routeToChatEnabled = false
+                var chatConversationId: String? = null
+
+                if (user != null ) {
+                    val localUuid = GlobalApp.GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
+                    try {
+                        val conversation = runBlocking {
+                            GlobalApp.GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                                localUuid = localUuid,
+                                remoteUser = user
+                            )
+                        }
+                        routeToChatEnabled = true
+                        chatConversationId = conversation.id
+                    } catch (e: Exception) {
+                        Log.e("AppServer", "Failed to find conversation for file sender", e)
+                    }
+                }
+
+                //update the _incomingTransfers list with new incoming transers
+                //then the new list is added to the top
                 _incomingTransfers.update { prev ->
                     buildList {
                         add(incomingTransfer)
                         addAll(prev)
                     }
                 }
-                // Show notification
-                NotificationHelper.showFileReceivedNotification(appContext, filename)
-                // Return "OK", Confirming the transfer request has been handled
+
+                //show notification based on whether we have a conversation from the sender
+                if (routeToChatEnabled && chatConversationId != null) {
+                    showFileInChatNotification(incomingTransfer, chatConversationId)
+                } else {
+                    // Fall back to the regular file notification
+                    NotificationHelper.showFileReceivedNotification(appContext, filename)
+                    mLogger(Log.INFO, "$logPrefix Added request id $id for $filename from ${incomingTransfer.fromHost}")
+                }
                 return newFixedLengthResponse("OK")
             }else {
+                mLogger(Log.INFO, "$logPrefix incomin transfer request - bad request - missing params")
                 // Return an error response if any of the required parameters are missing
                 return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Bad request")
             }
@@ -327,18 +474,94 @@ class AppServer(
             return newFixedLengthResponse(settingPref.getString("device_name", Build.MODEL) ?: Build.MODEL)
         }
         else if(path.startsWith("/chat")) {
-            val chatMessage = session.parameters["chatMessage"]?.first() ?: "Error! No message found."
-            val time = session.parameters["time"]?.first()?.toLong() ?: 0
-            val senderIp = InetAddress.getByName(session.parameters["senderIp"]?.first() ?: "0.0.0.0")
-            val sender: String =  GlobalApp.DeviceInfoManager.getDeviceName(senderIp) ?: "Unknown"
-            val chatName: String = GlobalApp.DeviceInfoManager.getChatName(senderIp)
-            Log.d("Appserver", "chatMessage: $chatMessage, time: $time, sender: $sender, chatName: $chatName")
-            scope.launch {
-                db.messageDao().addMessage(Message(0, time, chatMessage, sender, chatName))
+            //Log.d("AppServer", "Received chat message*******")
+            //Processes JSON payload into useable data
+            val files = mutableMapOf<String, String>()
+            session.parseBody(files)
+            val jsonPayload = files["postData"]  // This is where the full body lives
+            //Log.d("AppServer", "JSON Payload******: $jsonPayload")
+
+            //Checks if payload is null/blank
+            if (jsonPayload.isNullOrBlank()) {
+                Log.e("AppServer", "Empty or missing JSON payload")
+                return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Empty or missing JSON payload")
+            }else{
+                Log.d("AppServer", "JSON payload not blank")
             }
-            return newFixedLengthResponse("OK")
+
+            //Validates validity of JSON payload
+            val JSONschema = JSONSchema()
+            Log.d("AppServer", "Validating JSON payload: ${jsonPayload::class.simpleName}")
+            if (!JSONschema.schemaValidation(jsonPayload)) {
+                Log.e("AppServer", "Invalid JSON payload")
+                return newFixedLengthResponse(Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid JSON schema"}""")
+            }else{
+                Log.d("AppServer", "Valid JSON payload")
+            }
+
+            //Deserialize the JSON payload
+            val deserialzedJSON = json.decodeFromString<Message>(jsonPayload)
+
+            val chatMessage = deserialzedJSON.content ?: null
+            val time = deserialzedJSON.dateReceived ?: System.currentTimeMillis()
+            val senderIpStr = deserialzedJSON.sender ?: null
+
+            Log.d("AppServer", "Received chat message: '$chatMessage' from $senderIpStr at $time")
+//            val chatMessage = session.parameters["chatMessage"]?.firstOrNull()
+//            val timeParam = session.parameters["time"]?.firstOrNull()
+//            val time = timeParam?.toLongOrNull() ?: System.currentTimeMillis()
+//            val senderIpStr = session.parameters["senderIp"]?.firstOrNull()
+
+            if (senderIpStr == null) {
+                return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Missing senderIp parameter")
+            }
+
+            val senderIp = try {
+                InetAddress.getByName(senderIpStr)
+            } catch (e: Exception) {
+                Log.e("AppServer", "Invalid sender IP address: $senderIpStr", e)
+                return newFixedLengthResponse(Response.Status.BAD_REQUEST, "text/plain", "Invalid sender IP")
+            }
+
+            // Handle optional file parameter
+            //val fileUriStr = session.parameters["incomingfile"]?.firstOrNull()
+            val fileUriStr = deserialzedJSON.file?.toString()
+            val incomingfile = if (fileUriStr != null) {
+                try {
+                    URI.create(fileUriStr)
+                } catch (e: Exception) {
+                    Log.e("AppServer", "Invalid file URI: $fileUriStr", e)
+                    null
+                }
+            } else {
+                null
+            }
+
+            Log.d("AppServer", "Received chat message: '$chatMessage' from $senderIpStr")
+
+            try {
+                val message = MessageNetworkHandler.handleIncomingMessage(
+                    chatMessage,
+                    time,
+                    senderIp,
+                    incomingfile
+                )
+
+                scope.launch {
+                    db.messageDao().addMessage(message)
+                    Log.d("AppServer", "Message saved to database: $message")
+                }
+
+                // Change response type to ensure it's properly formatted
+                return newFixedLengthResponse(Response.Status.OK, "text/plain", "OK")
+            } catch (e: Exception) {
+                Log.e("AppServer", "Error processing chat message", e)
+                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Error processing message")
+            }
+
         }
         else {
+            mLogger(Log.INFO, "$logPrefix : $path - NOT FOUND")
             // Returns a NOT_FOUND response indicating that the requested path could not be found.
             return newFixedLengthResponse(
                 Response.Status.NOT_FOUND, "text/plain", "not found: $path"
@@ -349,41 +572,118 @@ class AppServer(
     suspend fun sendDeviceName(wifiAddress: InetAddress, port: Int = DEFAULT_PORT){
         scope.launch {
             try {
-                Log.d("AppServer", "wifiAddress: $wifiAddress")
-                // Send local device's name to the remote device
-                val uri = "http://${wifiAddress.hostAddress}:$port/getDeviceName"
-                Log.d("AppServer", "URI: $uri")
+                val ipStr = wifiAddress.hostAddress
+                Log.d("AppServer", "wifiAddress: $ipStr")
+
+                // GET /getDeviceName
+                val uri = "http://$ipStr:$port/getDeviceName"
                 val request = Request.Builder().url(uri).build()
                 Log.d("AppServer", "Request: $request")
                 val response = httpClient.newCall(request).execute()
                 Log.d("AppServer", "Response: $response")
-                // Get the remote device's name
+
+                // The remote device's name
                 val remoteDeviceName = response.body?.string()
                 Log.d("AppServer", "Remote device name: $remoteDeviceName")
 
-                if (remoteDeviceName != null) {
-                    wifiAddress.hostAddress?.let {
-                        GlobalApp.DeviceInfoManager.addDevice(
-                            it,
-                            remoteDeviceName
-                        )
+                response.close() // best practice: close the response
+
+                if (!remoteDeviceName.isNullOrEmpty()) {
+                    runBlocking {
+                        val existingUser = userRepository.getUserByIp(ipStr)
+                        if (existingUser == null) {
+                            // No user? Insert with a temporary or random UUID
+                            val pseudoUuid = "temp-$ipStr"
+                            userRepository.insertOrUpdateUser(
+                                uuid = pseudoUuid,
+                                name = remoteDeviceName,
+                                address = ipStr
+                            )
+                        } else {
+                            // Already have a user? Update the name
+                            userRepository.insertOrUpdateUser(
+                                uuid = existingUser.uuid,
+                                name = remoteDeviceName,
+                                address = existingUser.address
+                            )
+                        }
                     }
                 }
+
             } catch (e: Exception) {
                 e.printStackTrace()
-                Log.e(
-                    "AppServer", "Failed to get device name from " +
-                            wifiAddress.hostAddress
-                )
+                Log.e("AppServer", "Failed to get device name from ${wifiAddress.hostAddress}")
             }
         }
     }
+    /*fun requestRemoteUserInfo(remoteAddr: InetAddress, port: Int = DEFAULT_PORT) {//old
+        scope.launch {
+            try {
+                val url = "http://${remoteAddr.hostAddress}:$port/myinfo"
+                val request = Request.Builder().url(url).build()
+                val response = httpClient.newCall(request).execute()
+                val userJson = response.body?.string()
+                response.close()
+
+                if (!userJson.isNullOrEmpty()) {
+                    // Decode JSON into a UserEntity
+                    val remoteUser = json.decodeFromString(UserEntity.serializer(), userJson)
+                    // Insert or update in DB
+                    userRepository.insertOrUpdateUser(remoteUser.uuid, remoteUser.name)
+                    // Possibly store lastSeen, remote IP, etc., if your entity includes those fields
+                }
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to fetch /myinfo from $remoteAddr", e)
+            }
+        }
+    }*/
 
     /**
      * Add an outgoing transfer. This is done using a Uri so that we don't have to make our own
      * copy of the file the user wants to transfer.
      */
-    fun addOutgoingTransfer(
+
+    // Add a new function to show notifications that route to the chat screen
+    private fun showFileInChatNotification(transfer: IncomingTransferInfo, conversationId: String) {
+        try {
+            val title = "File Received"
+            val content = "Tap to view ${transfer.name} in chat"
+
+            val intent = Intent(appContext, MainActivity::class.java).apply {
+                action = "OPEN_CHAT_CONVERSATION"
+                putExtra("conversationId", conversationId)
+                putExtra("from_notification", true)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+
+            val pendingIntent = PendingIntent.getActivity(
+                appContext, 1005, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val channelId = "file_receive_channel"
+
+            val notification = NotificationCompat.Builder(appContext, channelId)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle(title)
+                .setContentText(content)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_SOUND)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+
+            val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(1005, notification)
+
+            Log.d("AppServer", "Showed notification for file in chat")
+        } catch (e: Exception) {
+            Log.e("AppServer", "Failed to show file in chat notification", e)
+            // Fall back to regular notification
+            NotificationHelper.showFileReceivedNotification(appContext, transfer.name)
+        }
+    }
+
+    fun addOutgoingTransfer(//change to json
         uri: Uri,   // The uri of the file to be transferred
         toNode: InetAddress,    // The recipient's IP address
         toPort: Int = DEFAULT_PORT, // The recipient's port number
@@ -394,7 +694,7 @@ class AppServer(
         // customized extension function of ContentResolver
         val nameAndSize = appContext.contentResolver.getUriNameAndSize(uri)
         val validName = nameAndSize.name ?: "unknown"
-        Log.d("AppServer", "$logPrefix adding outgoing transfer of $uri " +
+        mLogger(Log.INFO, "$logPrefix adding outgoing transfer of $uri " +
                 "(name=${nameAndSize.name} size=${nameAndSize.size} to $toNode:$toPort")
 
         // create an OutgoingTransferInfo object with all transfer information
@@ -405,23 +705,32 @@ class AppServer(
             toHost = toNode,
             size = nameAndSize.size.toInt(),
         )
-        // Build the request to tell the other side about the transfer
-        val request = Request.Builder().url("http://${toNode.hostAddress}:$toPort/" +
-                "send?id=$transferId&filename=${URLEncoder.encode(validName, "UTF-8")}" +
-                "&size=${nameAndSize.size}&from=${localVirtualAddr.hostAddress}")
-//            .addHeader("connection", "close")
-            .build()
-        Log.d("Appserver", "$logPrefix notifying $toNode of incoming transfer")
-        Log.d("AppServer", "request: $request")
 
-        // Send the request to the other side using OkHttp3
-        val response = httpClient.newCall(request).execute()
-        val serverResponse = response.body?.string()
-        Log.d("AppServer", "$logPrefix - received response: $serverResponse")
-        /*
-         Update the _outgoingTransfers list with the new transfer
-         Add the new transfer to the beginning of the list, then append the existing list
-         */
+        scope.launch(Dispatchers.IO){
+            try{
+
+                val gs = Gson()
+                val json = gs.toJson(outgoingTransfer)
+
+                val bodtype = "application/json; charset=utf-8".toMediaTypeOrNull()
+                val bod = json.toRequestBody(bodtype)
+                val request = Request.Builder().url("http://${toNode.hostAddress}:$toPort/" +
+                        "send?id=$transferId&filename=${URLEncoder.encode(validName, "UTF-8")}" +
+                        "&size=${nameAndSize.size}&from=${localVirtualAddr.hostAddress}")
+                    .post(bod)
+                    .build()//changed this to send a post request
+
+                mLogger(Log.INFO, "$logPrefix notifying $toNode of incoming transfer")
+
+                val resp = httpClient.newCall(request).execute()
+                val serverResponse = resp.body?.string()
+                mLogger(Log.INFO, "$logPrefix - received response: $serverResponse")
+
+            } catch(e: Exception){
+                mLogger(Log.ERROR, "$logPrefix - exception: $e")
+            }
+        }
+
         _outgoingTransfers.update { prev ->
             buildList {
                 add(outgoingTransfer)
@@ -429,6 +738,12 @@ class AppServer(
             }
         }
         return outgoingTransfer
+    }
+
+    fun removeOutgoingTransfer(transferId: Int) {
+        _outgoingTransfers.update { prev ->
+            prev.filter { it.id != transferId }
+        }
     }
 
     /*
@@ -521,8 +836,11 @@ class AppServer(
                 jsonFile.writeText(json.encodeToString(IncomingTransferInfo.serializer(), incomingTransfer))
             }
             val speedKBS = transfer.size / transferDurationMs
+            mLogger(Log.INFO, "$logPrefix acceptIncomingTransfer successful: Downloaded " +
+                    "${transfer.size}bytes in ${transfer.transferTime}ms ($speedKBS) KB/s")
         }
         catch(e: Exception) {
+            mLogger(Log.ERROR, "$logPrefix acceptIncomingTransfer ($transfer) FAILED", e)
             _incomingTransfers.update { prev ->
                 prev.updateItem(
                     condition = { it.id == transfer.id },
@@ -533,6 +851,24 @@ class AppServer(
                     }
                 )
             }
+        }
+    }
+
+    /**
+     * Checks if a device is reachable at the application level
+     * This performs a lightweight check without doing a full user info exchange
+     */
+    fun checkDeviceReachable(remoteAddr: InetAddress, port: Int = DEFAULT_PORT): Boolean {
+        try {
+            val url = "http://${remoteAddr.hostAddress}:$port/ping"
+            val request = Request.Builder().url(url).build()
+
+            httpClient.newCall(request).execute().use { response ->
+                return response.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e("AppServer", "Failed to check if device ${remoteAddr.hostAddress} is reachable", e)
+            return false
         }
     }
 
@@ -559,7 +895,10 @@ class AppServer(
                 // Send the request to the sender and get the response
                 val response = httpClient.newCall(request).execute()
                 val strResponse = response.body?.string()
-            }catch(_: Exception) { }
+                mLogger(Log.DEBUG, "$logPrefix - onDeclineIncomingTransfer - request to: ${request.url} : response = $strResponse")
+            }catch(e: Exception) {
+                mLogger(Log.WARN, "$logPrefix - onDeclineIncomingTransfer : exception- request to: ${request.url} : FAIL", e)
+            }
         }
         // update the _incomingTransfers list, setting the status to DECLINED
         _incomingTransfers.update { prev ->
@@ -601,13 +940,123 @@ class AppServer(
             _incomingTransfers.update { prev ->
                 prev.filter { it.id != incomingTransfer.id }
             }
+
+            // Ensure Jetpack Compose recomposes UI before handling another delete
+            withContext(Dispatchers.Main) {
+                delay(150)
+            }
         }
     }
 
-    fun sendChatMessage(address: InetAddress, time: Long, message: String) {
-        scope.launch {
+    /**
+     * Send a chat message and return delivery status
+     */
+    suspend fun sendChatMessageWithStatus(address: InetAddress, time: Long, message: String, f: URI?): Boolean {
+
+        try {
+            if (TestDeviceService.isTestDevice(address)) {
+                // Create an echo response from our test device
+                val testMessage = Message(
+                    id = 0,
+                    dateReceived = System.currentTimeMillis(),
+                    content = "Echo: $message",
+                    sender = TestDeviceService.TEST_DEVICE_NAME,
+                    chat = TestDeviceService.TEST_DEVICE_NAME,
+                    file = f //dont send file with echo messages
+                )
+
+                // Store the echo response in our database
+                db.messageDao().addMessage(testMessage)
+                Log.d("AppServer", "Test device echoed message: $message")
+                return true
+            }
+
+            // Original code for real devices
+            val httpUrl = HttpUrl.Builder()
+                .scheme("http")
+                .host(address.hostAddress)
+                .port(DEFAULT_PORT)
+                .addPathSegment("chat")
+                .addQueryParameter("chatMessage", message)
+                .addQueryParameter("time", time.toString())
+                .addQueryParameter("senderIp", localVirtualAddr.hostAddress)
+                .build()
+
+            Log.d("AppServer", "Request URL: $httpUrl")
+
+            val gs = Gson()
+            val msg = Message(//test this
+                id = 0,
+                dateReceived = time,
+                sender = localVirtualAddr.hostName,
+                chat = address.hostAddress,
+                content = message,
+                file = null//made the file null so that the file doesn't send
+            )
+            Log.d("AppServer", "Messagefile: ${msg.file.toString()}")
+            val msgJson = gs.toJson(msg)
+            //modified http
+            val httpURL = HttpUrl.Builder() .scheme("http") .host(address.hostAddress) .port(DEFAULT_PORT) .addPathSegment("chat").build()
+            //Log.d("AppServer", "HTTP URL: $httpURL")
+            //post request body
+            val mt = "application/json; charset=utf-8".toMediaType()
+            val rbody = msgJson.toRequestBody(mt)
+            //Log.d("Appserver", "HTTP URL: $httpUrl")
+
+            val request = Request.Builder()
+                .url(httpUrl)
+                .post(rbody)
+                .addHeader("Content-Type", "application/json")
+                .build()
+
+            // Execute the request with proper error handling
+            try {
+                httpClient.newCall(request).execute().use { response ->
+                    val successful = response.isSuccessful
+                    if (successful) {
+                        Log.d("AppServer", "Message successfully sent to ${address.hostAddress}")
+                    } else {
+                        Log.d("AppServer", "Failed to send message to ${address.hostAddress}, status code: ${response.code}")
+                    }
+                    return successful
+                }
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to send message to ${address.hostAddress}: ${e.message}", e)
+                return false
+            }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Log.d("AppServer", "Failed to send message to ${address.hostAddress}: ${e.message}")
+            return false
+        }
+    }
+
+    /*
+
+    fun sendChatMessage(address: InetAddress, time: Long, message: String, f: URI?) {//need to test this
+        scope.launch {//check to see if this accommodates for json
+            //not sending URI, i don't think the json is working
             try {
                 Log.d("AppServer", "chat message: $message")
+                if (TestDeviceService.isTestDevice(address)) {
+                    // Create an echo response from our test device
+                    val testMessage = Message(
+                        id = 0,
+                        dateReceived = System.currentTimeMillis(),
+                        content = "Echo: $message",
+                        sender = TestDeviceService.TEST_DEVICE_NAME,
+                        chat = TestDeviceService.TEST_DEVICE_NAME,
+                        file = f//ok this is working
+                    )
+
+                    // Store the echo response in our database
+                    db.messageDao().addMessage(testMessage)
+                    Log.d("AppServer", "Test device echoed message: $message")
+                    return@launch
+                }
+
+                //original code for real devices
                 val httpUrl = HttpUrl.Builder()
                     .scheme("http")
                     .host(address.hostAddress)
@@ -617,13 +1066,16 @@ class AppServer(
                     .addQueryParameter("time", time.toString())
                     .addQueryParameter("senderIp", localVirtualAddr.hostAddress)
                     .build()
-                Log.d("Appserver", "HTTP URL: $httpUrl")
+
+                Log.d("AppServer", "Request URL: $httpUrl")
+
                 val request = Request.Builder()
                     .url(httpUrl)
                     .build()
-                Log.d("AppServer", "Request: $request")
+
                 val response = httpClient.newCall(request).execute()
-                Log.d("AppServer", "Response: $response")
+                Log.d("AppServer", "Response: ${response.code}")
+
             }
             catch (e: Exception) {
                 e.printStackTrace()
@@ -632,6 +1084,183 @@ class AppServer(
         }
     }
 
+     */
+    fun pushUserInfoTo(remoteAddr: InetAddress, port: Int = DEFAULT_PORT) {
+        scope.launch {
+            // Retrieve your local user info (assume you store your UUID in SharedPreferences)
+            val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
+            val localUuid = sharedPrefs.getString("UUID", null)
+            if (localUuid == null) {
+                Log.e("AppServer", "Local UUID not found, cannot push user info")
+                return@launch
+            }
+            val localUser = runBlocking { userRepository.getUser(localUuid) }
+            if (localUser == null) {
+                Log.e("AppServer", "Local user info not found in DB, cannot push user info")
+                return@launch
+            }
+
+            // Convert the user info to JSON
+            val userJson = json.encodeToString(UserEntity.serializer(), localUser)
+            val url = "http://${remoteAddr.hostAddress}:$port/updateUserInfo"
+            val requestBody = userJson.toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build()
+
+            Log.d("AppServer", "Pushing user info to $url with payload: $userJson")
+
+            try {
+                val response = httpClient.newCall(request).execute()
+                // Log the response code and body (if any)
+                val responseBody = response.body?.string()
+                Log.d("AppServer", "Response from ${remoteAddr.hostAddress}: Code=${response.code}, Body=$responseBody")
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to push user info to ${remoteAddr.hostAddress}", e)
+            }
+        }
+    }
+    fun requestRemoteUserInfo(remoteAddr: InetAddress, port: Int = DEFAULT_PORT) {
+        //Special handling for test devices
+        val ipAddress = remoteAddr.hostAddress
+
+        // Online test device should always be "online"
+        if (ipAddress == TestDeviceService.TEST_DEVICE_IP) {
+            DeviceStatusManager.updateDeviceStatus(ipAddress, true)
+            return
+        }
+
+        // Offline test device should always be "offline"
+        if (ipAddress == TestDeviceService.TEST_DEVICE_IP_OFFLINE) {
+            DeviceStatusManager.updateDeviceStatus(ipAddress, false)
+            return
+        }
+        scope.launch {
+            try {
+                val url = "http://${remoteAddr.hostAddress}:$port/myinfo"
+                val request = Request.Builder().url(url).build()
+                Log.d("AppServer", "Requesting remote user info from $url")
+
+                val response = httpClient.newCall(request).execute()
+                val userJson = response.body?.string()
+                Log.d("AppServer", "Received user info from ${remoteAddr.hostAddress}: $userJson")
+                response.close()
+
+                if (!userJson.isNullOrEmpty()) {
+                    // 1) Decode JSON
+                    val remoteUser = json.decodeFromString(UserEntity.serializer(), userJson)
+
+                    // 2) Optionally override with the *actual* IP of the request
+                    //    if you prefer forcing the discovered IP over the user’s self-reported IP.
+                    val remoteUserWithIp = remoteUser.copy(
+                        address = remoteAddr.hostAddress
+                    )
+
+                    // 3) Insert or update that IP in the DB
+                    userRepository.insertOrUpdateUser(
+                        remoteUserWithIp.uuid,
+                        remoteUserWithIp.name,
+                        remoteUserWithIp.address
+                    )
+
+                    // 4) update user connection status to online
+                    updateUserOnlineStatus(
+                        userUuid = remoteUserWithIp.uuid,
+                        isOnline = true,
+                        userAddress = remoteUserWithIp.address
+                    )
+
+                    // 5) update device status manager to show device online
+                    DeviceStatusManager.updateDeviceStatus(remoteAddr.hostAddress, true)
+
+                    //try to create a conversation
+                    try {
+                        //get local UUID
+                        val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
+                        val localUuid = sharedPrefs.getString("UUID", null)
+                        if ( localUuid != null){
+                            //create convo
+                            GlobalApp.GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                                localUuid = localUuid,
+                                remoteUser = remoteUserWithIp
+                            )
+                            Log.d("AppServer", "Created conversation with ${remoteUserWithIp.name}")
+                        }
+                    }catch (e: Exception) {
+                        Log.e("AppServer", "Failed to create conversation", e)
+
+                        //Update Device Status Manager to show device is offline when connection fails
+                        DeviceStatusManager.updateDeviceStatus(remoteAddr.hostAddress, false)
+
+                        //update convo status for this user
+                        val user = runBlocking { userRepository.getUserByIp(remoteAddr.hostAddress) }
+                        if (user != null) {
+                            updateUserOnlineStatus(
+                                userUuid = user.uuid,
+                                isOnline = false,
+                                userAddress = null
+                            )
+                        }
+                    }
+
+                    Log.d("AppServer", "Updated local DB with remote user info: $remoteUserWithIp")
+                }
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to fetch /myinfo from ${remoteAddr.hostAddress}", e)
+            }
+        }
+    }
+
+    fun updateUserConnectionStatus(userUuid: String, isOnline: Boolean, userAddress: String?) {
+        scope.launch {
+            try {
+                GlobalApp.GlobalUserRepo.conversationRepository.updateUserStatus(
+                    userUuid = userUuid,
+                    isOnline = isOnline,
+                    userAddress = userAddress
+                )
+                Log.d("AppServer", "Updated user $userUuid connection status: online=$isOnline, address=$userAddress")
+            }catch (e: Exception){
+                Log.e("AppServer", "Failed to update user connection status", e)
+            }
+        }
+    }
+
+    fun updateUserOnlineStatus(userUuid: String, isOnline: Boolean, userAddress: String?){
+        scope.launch {
+            try {
+                GlobalApp.GlobalUserRepo.conversationRepository.updateUserStatus(
+                    userUuid = userUuid,
+                    isOnline = isOnline,
+                    userAddress = userAddress
+                )
+                Log.d("AppServer", "Updated user $userUuid connection status: online=$isOnline, address=$userAddress")
+            } catch (e: Exception){
+                Log.e("AppServer", "Failed to update user connection status", e)
+            }
+        }
+    }
+
+    fun markAllUsersOffline(){
+        scope.launch {
+            try {
+                val allUsers = GlobalApp.GlobalUserRepo.userRepository.getAllConnectedUsers()
+                for (user in allUsers) {
+                    GlobalApp.GlobalUserRepo.conversationRepository.updateUserStatus(
+                        userUuid = user.uuid,
+                        isOnline = false,
+                        userAddress = null
+                    )
+                }
+                Log.d("AppServer", "Marked all users as offline")
+            } catch (e: Exception) {
+                Log.e("AppServer", "Failed to mark all users as offline", e)
+            }
+        }
+    }
+
+
     // Stop the server and cancel any coroutine that are running within the CoroutineScope
     override fun close() {
         stop()
@@ -639,7 +1268,7 @@ class AppServer(
     }
 
     companion object {
-        const val DEFAULT_PORT = 9614
+        const val DEFAULT_PORT = 9614//MAIN HAD MODIFIED IT TO 9614 FROM 4242
         val CHAT_TYPE_PLAINTEXT = "text/plain; charset=utf-8".toMediaType()
     }
 }

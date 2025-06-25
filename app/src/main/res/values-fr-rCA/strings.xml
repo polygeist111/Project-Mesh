@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Project Mesh</string>
+    <string name="ip_address">Addresse IP</string>
+    <string name="start_hotspot">Démarrer le point d’accès</string>
+    <string name="stop_hotspot">Arrêter le point d’accès</string>
+    <string name="connect_via_qr_code_scan">Connectez-vous via le scan du Code QR</string>
+    <string name="connect_via_entering_connect_uri">Se connecter en saisissant l’URI de
+        Connexion</string>
+    <string name="share_connect_uri">Partager l’URI de Connexion</string>
+    <string name="wifi_station_connection">Connexion à la station WIFI (client)</string>
+    <string name="prompt_scan_qr_code">Scannez un autre appareil pour rejoindre le Mesh</string>
+    <string name="hotspot_status">Statut du point d’accès</string>
+    <string name="hotspot_status_online">En ligne</string>
+    <string name="hotspot_status_offline">Hors ligne</string>
+    <string name="instruction">"Ou saississez l’URI de connexion ci-dessous:\n"
+                                "1. Assurez-vous que le Bluetooth est activé\n"
+                                "2. Autorisez tout le monde à partager des données via Partage rapide\n"
+                                "3. Après avoir obtenu l’URI, cliquez sur Copier\n"
+                                "4. Collez l’URI dans le champ de texte ci-dessous\n"
+                                "5. Cliquez sur « Se connecter via la saisie de l'URI de connexion »""
+    </string>
+    <string name="instruction_start_hotspot">"Poru partager l’URI de connexion:\n"
+                        "1. Assurez-vous que le Bluetooth est activé sur cet appareil\n"
+                        "2. Cliquez sur « Partager l’URI de connexion »"\n"
+                        "3. Select Quick Share\n"
+                        "4. Choisissez un appareil à proximité avec lequel vous souhaitez partager l’URI."
+    </string>
+    <string name="prompt_enter_uri">Entrez l’URI de connexion (Commence par "meshrabiya://")</string>
+
+    <string name="send_file">Envoyer un fichier</string>
+    <string name="from">De</string>
+    <string name="status">Statut</string>
+    <string name="completed">TERMINÉ</string>
+
+    <string name="settings">Paramètres</string>
+    <string name="general">Général</string>
+    <string name="language">Langue</string>
+    <string name="theme">Thème</string>
+    <string name="network">Réseau</string>
+    <string name="server">Serveur</string>
+    <string name="restart">Redémarrer</string>
+    <string name="device_name">Nom de l’appareil</string>
+    <string name="receive">Recevoir</string>
+    <string name="auto_finish">Fin automatique</string>
+    <string name="save_to_folder">Enregistrer dans le dossier</string>
+
+    <string name="home">Accueil</string>
+    <string name="send">Envoyer</string>
+    <string name="chat">Discussion</string>
+
+    <string name="band">Bande</string>
+    <string name="hotspot_type">Type de point d’accès</string>
+    <string name="search_nearby_devices">Rechercher des appareils à proximité</string>
+    <string name="searching">Recherche en cours</string>
+    <string name="cancel">Annuler</string>
+
+    <string name="elapsed_time">Temps écoulé</string>
+
+    <string name="concurrency">Concurrence STA/AP</string>
+    <string name="manual_test">Test manuel</string>
+    <string name="reset">Réinitialiser</string>
+</resources>

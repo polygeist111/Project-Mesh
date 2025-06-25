@@ -22,7 +22,7 @@ import com.greybox.projectmesh.viewModel.PingScreenViewModel
 import com.greybox.projectmesh.viewModel.SelectDestNodeScreenModel
 import com.greybox.projectmesh.viewModel.SelectDestNodeScreenViewModel
 import org.kodein.di.compose.localDI
-
+import com.greybox.projectmesh.extension.WifiListItem
 @Composable
 fun SelectDestNodeScreen(
     uris: List<Uri>,

@@ -1,37 +1,17 @@
 package com.greybox.projectmesh.navigation
 
-import android.util.Log
-import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.compose.material3.*
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
 import com.greybox.projectmesh.R
-import com.greybox.projectmesh.ui.theme.AppTheme
-import com.greybox.projectmesh.viewModel.SharedUriViewModel
-import com.greybox.projectmesh.views.ChatScreen
-import com.greybox.projectmesh.views.HomeScreen
-import com.greybox.projectmesh.views.NetworkScreen
-import com.greybox.projectmesh.views.PingScreen
-import com.greybox.projectmesh.views.ReceiveScreen
-import com.greybox.projectmesh.views.SelectDestNodeScreen
-import com.greybox.projectmesh.views.SendScreen
-import com.greybox.projectmesh.views.SettingsScreen
-import org.kodein.di.DI
-import org.kodein.di.compose.withDI
-import java.net.InetAddress
 
 data class NavigationItem(
     val route: String,
@@ -39,96 +19,12 @@ data class NavigationItem(
     val icon: ImageVector,
 )
 
+//Preview is to show the bottom navigation bar in the preview and notice what it looks like
+@Preview(showBackground = true)
 @Composable
-fun BottomNavApp(di: DI,
-                 startDestination: String,
-                 onThemeChange: (AppTheme) -> Unit,
-                 onLanguageChange: (String) -> Unit,
-                 onNavigateToScreen: (String) -> Unit,
-                 onRestartServer: () -> Unit,
-                 onDeviceNameChange: (String) -> Unit,
-                 deviceName: String,
-                 onAutoFinishChange: (Boolean) -> Unit,
-                 onSaveToFolderChange: (String) -> Unit
-) = withDI(di)
-{
+fun BottomNavigationBarPreview() {
     val navController = rememberNavController()
-    // Observe the current route directly through the back stack entry
-    val currentRoute = navController.currentBackStackEntryFlow.collectAsState(initial = null)
-    LaunchedEffect(currentRoute.value?.destination?.route) {
-        if(currentRoute.value?.destination?.route == BottomNavItem.Settings.route){
-            currentRoute.value?.destination?.route?.let { route ->
-                onNavigateToScreen(route)
-            }
-        }
-    }
-    Scaffold(
-        bottomBar = { BottomNavigationBar(navController) }
-    ){ innerPadding ->
-        NavHost(navController, startDestination = startDestination, Modifier.padding(innerPadding))
-        {
-            composable(BottomNavItem.Home.route) {
-                HomeScreen(deviceName = deviceName) }
-            composable(BottomNavItem.Network.route) { NetworkScreen(
-                onClickNetworkNode = { ip ->
-                    navController.navigate("chatScreen/${ip}")
-                }
-            ) }
-            composable("chatScreen/{ip}"){ entry ->
-                val ip = entry.arguments?.getString("ip")
-                    ?: throw IllegalArgumentException("Invalid address")
-                ChatScreen(
-                    virtualAddress = InetAddress.getByName(ip),
-                    onClickButton = {
-                        navController.navigate("pingScreen/${ip}")
-                    }
-                )
-            }
-            composable("pingScreen/{ip}"){ entry ->
-                val ip = entry.arguments?.getString("ip")
-                    ?: throw IllegalArgumentException("Invalid address")
-                PingScreen(
-                    virtualAddress = InetAddress.getByName(ip)
-                )
-            }
-            composable(BottomNavItem.Send.route) {
-                val activity = LocalContext.current as ComponentActivity
-                val sharedUrisViewModel: SharedUriViewModel = viewModel(activity)
-                SendScreen(
-                    onSwitchToSelectDestNode = { uris ->
-                        Log.d("uri_track_nav_send", "size: " + uris.size.toString())
-                        Log.d("uri_track_nav_send", "List: $uris")
-                        sharedUrisViewModel.setUris(uris)
-                        navController.navigate("selectDestNode")
-                    }
-                )
-            }
-            composable("selectDestNode"){
-                val activity = LocalContext.current as ComponentActivity
-                val sharedUrisViewModel: SharedUriViewModel = viewModel(activity)
-                val sendUris by sharedUrisViewModel.uris.collectAsState()
-                Log.d("uri_track_nav_selectDestNode", "size: " + sendUris.size.toString())
-                Log.d("uri_track_nav_selectDestNode", "List: $sendUris")
-                SelectDestNodeScreen(
-                    uris = sendUris,
-                    popBackWhenDone = {navController.popBackStack()},
-                )
-            }
-            composable(BottomNavItem.Receive.route) { ReceiveScreen(
-                onAutoFinishChange = onAutoFinishChange
-            ) }
-            composable(BottomNavItem.Settings.route) {
-                SettingsScreen(
-                    onThemeChange = onThemeChange,
-                    onLanguageChange = onLanguageChange,
-                    onRestartServer = onRestartServer,
-                    onDeviceNameChange = onDeviceNameChange,
-                    onAutoFinishChange = onAutoFinishChange,
-                    onSaveToFolderChange = onSaveToFolderChange
-                )
-            }
-        }
-    }
+    BottomNavigationBar(navController = navController)
 }
 
 @Composable
@@ -138,6 +34,8 @@ fun BottomNavigationBar(navController: NavHostController) {
         NavigationItem(BottomNavItem.Network.route, stringResource(id = R.string.network), BottomNavItem.Network.icon),
         NavigationItem(BottomNavItem.Send.route, stringResource(id = R.string.send), BottomNavItem.Send.icon),
         NavigationItem(BottomNavItem.Receive.route, stringResource(id = R.string.receive), BottomNavItem.Receive.icon),
+        NavigationItem(BottomNavItem.Chat.route, stringResource(id=R.string.chat), BottomNavItem.Chat.icon),
+        NavigationItem(BottomNavItem.Log.route, stringResource(id = R.string.log), BottomNavItem.Log.icon),
         NavigationItem(BottomNavItem.Settings.route, stringResource(id = R.string.settings), BottomNavItem.Settings.icon)
     )
     NavigationBar {
@@ -145,7 +43,16 @@ fun BottomNavigationBar(navController: NavHostController) {
         items.forEach { item ->
             NavigationBarItem(
                 icon = { Icon(item.icon, contentDescription = item.label) },
-                label = { Text(item.label) },
+                //Modify label Sizes to fit the screen of multiple devices
+                label = {
+                    Text(
+                        item.label,
+                        fontSize = 7.5.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Clip
+                    )
+                },
                 selected = currentRoute == item.route,
                 onClick = {
                     navController.navigate(item.route) {
@@ -158,7 +65,8 @@ fun BottomNavigationBar(navController: NavHostController) {
                         // Avoid multiple copies of the same destination when reselecting the same item
                         launchSingleTop = true
                     }
-                }
+                },
+                
             )
         }
     }

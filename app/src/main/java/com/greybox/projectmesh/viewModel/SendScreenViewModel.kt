@@ -41,7 +41,13 @@ class SendScreenViewModel(
         }
     }
 
-    fun onFileChosen(uris: List<Uri>){
+    fun onFileChosen(uris: List<Uri>){//Can we copy this to the Chat screen model?
         onSwitchToSelectDestNode(uris)
+    }
+
+    fun onDelete(transfer: AppServer.OutgoingTransferInfo){
+        viewModelScope.launch {
+            appServer.removeOutgoingTransfer(transfer.id)
+        }
     }
 }

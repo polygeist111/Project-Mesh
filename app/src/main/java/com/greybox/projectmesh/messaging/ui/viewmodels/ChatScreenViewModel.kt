@@ -214,6 +214,7 @@ class ChatScreenViewModel(
 
                         if (isOnline) {
                             Log.d("ChatDebug", "Device came back online - refreshing message history")
+                            Log.d("ChatDebug SA", "DEBUG -- Refreshing with chatName='$chatName'")
                             // Force refresh messages from database
                             withContext(Dispatchers.IO) {
                                 val refreshedMessages = db.messageDao().getChatMessagesSync(chatName)
@@ -224,6 +225,7 @@ class ChatScreenViewModel(
                                     )
                                 }
                             }
+
                         } else {
                             // Update the UI state with offline warning
                             _uiState.update { prev ->

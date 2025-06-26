@@ -71,6 +71,8 @@ import android.provider.OpenableColumns
 import org.kodein.di.instance
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
@@ -170,8 +172,24 @@ fun ChatScreen(
             )
         }
     }
+
     // declare the UI state, we can use the uiState to access the current state of the viewModel
     val uiState: ChatScreenModel by viewModel.uiState.collectAsState(initial = ChatScreenModel())
+
+    // AUTO SCROLL
+    // keeps track of scroll position for LazyColumn
+    val listState = rememberLazyListState()
+    // fetch the list of chat messages
+    val messages = uiState.allChatMessages
+    // Scroll effect lunches everytime the messages size change
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            // Scroll to last message in the list, if there is any
+            listState.scrollToItem(messages.lastIndex)
+        }
+
+    }
+
     var textMessage by rememberSaveable { mutableStateOf("") }
 
     val context = LocalContext.current
@@ -220,7 +238,7 @@ fun ChatScreen(
                 }
             }
 
-            DisplayAllMessages(uiState, onClickButton)
+            DisplayAllMessages(uiState, onClickButton, listState)
         }
         Row(modifier = Modifier
             .fillMaxWidth()
@@ -367,7 +385,7 @@ fun UserStatusBar(
 }
 
 @Composable
-fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit) {
+fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit, listState: LazyListState) {
     val context = LocalContext.current
 
     //track if messages are showing:
@@ -377,7 +395,7 @@ fun DisplayAllMessages(uiState: ChatScreenModel, onClickButton: () -> Unit) {
         Log.d("ChatScreen", "DisplayAllMessages with ${uiState.allChatMessages.size} messages")
     }
 
-    LazyColumn{
+    LazyColumn(state = listState){
         if (!hasMessages){
             item {
                 Column(

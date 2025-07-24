@@ -82,6 +82,7 @@ import org.kodein.di.compose.localDI
 import org.kodein.di.direct
 import org.kodein.di.instance
 import androidx.compose.runtime.State
+import com.greybox.projectmesh.bluetooth.rememberBluetoothConnectLauncher
 import com.greybox.projectmesh.extension.hasStaApConcurrency
 import com.greybox.projectmesh.ui.theme.TransparentButton
 import com.greybox.projectmesh.viewModel.HomeScreenModel
@@ -91,6 +92,7 @@ import com.greybox.projectmesh.components.ConnectWifiLauncherResult
 import com.greybox.projectmesh.components.ConnectWifiLauncherStatus
 import com.greybox.projectmesh.components.meshrabiyaConnectLauncher
 import com.ustadmobile.meshrabiya.log.MNetLogger
+import com.ustadmobile.meshrabiya.vnet.bluetooth.MeshrabiyaBluetoothState
 
 @Composable
 // We customize the viewModel since we need to inject dependencies
@@ -121,6 +123,27 @@ fun HomeScreen(
         }
     } }
 
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.values.all { it }
+        if (allGranted) {
+            Log.d("BluetoothDebug", "Bluetooth permissions granted")
+            viewModel.onSetIncomingConnectionsEnabled(true)
+        } else {
+            Log.d("BluetoothDebug", "Bluetooth permissions NOT granted")
+        }
+    }
+
+    fun checkBluetoothPermissions(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+                    context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true // Permissions not needed pre-Android 12
+        }
+    }
+
     // if not known and android version >= 11, then use official api to check concurrency
     if(!currConcurrencyKnown.value && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){
         viewModel.saveConcurrencyKnown(true)
@@ -137,6 +160,17 @@ fun HomeScreen(
             if(enabled) {
                 if (!context.hasNearbyWifiDevicesOrLocationPermission()) {
                     requestNearbyWifiPermissionLauncher.launch(NEARBY_WIFI_PERMISSION_NAME)
+                    return@StartHomeScreen
+                }
+                // check for Bluetooth permissions
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !checkBluetoothPermissions()) {
+                    bluetoothPermissionLauncher.launch(
+                        arrayOf(
+                            android.Manifest.permission.BLUETOOTH_CONNECT,
+                            android.Manifest.permission.BLUETOOTH_SCAN,
+                            android.Manifest.permission.BLUETOOTH_ADVERTISE,
+                        )
+                    )
                     return@StartHomeScreen
                 }
                 if (uiState.hotspotTypeToCreate == HotspotType.WIFIDIRECT_GROUP) {
@@ -266,6 +300,27 @@ fun StartHomeScreen(
     // Function to check if Wi-Fi Direct is supported
     fun isWifiDirectSupported(context: Context): Boolean {
         return context.packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI_DIRECT)
+    }
+
+// Bluetooth connect launcher
+    val bluetoothLauncher = rememberBluetoothConnectLauncher { result ->
+        // when this is called, it passes back a Bluetooth Device
+        val device = result.device
+        if (device != null) {
+            // we pass this device to our client logic in the ViewModel
+            viewModel.onDeviceSelected(device) { uri ->
+                // Check if URI is valid before attempting connection
+                if (uri.isNotBlank()) {
+                    // onDeviceSelected passes back the returned URI and
+                    // sends it to connect(...) to finish connecting
+                    connect(uri, logger)
+                } else {
+                    logger(Log.ERROR, "Failed to get URI from device: ${device.address}")
+                }
+            }
+        } else {
+            logger(Log.INFO,"No Bluetooth device selected...device = null")
+        }
     }
 
     LazyColumn(
@@ -451,7 +506,28 @@ fun StartHomeScreen(
                         else
                             currConcurrencySupported.value
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TransparentButton(
+                        onClick = {
+
+                            // turns the flag on to say we are in discovery
+                            viewModel.onConnectViaBluetooth()
+
+                            // this starts the Companion Device Manager UI, the name being passed in
+                            // doesn't do anything because the filter is turned off
+                            bluetoothLauncher.launch(MeshrabiyaBluetoothState(deviceName="Test"))
+
+                            // turns the flag off once the device is selected
+                            viewModel.onBluetoothDiscoveryLaunched()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(4.dp),
+                        text = stringResource(id = R.string.connect_via_bluetooth),
+                        enabled = if (!uiState.hotspotStatus) true else currConcurrencySupported.value
+                    )
                 }
+
                 // If the stationState is not INACTIVE, it displays a ListItem that represents
                 // the current connection status.
                 else{
@@ -503,10 +579,12 @@ fun StartHomeScreen(
                                 id = R.string.hotspot_status_online)
                             else stringResource(id = R.string.hotspot_status_offline))
                 Box(
-                    modifier = Modifier.size(8.dp).background(
-                        color = if (uiState.hotspotStatus) Color.Green else Color.Red,
-                        shape = CircleShape
-                    )
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(
+                            color = if (uiState.hotspotStatus) Color.Green else Color.Red,
+                            shape = CircleShape
+                        )
                 )
             }
         }

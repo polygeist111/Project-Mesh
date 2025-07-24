@@ -1,12 +1,17 @@
 package com.greybox.projectmesh.viewModel
 
+import android.bluetooth.BluetoothDevice
 import android.content.SharedPreferences
 import android.os.Build
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.greybox.projectmesh.bluetooth.BluetoothServer
+import com.greybox.projectmesh.bluetooth.BluetoothUuids
+import com.ustadmobile.meshrabiya.client.HttpOverBluetoothClient
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
+import com.ustadmobile.meshrabiya.vnet.bluetooth.MeshrabiyaBluetoothState
 import com.ustadmobile.meshrabiya.vnet.wifi.ConnectBand
 import com.ustadmobile.meshrabiya.vnet.wifi.HotspotType
 import com.ustadmobile.meshrabiya.vnet.wifi.WifiConnectConfig
@@ -17,11 +22,18 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.kodein.di.DI
+import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
+import okio.IOException
 import org.kodein.di.instance
+import rawhttp.core.RawHttp
+import java.util.concurrent.TimeoutException
+
 
 
 data class HomeScreenModel(
@@ -37,6 +49,10 @@ data class HomeScreenModel(
     val hotspotStatus: Boolean = false,
     val isWifiConnected: Boolean = false,
     val nodesOnMesh: Set<Int> = emptySet(),
+    // added for Bluetooth tracking
+    val bluetoothState: MeshrabiyaBluetoothState? = null,
+    val bluetoothServerRunning: Boolean = false,
+    val startBluetoothDiscovery: Boolean = false,
 ){
     val wifiConnectionEnabled: Boolean
         get() = wifiState?.connectConfig != null
@@ -60,6 +76,12 @@ class HomeScreenViewModel(di: DI,
     // Concurrency Supported State
     private val _concurrencySupported = MutableStateFlow(loadConcurrencySupported())
     val concurrencySupported: StateFlow<Boolean> = _concurrencySupported
+
+    // inject Bluetooth server instance
+    private val bluetoothServer: BluetoothServer by di.instance()
+    // inject Bluetooth client instance
+    private val bluetoothClient: HttpOverBluetoothClient by di.instance()
+    private val rawHttp: RawHttp by di.instance()
 
     private val sharedPrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == CONCURRENCY_KNOWN_KEY || key == CONCURRENCY_SUPPORTED_KEY) {
@@ -104,6 +126,7 @@ class HomeScreenViewModel(di: DI,
             }
         }
         settingPrefs.registerOnSharedPreferenceChangeListener(sharedPrefsListener)
+        bluetoothWatcher()
     }
 
     private fun loadConcurrencyKnown(): Boolean {
@@ -115,6 +138,188 @@ class HomeScreenViewModel(di: DI,
         settingPrefs.edit().putBoolean(CONCURRENCY_KNOWN_KEY, concurrencyKnown).apply()
     }
 
+    // -------- Bluetooth Server Functions Start ---------
+    private fun updateBluetoothServerURI(connectURI: String) {
+        try{
+            Log.d("BluetoothDebug", "Received new URI: $connectURI")
+            bluetoothServer.updateConnectURI(connectURI)
+
+            val currentState = _uiState.value
+
+            if (currentState.wifiConnectionEnabled && bluetoothServer.hasValidURI()) {
+                Log.d("BluetoothDebug", "URI update complete and hotspot enabled. Starting Bluetooth Server")
+                startBluetoothServer()
+            } else {
+                Log.d("BluetoothDebug", "URI update complete but hotspot not enabled.")
+            }
+
+        } catch (e: Exception) {
+            Log.e("BluetoothError", "Failed to update Bluetooth Server URI", e)
+        }
+    }
+
+    private fun startBluetoothServer() {
+        try {
+            val currentState = _uiState.value
+
+            if(!currentState.wifiConnectionEnabled){
+                Log.d("BluetoothDebug", "Failed to start server, hotspot disabled.")
+                return
+            }
+
+            if (!bluetoothServer.hasValidURI()){
+                Log.d("BluetoothDebug", "Failed to start server, URI is not valid")
+                return
+            }
+
+            if (currentState.bluetoothServerRunning){
+                Log.d("BluetoothDebug", "Failed to start server, the server is already running")
+                return
+            }
+
+            bluetoothServer.start()
+            _uiState.update { it.copy(bluetoothServerRunning = true) }
+            Log.d("BluetoothDebug", "Bluetooth Server started successful")
+
+        } catch (e: Exception) {
+            Log.e("BluetoothError", "Failed to start Bluetooth server", e)
+        }
+    }
+
+    private fun stopBluetoothServer() {
+        try{
+            val currentState = _uiState.value
+
+            if(!currentState.bluetoothServerRunning){
+                Log.d("BluetoothDebug", "Bluetooth Server not running, nothing to stop")
+                return
+            }
+
+            bluetoothServer.stop()
+            _uiState.update { it.copy(bluetoothServerRunning = false) }
+            Log.d("BluetoothDebug", "Bluetooth server successfully stopped")
+
+        } catch (e: Exception) {
+            Log.e("BluetoothError", "Failed to stop Bluetooth Server", e)
+        }
+    }
+
+    private fun bluetoothWatcher() {
+        viewModelScope.launch {
+            uiState
+                .map { it.connectUri }
+                .distinctUntilChanged()
+                .collect { connectUri ->
+                    if (connectUri != null) {
+                        Log.d("BluetoothDebug", "This node's URI has been generated $connectUri")
+
+                        // make a call to update the server if the hotspot is enabled
+                        if(_uiState.value.wifiConnectionEnabled) {
+                            updateBluetoothServerURI(connectUri)
+                        } else {
+                            Log.d("BluetoothDebug", "URI is available but the hotspot is disabled")
+                        }
+                    }
+                }
+        }
+
+        viewModelScope.launch {
+            uiState
+                .map { it.wifiConnectionEnabled }
+                .distinctUntilChanged()
+                .collect { enabled ->
+                    Log.d("BluetoothDebug", "wifiConnectionEnabled state changed: $enabled")
+
+                    if (enabled) {
+                        Log.d("BluetoothDebug", "Hotspot enabled, Bluetooth server starting...")
+                        startBluetoothServer()
+                    } else {
+                        Log.d("BluetoothDebug", "Hotspot disabled, Bluetooth server stopping...")
+                        stopBluetoothServer()
+                    }
+                }
+        }
+    }
+// ---------------- Bluetooth Server Functions End ------
+
+// ---------------- Bluetooth Client Functions Start ----
+fun onDeviceSelected(
+    device: BluetoothDevice?,
+    onUriReceived: (String) -> Unit
+) {
+    _uiState.update {
+        it.copy(startBluetoothDiscovery = false)
+    }
+
+    if (device == null) {
+        Log.d("BluetoothDebug", "Bluetooth device = null!!")
+        return
+    }
+
+    viewModelScope.launch {
+        try {
+            Log.d("BluetoothDebug", "Connecting to device: ${device.address}")
+
+            // we build the request to get the URI
+            val request = rawHttp.parseRequest(
+                "GET /api/connect-uri HTTP/1.1\r\n" +
+                        "Host: ${device.address}\r\n" +
+                        "User-Agent: Meshrabiya\r\n" +
+                        "\r\n"
+            )
+
+            val response = bluetoothClient.sendRequest(
+                remoteAddress = device.address,
+                uuidMask = BluetoothUuids.ALLOCATION_SERVICE_UUID,
+                request = request
+            )
+
+            response.use {btResponse ->
+                when (btResponse.response.statusCode) {
+                    200 -> {
+                        Log.d("BluetoothDebug", "200 -- OKAY!")
+                        val uri = btResponse.response.body.get().toString().trim()
+                        onUriReceived(uri)
+                    }
+                    503 -> {
+                        Log.d("BluetoothDebug", "Server busy")
+                    }
+                    else -> {
+                        Log.e("BluetoothError", "Unexpected response: ${btResponse.response.statusCode}")
+                    }
+                }
+            }
+
+
+        } catch(e : Exception){
+            Log.e("BluetoothError", "Unexpected Error", e)
+        } catch(e: TimeoutException){
+            Log.e("BluetoothError", "Timeout!", e)
+        } catch(e: IOException){
+            Log.e("BluetoothError", "Connection failed!", e)
+        }
+    }
+}
+
+
+
+fun onConnectViaBluetooth() {
+    Log.d("BluetoothDebug", "ViewModel: onConnectViaBluetooth called!")
+
+    _uiState.update {
+        Log.d("BluetoothDebug", "Updating startBluetoothDiscovery = true")
+        it.copy(startBluetoothDiscovery = true)
+    }
+}
+
+    fun onBluetoothDiscoveryLaunched() {
+        Log.d("BluetoothDebug", "startBluetoothDiscovery = false")
+        _uiState.update {
+            it.copy(startBluetoothDiscovery = false)
+        }
+    }
+
+// ---------------- Bluetooth Client Functions End ------
     private fun loadConcurrencySupported(): Boolean {
         return settingPrefs.getBoolean(CONCURRENCY_SUPPORTED_KEY, true)
     }

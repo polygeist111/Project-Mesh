@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.greybox.projectmesh.bluetooth.BluetoothServer
 import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.extension.deviceInfo
 import com.greybox.projectmesh.messaging.repository.ConversationRepository
@@ -46,7 +47,9 @@ import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.messaging.utils.MessageMigrationUtils
 import com.greybox.projectmesh.testing.TestDeviceService
 import com.greybox.projectmesh.user.UserEntity
+import com.ustadmobile.meshrabiya.client.HttpOverBluetoothClient
 import com.ustadmobile.meshrabiya.log.MNetLogger
+import rawhttp.core.RawHttp
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -396,6 +399,31 @@ class GlobalApp : Application(), DIAware {
                 userRepository = instance()
             )
         }
+
+        // Bluetooth dependencies -----
+        bind<RawHttp>() with singleton {
+            RawHttp()
+        }
+
+        bind<HttpOverBluetoothClient>() with singleton {
+            val node: AndroidVirtualNode = instance()
+            HttpOverBluetoothClient(
+                appContext = applicationContext,
+                rawHttp = instance(),
+                logger = instance(),
+                clientNodeAddr = node.addressAsInt,
+            )
+        }
+
+        bind<BluetoothServer>() with singleton {
+            BluetoothServer(
+                context = applicationContext,
+                rawHttp = instance(),
+                logger = instance(),
+                connectURI = "placeholder://will-be-updated"
+            )
+        }
+        // ---------------------
 
         onReady {
             // clears all data in the existing tables

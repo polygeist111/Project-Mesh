@@ -59,5 +59,6 @@
     <string name="log">Log</string>
 
     <string name="chat">Chat</string>
+    <string name="connect_via_bluetooth">Connect via Bluetooth</string>
 
 </resources>

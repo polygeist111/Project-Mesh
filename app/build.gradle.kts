@@ -106,6 +106,7 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.31.1-alpha")
     // Core Kodein DI dependency
 
+
     // For Android-specific features
     implementation ("org.kodein.di:kodein-di-framework-android-x:7.20.2")
 
@@ -145,4 +146,7 @@ dependencies {
 
     // For JSON serialisation
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+    // For Bluetooth transfer
+    implementation ("com.athaydes.rawhttp:rawhttp-core:2.6.0")
 }

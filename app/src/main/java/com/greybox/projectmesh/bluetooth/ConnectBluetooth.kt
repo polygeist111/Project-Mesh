@@ -1,8 +1,10 @@
 package com.greybox.projectmesh.bluetooth
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
 import android.companion.AssociationRequest
 import android.companion.BluetoothDeviceFilter
 import android.companion.CompanionDeviceManager
@@ -35,122 +37,28 @@ data class ConnectBluetoothLauncherResult(
 )
 
 /**
- * Manage connecting a Bluetooth device including requesting permission (if required) and using
- * CompanionDeviceManager to associate with the device.
- *
- * Use as follows
- *
- * val bluetoothLauncher = rememberBluetoothConnectLauncher { result ->
- *     if(result.device != null) {
- *         //connect and use it
- *     }
- * }
- *
- * ...
- *
- * //Where config provides the bluetooth config e.g. device name etc.
- *
- * bluetoothLauncher.launch(config)
- */
+*/
+@SuppressLint("MissingPermission")
 @Composable
-fun rememberBluetoothConnectLauncher(
-    onResult: (ConnectBluetoothLauncherResult) -> Unit,
+    fun rememberBluetoothConnectLauncher(
+onResult: (ConnectBluetoothLauncherResult) -> Unit,
 ) : ConnectBluetoothLauncher {
-
-    var associateAfterPermissionConfig: MeshrabiyaBluetoothState? by remember {
-        mutableStateOf(null)
-    }
 
     val context = LocalContext.current
 
-    val associateIntentSenderLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartIntentSenderForResult(),
-    )  { result ->
-        if(result.resultCode == Activity.RESULT_OK) {
-            val device: BluetoothDevice? = result.data?.getParcelableExtra(
-                CompanionDeviceManager.EXTRA_DEVICE
-            )
+    return ConnectBluetoothLauncher { config ->
+        val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
+        val bluetoothAdapter = bluetoothManager?.adapter
 
-            onResult(ConnectBluetoothLauncherResult(device))
-        }
-    }
+        if (bluetoothAdapter?.isEnabled == true) {
+            val bondedDevices = bluetoothAdapter.bondedDevices
 
-    /** This is written to filter devices based on their device name
-     *  which would be stored in MeshrabiyaBluetoothState object...
-     *  However... that wasn't working for me even when I manually set
-     *  the Bluetooth device name on the phone itself...
-     *  I commented out that filter so that it would display all devices
-     *  but none of the devices I am looking for show up in the scan
-     */
-
-    fun associate(config: MeshrabiyaBluetoothState) {
-        Log.d(LOG_TAG, "ConnectBluetooth: start associate")
-        val deviceFilter = BluetoothDeviceFilter.Builder()
-
-            // EDIT - this is commented out to show all devices in scan
-            //.setNamePattern(Pattern.compile(Pattern.quote(config.deviceName)))
-            .build()
-        
-        val pairingRequest: AssociationRequest = AssociationRequest.Builder()
-            .addDeviceFilter(deviceFilter)
-            .setSingleDevice(false)
-            .build()
-
-        val deviceManager : CompanionDeviceManager =
-            context.getSystemService(Context.COMPANION_DEVICE_SERVICE) as CompanionDeviceManager
-
-        deviceManager.associate(
-            pairingRequest,
-            object: CompanionDeviceManager.Callback() {
-                @Deprecated("Thank you Google")
-                override fun onDeviceFound(intentSender: IntentSender) {
-                    Log.d(LOG_TAG, "ConnectBluetooth: onDeviceFound: Launching intent sender")
-                    associateIntentSenderLauncher.launch(
-                        IntentSenderRequest.Builder(intentSender)
-                            .build()
-                    )
-
-                }
-
-                override fun onFailure(p0: CharSequence?) {
-                    Log.e(LOG_TAG, "ConnectBluetooth: associateRequest: onFailure: $p0")
-                    onResult(ConnectBluetoothLauncherResult(device = null))
-                }
-            },
-            null
-        )
-    }
-
-    val requestPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        val btConfig = associateAfterPermissionConfig ?: return@rememberLauncherForActivityResult
-        associateAfterPermissionConfig = null
-
-        if(granted) {
-            associate(btConfig)
-        }else {
-            onResult(
-                ConnectBluetoothLauncherResult(
-                    device = null
-                )
-            )
-        }
-    }
-
-    return ConnectBluetoothLauncher {
-        Log.d(LOG_TAG, "ConnectBluetoothLauncher: config=${it}")
-        //check permission
-        if(Build.VERSION.SDK_INT >= 31 &&
-            ContextCompat.checkSelfPermission(
-                context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
-        ) {
-            Log.d(LOG_TAG, "ConnectBluetoothLauncher: request bluetooth connect permission")
-            associateAfterPermissionConfig = it
-            requestPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
-        }else {
-            Log.d(LOG_TAG, "ConnectBluetoothLauncher: start association")
-            associate(it)
+            // Show a simple selection dialog with bonded devices
+            // Or automatically try the first bonded device for testing
+            val testDevice = bondedDevices.firstOrNull()
+            onResult(ConnectBluetoothLauncherResult(testDevice))
+        } else {
+            onResult(ConnectBluetoothLauncherResult(null))
         }
     }
 }

@@ -263,7 +263,7 @@ fun onDeviceSelected(
             // we build the request to get the URI
             val request = rawHttp.parseRequest(
                 "GET /api/connect-uri HTTP/1.1\r\n" +
-                        "Host: ${device.address}\r\n" +
+                        "Host: ${device.address.replace(":", "-")}.bluetooth\r\n" +
                         "User-Agent: Meshrabiya\r\n" +
                         "\r\n"
             )

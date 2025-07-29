@@ -526,6 +526,9 @@ fun StartHomeScreen(
                         text = stringResource(id = R.string.connect_via_bluetooth),
                         enabled = if (!uiState.hotspotStatus) true else currConcurrencySupported.value
                     )
+                    Text(modifier = Modifier.padding(6.dp), text = "1. Go to Settings >> Connected Devices\n"+
+                            "2. Pair with the device you want to connect to\n"+
+                            "3. Then press this button to connect")
                 }
 
                 // If the stationState is not INACTIVE, it displays a ListItem that represents

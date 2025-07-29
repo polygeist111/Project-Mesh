@@ -47,7 +47,7 @@ import com.greybox.projectmesh.messaging.data.entities.Message
 import com.greybox.projectmesh.messaging.utils.MessageMigrationUtils
 import com.greybox.projectmesh.testing.TestDeviceService
 import com.greybox.projectmesh.user.UserEntity
-import com.ustadmobile.meshrabiya.client.HttpOverBluetoothClient
+import com.greybox.projectmesh.bluetooth.HttpOverBluetoothClient
 import com.ustadmobile.meshrabiya.log.MNetLogger
 import rawhttp.core.RawHttp
 import java.text.SimpleDateFormat

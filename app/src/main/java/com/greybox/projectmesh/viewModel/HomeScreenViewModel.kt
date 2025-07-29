@@ -9,7 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.greybox.projectmesh.bluetooth.BluetoothServer
 import com.greybox.projectmesh.bluetooth.BluetoothUuids
-import com.ustadmobile.meshrabiya.client.HttpOverBluetoothClient
+import com.greybox.projectmesh.bluetooth.HttpOverBluetoothClient
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
 import com.ustadmobile.meshrabiya.vnet.bluetooth.MeshrabiyaBluetoothState
 import com.ustadmobile.meshrabiya.vnet.wifi.ConnectBand

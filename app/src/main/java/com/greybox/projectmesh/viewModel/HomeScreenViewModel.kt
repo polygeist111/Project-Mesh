@@ -278,7 +278,11 @@ fun onDeviceSelected(
                 when (btResponse.response.statusCode) {
                     200 -> {
                         Log.d("BluetoothDebug", "200 -- OKAY!")
-                        val uri = btResponse.response.body.get().toString().trim()
+
+                        val bodyBytes = btResponse.response.body.get().asRawBytes()
+                        val uri = String(bodyBytes).trim()
+
+                        Log.d("BluetoothDebug", "Received URI: $uri")
                         onUriReceived(uri)
                     }
                     503 -> {

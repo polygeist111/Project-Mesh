@@ -8,7 +8,6 @@ plugins {
 
 android {
     namespace = "com.greybox.projectmesh"
-    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.greybox.projectmesh"
@@ -57,9 +56,11 @@ android {
             isUniversalApk = true
         }
     }
+    compileSdk = 34
 }
 
 dependencies {
+    implementation("com.athaydes.rawhttp:rawhttp-core:2.6.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.jetbrainsKotlinAndroid)
-    id("kotlin-kapt")
     id("com.google.devtools.ksp") version "1.9.0-1.0.13"
     kotlin("plugin.serialization") version "1.9.0"
 }
@@ -20,6 +19,11 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+    }
+    
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+        unitTests.isIncludeAndroidResources = true // helps Robolectric later if you add it
     }
 
     buildTypes {
@@ -86,6 +90,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.android)
     testImplementation(libs.junit)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -102,7 +107,6 @@ dependencies {
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation(libs.androidx.appcompat)
     implementation ("io.coil-kt:coil-compose:1.4.0")
-    implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.google.accompanist:accompanist-permissions:0.31.1-alpha")
     // Core Kodein DI dependency
@@ -116,7 +120,6 @@ dependencies {
     val room_version = "2.6.1"
 
     implementation("androidx.room:room-runtime:$room_version")
-    annotationProcessor("androidx.room:room-compiler:$room_version")
 
     // To use Kotlin annotation processing tool (kapt)
     // kapt("androidx.room:room-compiler:$room_version")
@@ -146,4 +149,6 @@ dependencies {
 
     // For JSON serialisation
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+    androidTestUtil("androidx.test:orchestrator:1.5.1")
 }

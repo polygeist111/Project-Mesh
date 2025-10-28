@@ -1,3 +1,16 @@
+package com.greybox.projectmesh.bluetooth
+
+import android.util.Log
+import com.greybox.projectmesh.messaging.data.entities.Message
+import com.ustadmobile.meshrabiya.log.MNetLogger
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import org.kodein.di.DI
+import org.kodein.di.instance
+import rawhttp.core.RawHttp
+import rawhttp.core.body.StringBody
+import java.net.InetAddress
+import java.net.URI
 
 /**
  * Client for sending chat messages over Bluetooth.
@@ -6,14 +19,13 @@
 class BluetoothMessageClient(
     private val mLogger: MNetLogger,
     private val rawHttp: RawHttp,
-    private val db: MeshDatabase,
     private val json: Json,
     override val di: DI,
-    val localVirtualAddr: InetAddress,
-    )
-    // import client object
-    private val bluetoothClient: HttpOverBluetoothClient by di.instance()
+    private val localVirtualAddr: InetAddress,
+) : org.kodein.di.DIAware {
 
+    // Provided via DI
+    private val bluetoothClient: HttpOverBluetoothClient by di.instance()
 
     /**
      * This function mirrors sendChatMessageWithStatus() from Wi-Fi implementation.
@@ -23,54 +35,58 @@ class BluetoothMessageClient(
      * - POSTs to same /chat endpoint
      * - Returns boolean success/failure
      */
-    suspend fun sendBluetoothMessageWithStatus(
+    suspend fun sendBtChatMessageWithStatus(
         macAddress: String,
         time: Long,
         message: String,
         f: URI?
     ): Boolean {
-        try {
-
-            // Step 1: Build the Message object (same as wifi)
-            val gs = Gson()
+        return try {
+            // Build the same Message object Wi-Fi uses
             val msg = Message(
                 id = 0,
                 dateReceived = time,
-                sender = localVirtualAddr.hostName,  // this will still be generated even if wifi is unavailable
-                chat = macAddress,  // 
+                sender = localVirtualAddr.hostName,   // keep consistent with Wi-Fi path
+                chat = macAddress,                    // temporary: use MAC to identify conversation
                 content = message,
-                file = null  // theirs is also null
+                file = null                           // keep null until file over BT is implemented
             )
-            
-            // Step 2: Serialize to JSON (same as wifi)
-            val msgJson = gs.toJson(msg)
+
+            // Serialize to JSON using kotlinx.serialization (consistent with server)
+            val msgJson = json.encodeToString(msg)
             Log.d("BluetoothClient", "Message JSON: $msgJson")
-            
-            // Step 3: Construct raw HTTP POST request
-            // same as wifi: Request.Builder().url(httpUrl).post(rbody) -> translated to RawHttp
-            // val request = 
-            
-            // Step 4: Send the request via Bluetooth
-            // same as wifi: httpClient.newCall(request).execute().use { response -> ... }
-            // val response -> use sendRequest() from BluetoothOverHttpClient
-            
-            // Step 5: Check response status (same as onDeviceSelected() from QR implementation)
-            // reference: https://www.notion.so/grey-box/Bluetooth-QR-Alternative-Branch-247815ddf30b80058b23ff1e483082fd
-             response.use {btResponse ->
-                when (){
 
-                    // parse response code and return true if ok/ else return false
+            // Build a Raw HTTP POST /chat request
+            // Host header: same pattern from the QR example (MAC with ':' replaced)
+            val hostHeader = macAddress.replace(":", "-") + ".bluetooth"
+            val request = rawHttp.parseRequest(
+                "POST /chat HTTP/1.1\r\n" +
+                        "Host: $hostHeader\r\n" +
+                        "User-Agent: Meshrabiya\r\n" +
+                        "Content-Type: application/json\r\n" +
+                        "\r\n"
+            ).withBody(StringBody(msgJson))
 
-                }
+            // Send it over Bluetooth using the allocation service UUID mask
+            val response = bluetoothClient.sendRequest(
+                remoteAddress = macAddress,
+                uuidMask = BluetoothUuids.ALLOCATION_SERVICE_UUID,
+                request = request
+            )
+
+            // Check status and close resources
+            response.use { btResponse ->
+                val code = btResponse.response.statusCode
+                val reason = btResponse.response.startLine.reason
+                Log.d("BluetoothClient", "BT response: $code $reason")
+                code == 200
             }
-            
         } catch (e: SecurityException) {
             Log.e("BluetoothClient", "Security exception sending to $macAddress: ${e.message}", e)
-            return false
+            false
         } catch (e: Exception) {
-            Log.e("BluetoothClient", "Failed to send message to $macAddress: ${e.message}", e)
-            return false
+            Log.e("BluetoothClient", "Failed to send to $macAddress: ${e.message}", e)
+            false
         }
     }
 }
-

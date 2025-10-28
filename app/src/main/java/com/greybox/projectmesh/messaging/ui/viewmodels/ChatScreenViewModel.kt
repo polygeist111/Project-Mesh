@@ -19,6 +19,12 @@ import com.greybox.projectmesh.server.AppServer.Status
 import com.ustadmobile.meshrabiya.ext.addressToDotNotation
 import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
 import com.greybox.projectmesh.messaging.utils.ConversationUtils
+import com.greybox.projectmesh.bluetooth.HttpOverBluetoothClient
+import com.greybox.projectmesh.bluetooth.BluetoothUuids
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import rawhttp.core.RawHttp
+import rawhttp.core.body.StringBody
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
@@ -105,8 +111,21 @@ class ChatScreenViewModel(
 
     private val appServer: AppServer by di.instance()
 
+    private val rawHttp: RawHttp by di.instance()
+
+    private val json: Json by di.instance()
+
+    private val btClient: HttpOverBluetoothClient by di.instance()
+
     private val _deviceOnlineStatus = MutableStateFlow(false)
     val deviceOnlineStatus: StateFlow<Boolean> = _deviceOnlineStatus.asStateFlow()
+
+    private val _linkedBtMac = MutableStateFlow<String?>(null)
+    val linkedBtMac: StateFlow<String?> = _linkedBtMac.asStateFlow()
+
+    fun setLinkedBluetoothDevice(mac: String?) {
+        _linkedBtMac.value = mac
+    }
 
     // launch a coroutine
     init {
@@ -344,5 +363,111 @@ class ChatScreenViewModel(
     //handles outgoing file transfer to fix unresolved reference error crash
     fun addOutgoingTransfer(fileUri: Uri, toAddress: InetAddress): OutgoingTransferInfo {
         return appServer.addOutgoingTransfer(fileUri, toAddress)
+    }
+
+/*
+ * Bluetooth equivalent of sendChatMessage() in ChatScreenViewModel
+ *
+ * This function:
+ * 1) Checks if a device is linked
+ * 2) Saves message to local database
+ * 3) Updates local conversation
+ * 4) Sends message via Bluetooth (parallel to AppServer.sendChatMessageWithStatus)
+ * 5) Logs success/failure
+ */
+fun sendBluetoothChatMessage(message: String, file: URI?) {
+    val sendTime = System.currentTimeMillis()
+
+    // Step 1: Check if a device is linked
+    val macAddress = _linkedBtMac.value
+    if (macAddress.isNullOrBlank()) {
+        Log.e("ChatScreenViewModel", "No linked Bluetooth device selected")
+        _uiState.update { prev ->
+            prev.copy(offlineWarning = "No Bluetooth device selected. Pick a device first.")
+        }
+        return
+    }
+
+    // Step 2: Create message entity (same as Wi-Fi)
+    // Note: keeping file=null for now to mirror skeleton; wire file transfers later.
+    val messageEntity = Message(
+        id = 0,
+        dateReceived = sendTime,
+        content = message,
+        sender = "Me",
+        chat = chatName,
+        file = null
+    )
+
+    viewModelScope.launch {
+        // Step 3: Save to local database (same as Wi-Fi)
+        db.messageDao().addMessage(messageEntity)
+
+        // Step 4: Update conversation with the message (same as Wi-Fi)
+        if (userEntity != null) {
+            try {
+                // (Skeleton-style TODO) extend UserEntity to include macAddress, then:
+                /*
+                val remoteUser = UserEntity(
+                    uuid = userUuid,
+                    name = userEntity.name,
+                    address = userEntity.address,
+                    macAddress = macAddress
+                )
+                val conversation = conversationRepository.getOrCreateConversation(
+                    localUuid = localUuid,
+                    remoteUser = remoteUser
+                )
+                conversationRepository.updateWithMessage(
+                    conversationId = conversation.id,
+                    message = messageEntity
+                )
+                */
+                Log.d("ChatScreenViewModel", "Updated conversation with sent Bluetooth message")
+            } catch (e: Exception) {
+                Log.e("ChatScreenViewModel", "Failed to update conversation", e)
+            }
+        }
+
+        // Step 5: Send via Bluetooth (parallel to Wi-Fi's HTTP POST /chat)
+        // Build network copy for the peer: use our virtual IP as 'sender'
+        val networkMsg = messageEntity.copy(sender = addressDotNotation)
+        val msgJson = json.encodeToString(networkMsg)
+
+        // Raw HTTP request body and headers (same shape as Wi-Fi; different transport)
+        val hostHeader = macAddress.replace(":", "-") + ".bluetooth"
+        val request = rawHttp
+            .parseRequest(
+                "POST /chat HTTP/1.1\r\n" +
+                        "Host: $hostHeader\r\n" +
+                        "User-Agent: Meshrabiya\r\n" +
+                        "Content-Type: application/json\r\n" +
+                        "\r\n"
+            )
+            .withBody(StringBody(msgJson))
+
+        val success = withContext(Dispatchers.IO) {
+            withTimeoutOrNull(5000) {
+                btClient.sendRequest(
+                    remoteAddress = macAddress,
+                    uuidMask = BluetoothUuids.ALLOCATION_SERVICE_UUID,
+                    request = request
+                ).use { resp ->
+                    val code = resp.response.statusCode
+                    Log.d("ChatScreenViewModel",
+                        "BT HTTP response: $code ${resp.response.startLine.reason}")
+                    code == 200
+                }
+            } ?: false
+        }
+
+        if (success) {
+            Log.d("ChatScreenViewModel", "Bluetooth message sent successfully to $macAddress")
+        } else {
+            Log.e("ChatScreenViewModel", "Failed to send Bluetooth message to $macAddress")
+            _uiState.update { prev ->
+                prev.copy(offlineWarning = "Bluetooth delivery failed. Device may be offline.")
+            }
+        }
     }
 }

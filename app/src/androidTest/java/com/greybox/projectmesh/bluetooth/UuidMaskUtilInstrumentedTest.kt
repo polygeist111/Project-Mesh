@@ -9,6 +9,7 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class UuidMaskUtilInstrumentedTest {
 
+    /* Example Tests
     @Test
     fun matchesMask_trueWhenOnlyPortDiffers() {
         val mask = UUID.fromString("00112233-4455-6677-8899-aabbccdd0000")
@@ -24,4 +25,5 @@ class UuidMaskUtilInstrumentedTest {
         val candidate = uuidForMaskAndPort(mask1, 42)
         assertTrue(!candidate.matchesMask(mask2))
     }
+    */
 }

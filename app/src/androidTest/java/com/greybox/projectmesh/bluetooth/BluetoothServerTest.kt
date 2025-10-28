@@ -8,18 +8,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import rawhttp.core.RawHttp
 
-/**
- * Placeholder: enable and flesh out once BluetoothServer.handleRequest is implemented.
- *
- * Suggested first real test:
- *  - Build a GET request and assert handleRequest returns 200 + expected body.
- */
 @RunWith(AndroidJUnit4::class)
 class BluetoothServerTest {
 
     private val appContext: Context = ApplicationProvider.getApplicationContext()
     private val rawHttp = RawHttp()
 
+    /* Example tests
     @Ignore("Enable after implementing BluetoothServer.handleRequest")
     @Test
     fun handleRequest_returnsExpectedResponse() {
@@ -37,4 +32,5 @@ class BluetoothServerTest {
         // assertTrue(resp.body.isPresent)
         // assertEquals("pong", resp.body.get().asRawString(Charsets.UTF_8))
     }
+    */
 }

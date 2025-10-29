@@ -61,8 +61,10 @@ class ChatScreenViewModel(
     private val passedConversationId = savedStateHandle.get<String>("conversationId")
     private val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
     private val localUuid = sharedPrefs.getString("UUID", null) ?: "local-user"
+
     // NEW
     private val isOfflineMode = ipStr == "0.0.0.0" || passedConversationId != null
+
     //Get User info
     // UPDATED: Get user entity differently based on mode
     private val userEntity = runBlocking {
@@ -78,6 +80,7 @@ class ChatScreenViewModel(
             GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)
         }
     }
+
     // Use the retrieved user name (fallback to "Unknown" if no user is found)
     private val deviceName = userEntity?.name ?: "Unknown"
 
@@ -89,6 +92,7 @@ class ChatScreenViewModel(
             val uuids = passedConversationId.split("-")
             uuids.find { it != localUuid } ?: "unknown"
         }
+
         TestDeviceService.isOnlineTestDevice(virtualAddress) -> "test-device-uuid"
         ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE -> "offline-test-device-uuid"
         else -> userEntity?.uuid ?: "unknown-${virtualAddress.hostAddress}"
@@ -97,8 +101,8 @@ class ChatScreenViewModel(
     private val savedConversationId = savedStateHandle.get<String>("conversationId")
     //Log.d("ChatDebug", "GOT CONVERSATION ID FROM SAVED STATE: $savedConversationId")
 
-    private val conversationId = passedConversationId ?:
-    ConversationUtils.createConversationId(localUuid, userUuid)
+    private val conversationId =
+        passedConversationId ?: ConversationUtils.createConversationId(localUuid, userUuid)
 
     private val chatName = savedConversationId ?: conversationId
     //Log.d("ChatDebug", "USING CHAT NAME: $chatName (saved: $savedConversationId, generated: $conversationId)")
@@ -164,7 +168,10 @@ class ChatScreenViewModel(
 
         // If we have a conversation ID from navigation, use it directly
         val effectiveChatName = if (savedConversationId != null) {
-            Log.d("ChatDebug", "USING SAVED CONVERSATION ID: $savedConversationId INSTEAD OF GENERATED: $chatName")
+            Log.d(
+                "ChatDebug",
+                "USING SAVED CONVERSATION ID: $savedConversationId INSTEAD OF GENERATED: $chatName"
+            )
             savedConversationId
         } else {
             chatName
@@ -207,7 +214,10 @@ class ChatScreenViewModel(
                     _uiState.update { prev ->
                         prev.copy(allChatMessages = initialMessages)
                     }
-                    Log.d("ChatDebfug", "IMMEDIATELY LOADED ${initialMessages.size} MESSAGES FOR OFFLINE ACCESS")
+                    Log.d(
+                        "ChatDebfug",
+                        "IMMEDIATELY LOADED ${initialMessages.size} MESSAGES FOR OFFLINE ACCESS"
+                    )
                 } else {
                     Log.d("ChatDebug", "NO INITIAL MESSAGES FOUND FOR CHAT: $chatName")
                 }
@@ -262,10 +272,14 @@ class ChatScreenViewModel(
                         _deviceOnlineStatus.value = isOnline
 
                         if (isOnline) {
-                            Log.d("ChatDebug", "Device came back online - refreshing message history")
+                            Log.d(
+                                "ChatDebug",
+                                "Device came back online - refreshing message history"
+                            )
                             // Force refresh messages from database
                             withContext(Dispatchers.IO) {
-                                val refreshedMessages = db.messageDao().getChatMessagesSync(chatName)
+                                val refreshedMessages =
+                                    db.messageDao().getChatMessagesSync(chatName)
                                 _uiState.update { prev ->
                                     prev.copy(
                                         allChatMessages = refreshedMessages,
@@ -315,14 +329,23 @@ class ChatScreenViewModel(
                         address = userEntity.address,
                         macAddress = macAddress
                     )
-                    Log.d("ChatScreenViewModel", "Linked Bluetooth device $macAddress to user $userUuid")
+                    Log.d(
+                        "ChatScreenViewModel",
+                        "Linked Bluetooth device $macAddress to user $userUuid"
+                    )
 
                     // Optional: Verify it was saved correctly
                     val updatedUser = GlobalApp.GlobalUserRepo.userRepository.getUser(userUuid)
-                    Log.d("ChatScreenViewModel", "Verified MAC in database: ${updatedUser?.macAddress}")
+                    Log.d(
+                        "ChatScreenViewModel",
+                        "Verified MAC in database: ${updatedUser?.macAddress}"
+                    )
 
                 } else {
-                    Log.w("ChatScreenViewModel", "Cannot link Bluetooth device - userEntity is null")
+                    Log.w(
+                        "ChatScreenViewModel",
+                        "Cannot link Bluetooth device - userEntity is null"
+                    )
                 }
             } catch (e: Exception) {
                 Log.e("ChatScreenViewModel", "Error linking Bluetooth device", e)
@@ -416,7 +439,10 @@ class ChatScreenViewModel(
                 }
 
                 if (success) {
-                    Log.d("ChatScreenViewModel", "Bluetooth message sent successfully to $linkedMacAddress")
+                    Log.d(
+                        "ChatScreenViewModel",
+                        "Bluetooth message sent successfully to $linkedMacAddress"
+                    )
                 } else {
                     Log.e(
                         "ChatScreenViewModel",
@@ -491,7 +517,12 @@ class ChatScreenViewModel(
                     val delivered = withContext(Dispatchers.IO) {
                         // Try with a timeout to prevent blocking
                         withTimeoutOrNull(5000) {
-                            appServer.sendChatMessageWithStatus(virtualAddress, sendTime, message, file)
+                            appServer.sendChatMessageWithStatus(
+                                virtualAddress,
+                                sendTime,
+                                message,
+                                file
+                            )
                         } ?: false
                     }
 
@@ -513,7 +544,10 @@ class ChatScreenViewModel(
                     }
                 }
             } else {
-                Log.d("ChatScreenViewModel", "Device $ipAddress appears to be offline, message saved locally only")
+                Log.d(
+                    "ChatScreenViewModel",
+                    "Device $ipAddress appears to be offline, message saved locally only"
+                )
                 _uiState.update { prev ->
                     prev.copy(offlineWarning = "Device appears to be offline. Message saved locally only.")
                 }
@@ -526,109 +560,4 @@ class ChatScreenViewModel(
         return appServer.addOutgoingTransfer(fileUri, toAddress)
     }
 
-/*
- * Bluetooth equivalent of sendChatMessage() in ChatScreenViewModel
- *
- * This function:
- * 1) Checks if a device is linked
- * 2) Saves message to local database
- * 3) Updates local conversation
- * 4) Sends message via Bluetooth (parallel to AppServer.sendChatMessageWithStatus)
- * 5) Logs success/failure
- */
-fun sendBluetoothChatMessage(message: String, file: URI?) {
-    val sendTime = System.currentTimeMillis()
-
-    // Step 1: Check if a device is linked
-    val macAddress = _linkedBtMac.value
-    if (macAddress.isNullOrBlank()) {
-        Log.e("ChatScreenViewModel", "No linked Bluetooth device selected")
-        _uiState.update { prev ->
-            prev.copy(offlineWarning = "No Bluetooth device selected. Pick a device first.")
-        }
-        return
-    }
-
-    // Step 2: Create message entity (same as Wi-Fi)
-    // Note: keeping file=null for now to mirror skeleton; wire file transfers later.
-    val messageEntity = Message(
-        id = 0,
-        dateReceived = sendTime,
-        content = message,
-        sender = "Me",
-        chat = chatName,
-        file = null
-    )
-
-    viewModelScope.launch {
-        // Step 3: Save to local database (same as Wi-Fi)
-        db.messageDao().addMessage(messageEntity)
-
-        // Step 4: Update conversation with the message (same as Wi-Fi)
-        if (userEntity != null) {
-            try {
-                // (Skeleton-style TODO) extend UserEntity to include macAddress, then:
-                /*
-                val remoteUser = UserEntity(
-                    uuid = userUuid,
-                    name = userEntity.name,
-                    address = userEntity.address,
-                    macAddress = macAddress
-                )
-                val conversation = conversationRepository.getOrCreateConversation(
-                    localUuid = localUuid,
-                    remoteUser = remoteUser
-                )
-                conversationRepository.updateWithMessage(
-                    conversationId = conversation.id,
-                    message = messageEntity
-                )
-                */
-                Log.d("ChatScreenViewModel", "Updated conversation with sent Bluetooth message")
-            } catch (e: Exception) {
-                Log.e("ChatScreenViewModel", "Failed to update conversation", e)
-            }
-        }
-
-        // Step 5: Send via Bluetooth (parallel to Wi-Fi's HTTP POST /chat)
-        // Build network copy for the peer: use our virtual IP as 'sender'
-        val networkMsg = messageEntity.copy(sender = addressDotNotation)
-        val msgJson = json.encodeToString(networkMsg)
-
-        // Raw HTTP request body and headers (same shape as Wi-Fi; different transport)
-        val hostHeader = macAddress.replace(":", "-") + ".bluetooth"
-        val request = rawHttp
-            .parseRequest(
-                "POST /chat HTTP/1.1\r\n" +
-                        "Host: $hostHeader\r\n" +
-                        "User-Agent: Meshrabiya\r\n" +
-                        "Content-Type: application/json\r\n" +
-                        "\r\n"
-            )
-            .withBody(StringBody(msgJson))
-
-        val success = withContext(Dispatchers.IO) {
-            withTimeoutOrNull(5000) {
-                btClient.sendRequest(
-                    remoteAddress = macAddress,
-                    uuidMask = BluetoothUuids.ALLOCATION_SERVICE_UUID,
-                    request = request
-                ).use { resp ->
-                    val code = resp.response.statusCode
-                    Log.d("ChatScreenViewModel",
-                        "BT HTTP response: $code ${resp.response.startLine.reason}")
-                    code == 200
-                }
-            } ?: false
-        }
-
-        if (success) {
-            Log.d("ChatScreenViewModel", "Bluetooth message sent successfully to $macAddress")
-        } else {
-            Log.e("ChatScreenViewModel", "Failed to send Bluetooth message to $macAddress")
-            _uiState.update { prev ->
-                prev.copy(offlineWarning = "Bluetooth delivery failed. Device may be offline.")
-            }
-        }
-    }
 }

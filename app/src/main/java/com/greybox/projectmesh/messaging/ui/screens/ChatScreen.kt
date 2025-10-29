@@ -2,6 +2,7 @@
 
 package com.greybox.projectmesh.messaging.ui.screens
 
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -73,6 +74,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.greybox.projectmesh.bluetooth.rememberBluetoothConnectLauncher
+import com.ustadmobile.meshrabiya.vnet.bluetooth.MeshrabiyaBluetoothState
+import kotlinx.coroutines.launch
 
 @Composable
 fun ChatScreen(
@@ -178,6 +182,31 @@ fun ChatScreen(
 
     val scrollState = rememberScrollState()
 
+    // bluetooth only flag
+    val btOnly by viewModel.btOnlyFlag.collectAsState()
+    // boolean use to toggle enabling/disabling chat
+    val canSend = deviceStatus || btOnly
+
+
+// Bluetooth launcher, allows device selection
+    val bluetoothLauncher = rememberBluetoothConnectLauncher { result ->
+        val macAddress = result.macAddress
+        val deviceName = result.deviceName
+
+        if (macAddress != null) {
+            viewModel.linkBluetoothDevice(macAddress)
+
+            Log.d("ChatScreen", "Selected device: $deviceName ($macAddress)")
+
+        } else {
+            Log.d("ChatScreen", "No Bluetooth device selected...device = null")
+        }
+    }
+
+
+
+
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier
             .fillMaxSize()
@@ -190,8 +219,25 @@ fun ChatScreen(
                 userAddress = virtualAddress.hostAddress
             )
 
+            // show a link device button when entering bluetooth only mode
+            if (btOnly){
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {bluetoothLauncher.launch(MeshrabiyaBluetoothState()) }
+                    ) {
+                        Text("Link Bluetooth Device")
+                    }
+                }
+            }
+
             // Show device status indicator
-            if (!deviceStatus) {
+            if (!deviceStatus && !btOnly) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -227,8 +273,8 @@ fun ChatScreen(
             .align(Alignment.BottomCenter)
             .padding(4.dp),
             verticalAlignment = Alignment.Bottom //Change the Alignment So that it does not
-        // increase the height together with the TextField and be floating in the middle of the
-        // screen
+            // increase the height together with the TextField and be floating in the middle of the
+            // screen
         ) {
 
             //File Picker Button
@@ -255,7 +301,7 @@ fun ChatScreen(
                     textMessage = it
                 },
                 maxLines = 5,
-                enabled = deviceStatus // disable text input when user is offline
+                enabled = canSend // disable text input when user is offline
             )
             Button(modifier = Modifier.weight(1f), onClick = {
                 val message = textMessage.trimEnd()
@@ -263,12 +309,17 @@ fun ChatScreen(
                 //future implementation should implement file picker
                 //val filepath = Uri.parse(imgpath)
                 if(message.isNotEmpty()) {
-                    viewModel.sendChatMessage(virtualAddress,message, null)
-                    // resets the text field
+                    if (btOnly) {
+                        // Send via Bluetooth
+                        viewModel.sendBluetoothChatMessage(message, null)
+                    } else {
+                        // Send via WiFi
+                        viewModel.sendChatMessage(virtualAddress, message, null)
+                    }
                     textMessage = ""
                 }
             },
-                enabled = deviceStatus //disable button when user is offline
+                enabled = canSend  //disable button when user is offline
             ) {
                 Text(text = "Send")
             }

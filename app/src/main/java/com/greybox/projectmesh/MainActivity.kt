@@ -1,17 +1,9 @@
 package com.greybox.projectmesh
 
-import android.annotation.SuppressLint
-import android.app.AlertDialog
-import android.content.Context
-import android.content.Context.MODE_PRIVATE
-import android.content.Intent
 import android.content.SharedPreferences
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.os.PowerManager
-import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -21,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -63,30 +54,20 @@ import org.kodein.di.instance
 import java.io.File
 import java.util.Locale
 import java.net.InetAddress
-import com.greybox.projectmesh.messaging.ui.screens.ChatNodeListScreen
 import com.greybox.projectmesh.messaging.ui.screens.ConversationsHomeScreen
 import com.greybox.projectmesh.user.UserRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
+import com.greybox.projectmesh.bluetooth.BluetoothServer
 import com.greybox.projectmesh.messaging.data.entities.Conversation
 import com.greybox.projectmesh.messaging.ui.viewmodels.ChatScreenViewModel
 import com.greybox.projectmesh.views.LogScreen
@@ -97,7 +78,10 @@ import org.kodein.di.compose.localDI
 
 class MainActivity : ComponentActivity(), DIAware {
     override val di by closestDI()
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
+
         setTheme(R.style.Theme_ProjectMesh)
         super.onCreate(savedInstanceState)
         // crash screen
@@ -144,6 +128,7 @@ class MainActivity : ComponentActivity(), DIAware {
                         ?: "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/Project Mesh"
                 )
             }
+
 
             // State to trigger recomposition when locale changes
             var localeState by rememberSaveable { mutableStateOf(Locale.getDefault()) }
@@ -266,6 +251,21 @@ fun BottomNavApp(di: DI,
     val navController = rememberNavController()
     // Observe the current route directly through the back stack entry
     val currentRoute = navController.currentBackStackEntryFlow.collectAsState(initial = null)
+
+    val bluetoothServer: BluetoothServer by di.instance()
+    val settingsPrefs: SharedPreferences by di.instance(tag = "settings")
+    // bluetooth only mode
+    var btOnlyMode by remember {
+        mutableStateOf(settingsPrefs.getBoolean("bt_only_mode", false))
+    }
+
+    // mirroring our other logic
+    LaunchedEffect(btOnlyMode) {
+        if(btOnlyMode){
+            bluetoothServer.start()
+        }else
+            bluetoothServer.stop()
+    }
 
     LaunchedEffect(currentRoute.value?.destination?.route) {
         if(currentRoute.value?.destination?.route == BottomNavItem.Settings.route){
@@ -400,6 +400,7 @@ fun BottomNavApp(di: DI,
                     },
                     onAutoFinishChange = onAutoFinishChange,
                     onSaveToFolderChange = onSaveToFolderChange,
+                    onBtOnlyModeChange = { enabled -> btOnlyMode = enabled },
                 )
             }
             //I'm guessing I can put my Chat button here?
@@ -486,8 +487,8 @@ fun BottomNavApp(di: DI,
 
 @Composable
 fun ConversationChatScreen (
-        conversationId: String,
-        onBackClick: () -> Unit
+    conversationId: String,
+    onBackClick: () -> Unit
 ){
     Log.d("ConversationChatScreen", "Starting to load conversation: $conversationId")
 

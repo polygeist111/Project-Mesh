@@ -44,6 +44,45 @@ fun Context.hasBluetoothConnectPermission(): Boolean {
     }
 }
 
+// check if the app has scan permission (or if it needs it at all)
+fun Context.hasBluetoothScanPermission(): Boolean {
+    return if (Build.VERSION.SDK_INT >= 31) {
+        ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) ==
+                PackageManager.PERMISSION_GRANTED
+    } else {
+        // On Android 6–11, scanning requires location permission
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
+    }
+}
+
+// check for advertise permission (or if it needs it)
+fun Context.hasBluetoothAdvertisePermission(): Boolean {
+    return if (Build.VERSION.SDK_INT >= 31) {
+        ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADVERTISE) ==
+                PackageManager.PERMISSION_GRANTED
+    } else true
+}
+
+// this lets us ask for the exact permissions that we need
+// when we know what's needed for each version, we can cut this list down
+// to only what we exactly need.
+fun Context.requiredBtPermissions(needsScan: Boolean, needsAdvertise: Boolean): Array<String> {
+    return if (Build.VERSION.SDK_INT >= 31) {
+        buildList {
+            add(Manifest.permission.BLUETOOTH_CONNECT)
+            if (needsScan) add(Manifest.permission.BLUETOOTH_SCAN)
+            if (needsAdvertise) add(Manifest.permission.BLUETOOTH_ADVERTISE)
+        }.toTypedArray()
+    } else {
+        // Classic BT connect is install-time; for scan we must request location
+        if (needsScan) arrayOf(Manifest.permission.ACCESS_FINE_LOCATION) else emptyArray()
+    }
+}
+// make sure we have all the Bluetooth permissions we need
+fun Context.hasAll(perms: Array<String>): Boolean =
+    perms.all { p -> ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED }
+
 // create a DataStore instance that Meshrabiya can use to remember networks
 val Context.networkDataStore: DataStore<Preferences> by preferencesDataStore(name = "meshr_settings")
 

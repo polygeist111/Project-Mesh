@@ -1,10 +1,9 @@
 package com.greybox.projectmesh.user
 
-import android.util.Log
 
 class UserRepository(private val userDao: UserDao) {
 
-    suspend fun insertOrUpdateUser(uuid: String, name: String, address: String?) {
+    suspend fun insertOrUpdateUser(uuid: String, name: String, address: String?, macAddress: String? = null) {
         val existing = userDao.getUserByUuid(uuid)
         if (existing == null) {
             // Insert new user with address
@@ -12,7 +11,8 @@ class UserRepository(private val userDao: UserDao) {
                 UserEntity(
                     uuid = uuid,
                     name = name,
-                    address = address
+                    address = address,
+                    macAddress = macAddress
                 )
             )
         } else {
@@ -20,7 +20,8 @@ class UserRepository(private val userDao: UserDao) {
             userDao.updateUser(
                 existing.copy(
                     name = name,
-                    address = address
+                    address = address,
+                    macAddress = macAddress ?: existing.macAddress
                 )
             )
         }
@@ -35,7 +36,9 @@ class UserRepository(private val userDao: UserDao) {
     suspend fun getAllConnectedUsers(): List<UserEntity> {
         return userDao.getAllConnectedUsers()
     }
-
+    suspend fun getUserByMac(mac: String): UserEntity? { // <--- NEW
+        return userDao.getUserByMac(mac)
+    }
     suspend fun getAllUsers(): List<UserEntity> {
         return userDao.getAllUsers()
     }

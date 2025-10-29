@@ -103,6 +103,8 @@ class MessageNetworkHandler(
             }
         }
     }
+
+
     companion object {
         //process incoming messages and route them to the correct conversation
         fun handleIncomingMessage(
@@ -177,62 +179,163 @@ class MessageNetworkHandler(
         }
 
 
-        // New helper function to show notifications that route to chat screen
-        private fun showMessageNotification(
-            conversation: Conversation,
-            message: Message,
-            senderIp: InetAddress
-        ) {
-            try {
-                // get context
-                val context = try {
-                    GlobalApp.GlobalUserRepo.userRepository.javaClass.classLoader?.loadClass("com.greybox.projectmesh.GlobalApp")
-                        ?.getDeclaredField("INSTANCE")?.get(null) as? Context
-                        ?: throw Exception("Cannot get application context")
-                } catch (e: Exception) {
-                    Log.e("MessageNetworkHandler", "Failed to get application context", e)
-                    return
-                }
+        /**
+         * Process incoming messages received via Bluetooth.
+         * This is the Bluetooth equivalent of handleIncomingMessage().
+         *
+         * PARALLEL TO WI-FI:
+         * - Wi-Fi: looks up user by IP address
+         * - Bluetooth: looks up user by MAC address
+         * - Otherwise identical business logic
+         */
+        fun handleIncomingBluetoothMessage(
+            chatMessage: String?,
+            time: Long,
+            senderMac: String,
+            senderName: String,
+            incomingFile: URI?
+        ): Message {
+            Log.d(
+                "MessageNetworkHandler",
+                "Handling incoming Bluetooth message: $chatMessage, from: $senderMac ($senderName)"
+            )
 
-                // Determine title and content based on whether there's a file
-                val hasFile = message.file != null
-                val title = if (hasFile) "New message with file" else "New message"
-                val content = "From ${conversation.userName}: ${message.content}"
-
-                // Create intent that routes to the chat screen
-                val intent = Intent(context, MainActivity::class.java).apply {
-                    action = "OPEN_CHAT_SCREEN"
-                    putExtra("ip", senderIp.hostAddress)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                }
-
-                val pendingIntent = PendingIntent.getActivity(
-                    context,
-                    message.hashCode(),
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-
-                val channelId = "file_receive_channel"
-
-                val notification = NotificationCompat.Builder(context, channelId)
-                        .setSmallIcon(R.drawable.ic_launcher_foreground)
-                        .setContentTitle(title)
-                        .setContentText(content)
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
-                        .setDefaults(NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_SOUND)
-                        .setContentIntent(pendingIntent)
-                        .setAutoCancel(true)
-                        .build()
-
-                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                notificationManager.notify(message.hashCode(), notification)
-
-                Log.d("MessageNetworkHandler", "Showed notification for message with file")
-            } catch (e: Exception) {
-                Log.e("MessageNetworkHandler", "Failed to show notification", e)
+            // Step 1: Look up user by MAC address
+            // PARALLEL TO WI-FI: getUserByIp(ipStr)
+            // This uses the UserRepository.getUserByMac() we added earlier
+            val user = runBlocking {
+                GlobalApp.GlobalUserRepo.userRepository.getUserByMac(senderMac)
             }
+
+            // Step 2: Determine sender display name
+            // PARALLEL TO WI-FI: user?.name ?: "Unknown"
+            val sender = user?.name ?: senderName
+
+            // Step 3: Determine user UUID for conversation ID
+            // PARALLEL TO WI-FI: user?.uuid ?: "unknown-${senderIp.hostAddress}"
+            val userUuid = user?.uuid ?: "bluetooth-$senderMac"
+
+            // Step 4: Get local UUID
+            // IDENTICAL TO WI-FI
+            val localUuid = GlobalApp.GlobalUserRepo.prefs.getString("UUID", null) ?: "local-user"
+
+            // Step 5: Create conversation ID
+            // IDENTICAL TO WI-FI
+            val chatName = ConversationUtils.createConversationId(localUuid, userUuid)
+
+            Log.d(
+                "MessageNetworkHandler",
+                "Creating message with chat name: $chatName, sender: $sender, userUuid: $userUuid"
+            )
+
+            // Step 6: Create the Message entity
+            // IDENTICAL TO WI-FI
+            val message = Message(
+                id = 0,
+                dateReceived = time,
+                content = chatMessage ?: "Error! No message found.",
+                sender = sender,
+                chat = chatName,
+                file = incomingFile
+            )
+
+            // Step 7: Update conversation with new message
+            // IDENTICAL TO WI-FI
+            if (user != null) {
+                try {
+                    // Get/create conversation
+                    val conversation = runBlocking {
+                        GlobalApp.GlobalUserRepo.conversationRepository.getOrCreateConversation(
+                            localUuid = localUuid,
+                            remoteUser = user
+                        )
+                    }
+
+                    // Update conversation with the new message
+                    runBlocking {
+                        GlobalApp.GlobalUserRepo.conversationRepository.updateWithMessage(
+                            conversationId = conversation.id,
+                            message = message
+                        )
+                    }
+
+                    Log.d("MessageNetworkHandler", "Updated conversation with new Bluetooth message")
+                } catch (e: Exception) {
+                    Log.e("MessageNetworkHandler", "Failed to update conversation", e)
+                }
+            } else {
+                Log.w(
+                    "MessageNetworkHandler",
+                    "User not found for MAC $senderMac - message saved but conversation not updated. " +
+                            "User should link their Bluetooth device to enable full conversation tracking."
+                )
+            }
+
+            return message
         }
     }
 
+
+    // New helper function to show notifications that route to chat screen
+    private fun showMessageNotification(
+        conversation: Conversation,
+        message: Message,
+        senderIp: InetAddress
+    ) {
+        try {
+            // get context
+            val context = try {
+                GlobalApp.GlobalUserRepo.userRepository.javaClass.classLoader?.loadClass("com.greybox.projectmesh.GlobalApp")
+                    ?.getDeclaredField("INSTANCE")?.get(null) as? Context
+                    ?: throw Exception("Cannot get application context")
+            } catch (e: Exception) {
+                Log.e("MessageNetworkHandler", "Failed to get application context", e)
+                return
+            }
+
+            // Determine title and content based on whether there's a file
+            val hasFile = message.file != null
+            val title = if (hasFile) "New message with file" else "New message"
+            val content = "From ${conversation.userName}: ${message.content}"
+
+            // Create intent that routes to the chat screen
+            val intent = Intent(context, MainActivity::class.java).apply {
+                action = "OPEN_CHAT_SCREEN"
+                putExtra("ip", senderIp.hostAddress)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                message.hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val channelId = "file_receive_channel"
+
+            val notification = NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle(title)
+                .setContentText(content)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_SOUND)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(message.hashCode(), notification)
+
+            Log.d("MessageNetworkHandler", "Showed notification for message with file")
+        } catch (e: Exception) {
+            Log.e("MessageNetworkHandler", "Failed to show notification", e)
+        }
+    }
 }
+
+
+
+
+
+

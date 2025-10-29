@@ -2,32 +2,32 @@ package com.greybox.projectmesh.bluetooth
 
 import android.content.Context
 import android.util.Log
+import com.greybox.projectmesh.db.MeshDatabase
 import com.greybox.projectmesh.messaging.data.entities.JSONSchema
 import com.greybox.projectmesh.messaging.data.entities.Message
-import com.greybox.projectmesh.messaging.data.dao.MessageDao
-import com.greybox.projectmesh.messaging.data.entities.Conversation
-import com.greybox.projectmesh.messaging.repository.MessageRepository
 import com.greybox.projectmesh.messaging.network.MessageNetworkHandler
-import com.greybox.projectmesh.messaging.data.MeshDatabase
 import com.ustadmobile.meshrabiya.log.MNetLogger
 import com.ustadmobile.meshrabiya.server.AbstractHttpOverBluetoothServer
 import com.ustadmobile.meshrabiya.vnet.bluetooth.VirtualNodeGattServer
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import rawhttp.core.RawHttp
 import rawhttp.core.RawHttpRequest
 import rawhttp.core.RawHttpResponse
-import rawhttp.core.body.StringBody
+import java.net.URI
 
-class BluetoothServer (
+/**
+ * Bluetooth server that handles incoming HTTP requests over Bluetooth Classic.
+ * Parallels the Wi-Fi AppServer implementation but uses RawHttp instead of NanoHTTPD.
+ */
+class BluetoothServer(
     context: Context,
-    private val rawHttp: RawHttp,
+    rawHttp: RawHttp,
     private val logger: MNetLogger,
-    private val json: Json,
     private val db: MeshDatabase,
-    private val scope: CoroutineScope,
+    private val json: Json = Json { ignoreUnknownKeys = true },
     maxClients: Int = 1
 ) : AbstractHttpOverBluetoothServer(
     appContext = context,
@@ -46,65 +46,155 @@ class BluetoothServer (
         )
     }
 ) {
+
+    private val scope = CoroutineScope(Dispatchers.IO)
+
     override fun handleRequest(
         remoteDeviceAddress: String,
         request: RawHttpRequest,
     ): RawHttpResponse<*> {
         val path = request.uri.path
         val method = request.method
-        Log.d("BluetoothServer", "Request $method $path from $remoteDeviceAddress")
+        // aded logs for debugging
+        Log.d("BluetoothServer", "Received ${request.method} request to $path from $remoteDeviceAddress")
 
-        // Only handle POST /chat here
-        if (method.equals("POST", ignoreCase = true) && path.startsWith("/chat")) {
-            val body = try {
-                request.body.map { String(it.asRawBytes()) }.orElse("")
-            } catch (e: Exception) {
-                Log.e("BluetoothServer", "Failed to read request body", e)
-                return textResponse(400, "Bad Request", "Invalid body")
-            }
-
-            if (body.isBlank()) {
-                Log.e("BluetoothServer", "Empty or missing JSON payload")
-                return textResponse(400, "Bad Request", "Empty or missing JSON payload")
-            }
-
-            // Validate JSON schema (same as AppServer)
-            val schema = JSONSchema()
-            if (!schema.schemaValidation(body)) {
-                Log.e("BluetoothServer", "Invalid JSON payload by schema")
-                return textResponse(400, "Bad Request", """{"error":"Invalid JSON schema"}""")
-            }
-
-            // Deserialize -> Message and save to DB, like Wi-Fi
-            return try {
-                val msg = json.decodeFromString<Message>(body)
-
-                Log.d(
-                    "BluetoothServer",
-                    "Received chat: '${msg.content}' from ${msg.sender} at ${msg.dateReceived}"
-                )
-
-                scope.launch {
-                    db.messageDao().addMessage(msg)
-                    Log.d("BluetoothServer", "Saved incoming BT message")
-                }
-
-                textResponse(200, "OK", "OK")
-            } catch (e: Exception) {
-                Log.e("BluetoothServer", "Failed to deserialize/save chat", e)
-                textResponse(400, "Bad Request", "Invalid JSON")
+        return when {
+            // made this more explicit and moved logic to its own function
+            path == "/chat" && method == "POST"  -> handleChatRequest(remoteDeviceAddress, request)
+            else -> {
+                Log.w("BluetoothServer", "Unknown path: $path")
+                createErrorResponse(404, "Not Found", "not found: $path")
             }
         }
-
-        // Not found for anything else
-        return textResponse(404, "Not Found", "Unknown path")
     }
 
-    private fun textResponse(code: Int, reason: String, body: String): RawHttpResponse<*> {
+    private fun handleChatRequest(
+        remoteDeviceAddress: String,
+        request: RawHttpRequest
+    ): RawHttpResponse<*> {
+        try {
+            // Extract JSON body from request
+            val body = request.body.orElse(null)?.asRawString(Charsets.UTF_8)
+
+            if (body.isNullOrBlank()) {
+                Log.e("BluetoothServer", "Empty or missing JSON payload")
+                return createErrorResponse(
+                    statusCode = 400,
+                    statusMessage = "Bad Request",
+                    body = "Empty or missing JSON payload"
+                )
+            }
+
+            Log.d("BluetoothServer", "Received JSON payload from $remoteDeviceAddress: ${body.take(100)}")
+
+         // Validate JSON schema
+            val jsonSchema = JSONSchema()
+            if (!jsonSchema.schemaValidation(body)) {
+                Log.e("BluetoothServer", "Invalid JSON payload by schema")
+                return createErrorResponse(
+                    statusCode = 400,
+                    statusMessage = "Bad Request",
+                    body = """{"error":"Invalid JSON schema"}""",
+                    contentType = "application/json"
+                )
+            }
+
+            Log.d("BluetoothServer", "JSON schema validation passed")
+
+          // Deserialize -> Message and save to DB, like Wi-Fi
+            val deserializedJSON = json.decodeFromString<Message>(body)
+
+            val chatMessage = deserializedJSON.content
+            val time = deserializedJSON.dateReceived ?: System.currentTimeMillis()
+            val senderStr = deserializedJSON.sender
+
+            Log.d("BluetoothServer", "Parsed message - content: '$chatMessage', sender: $senderStr, time: $time")
+
+            // make sure we have a valid sender field
+            if (senderStr == null) {
+                Log.e("BluetoothServer", "Missing sender in message")
+                return createErrorResponse(
+                    statusCode = 400,
+                    statusMessage = "Bad Request",
+                    body = "Missing sender parameter"
+                )
+            }
+
+            // Handle file <---  I don't think this works in messaging so it won't here either
+            // but added to be consistent. For now file will always be passed as null.
+            val fileUriStr = deserializedJSON.file?.toString()
+            val incomingFile = if (fileUriStr != null) {
+                try {
+                    URI.create(fileUriStr)
+                } catch (e: Exception) {
+                    Log.e("BluetoothServer", "Invalid file URI: $fileUriStr", e)
+                    null
+                }
+            } else {
+                null
+            }
+
+            // Process the incoming message using our new Bluetooth handler
+            // - Looks up user by MAC address using getUserByMac()
+            // - Creates conversation ID
+            // - Creates Message entity
+            // - Updates conversation
+            val message = MessageNetworkHandler.handleIncomingBluetoothMessage(
+                chatMessage = chatMessage,
+                time = time,
+                senderMac = remoteDeviceAddress,
+                senderName = senderStr,
+                incomingFile = incomingFile
+            )
+
+            Log.d("BluetoothServer", "Message processed: id=${message.id}, chat=${message.chat}")
+
+            // Save message to database
+            // Using a coroutine scope to avoid blocking the Bluetooth thread
+            scope.launch {
+                try {
+                    db.messageDao().addMessage(message)
+                    Log.d("BluetoothServer", "Message saved to database successfully")
+                } catch (e: Exception) {
+                    Log.e("BluetoothServer", "Failed to save message to database", e)
+                }
+            }
+            // Return success response just like wifi
+            return createSuccessResponse()
+        } catch (e: Exception) {
+            Log.e("BluetoothServer", "Error processing chat message from $remoteDeviceAddress", e)
+            return createErrorResponse(
+                statusCode = 500,
+                statusMessage = "Internal Server Error",
+                body = "Error processing message: ${e.message}"
+            )
+        }
+    }
+
+
+    private fun createSuccessResponse(): RawHttpResponse<*> {
         return rawHttp.parseResponse(
-            "HTTP/1.1 $code $reason\r\n" +
+            "HTTP/1.1 200 OK\r\n" +
                     "Content-Type: text/plain\r\n" +
-                    "\r\n"
-        ).withBody(StringBody(body))
+                    "Content-Length: 2\r\n" +
+                    "\r\n" +
+                    "OK"
+        )
+    }
+
+    private fun createErrorResponse(
+        statusCode: Int,
+        statusMessage: String,
+        body: String,
+        contentType: String = "text/plain"
+    ): RawHttpResponse<*> {
+        val bodyBytes = body.toByteArray(Charsets.UTF_8)
+        return rawHttp.parseResponse(
+            "HTTP/1.1 $statusCode $statusMessage\r\n" +
+                    "Content-Type: $contentType\r\n" +
+                    "Content-Length: ${bodyBytes.size}\r\n" +
+                    "\r\n" +
+                    body
+        )
     }
 }

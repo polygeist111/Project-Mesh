@@ -125,7 +125,7 @@ class AppServer(
         Log.d("AppServer", "Server restarted successfully on port: $localPort")
     }
 
-//change to json
+    //change to json
     /*
     This data class contains all the information about the outgoing transfer (Sending a file)
     Why not using Serializable annotation?
@@ -236,47 +236,27 @@ class AppServer(
         }
 
         // check if the path is for download, indicating the request wants to download a file
-            // 1) /myinfo route
+        // 1) /myinfo route
         if (path.startsWith("/myinfo")) {
-                return handleMyInfoRequest()
-            }
-            else if (path.startsWith("/updateUserInfo")) {
-                // Read the POST body (assumed JSON)
-                val postData = session.inputStream.bufferedReader().readText()
-
-                //Validates JSON payload
-                if(!JSONschema.schemaValidation(postData)){
-                    return newFixedLengthResponse(
-                        Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid JSON schema"}"""
-                    )
-                }
-
-                try {
-                    // Decode the JSON payload into a UserEntity
-                    val updatedUser = json.decodeFromString(UserEntity.serializer(), postData)
-                    // Update or insert the user info in the database
-                    runBlocking {
-                        userRepository.insertOrUpdateUser(updatedUser.uuid, updatedUser.name, updatedUser.address)
-                    }
-                    return newFixedLengthResponse(
-                        Response.Status.OK, "application/json", """{"status":"OK"}"""
-                    )
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    return newFixedLengthResponse(
-                        Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid user data"}"""
-                    )
-                }
-            }
+            return handleMyInfoRequest()
+        }
         else if (path.startsWith("/updateUserInfo")) {
             // Read the POST body (assumed JSON)
             val postData = session.inputStream.bufferedReader().readText()
+
+            //Validates JSON payload
+            if(!JSONschema.schemaValidation(postData)){
+                return newFixedLengthResponse(
+                    Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid JSON schema"}"""
+                )
+            }
+
             try {
                 // Decode the JSON payload into a UserEntity
                 val updatedUser = json.decodeFromString(UserEntity.serializer(), postData)
                 // Update or insert the user info in the database
                 runBlocking {
-                    userRepository.insertOrUpdateUser(updatedUser.uuid, updatedUser.name, updatedUser.address)
+                    userRepository.insertOrUpdateUser(updatedUser.uuid, updatedUser.name, updatedUser.address, updatedUser.macAddress)
                 }
                 return newFixedLengthResponse(
                     Response.Status.OK, "application/json", """{"status":"OK"}"""
@@ -288,7 +268,27 @@ class AppServer(
                 )
             }
         }
-            // 2) /download/
+        else if (path.startsWith("/updateUserInfo")) {
+            // Read the POST body (assumed JSON)
+            val postData = session.inputStream.bufferedReader().readText()
+            try {
+                // Decode the JSON payload into a UserEntity
+                val updatedUser = json.decodeFromString(UserEntity.serializer(), postData)
+                // Update or insert the user info in the database
+                runBlocking {
+                    userRepository.insertOrUpdateUser(updatedUser.uuid, updatedUser.name, updatedUser.address, updatedUser.macAddress)
+                }
+                return newFixedLengthResponse(
+                    Response.Status.OK, "application/json", """{"status":"OK"}"""
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return newFixedLengthResponse(
+                    Response.Status.BAD_REQUEST, "application/json", """{"error":"Invalid user data"}"""
+                )
+            }
+        }
+        // 2) /download/
         else if (path.startsWith("/download/")) {
             // Extracts the transfer ID (Integer)from the path by taking the last part of the path
             val xferId = path.substringAfterLast("/").toInt()
@@ -604,7 +604,8 @@ class AppServer(
                             userRepository.insertOrUpdateUser(
                                 uuid = existingUser.uuid,
                                 name = remoteDeviceName,
-                                address = existingUser.address
+                                address = existingUser.address,
+                                macAddress = existingUser.address
                             )
                         }
                     }

@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
 data class UserEntity(
     @PrimaryKey val uuid: String,
     val name: String,
-    val address: String? = null, // Default value provided
+    val address: String? = null,      // IP address (wifi)
+    val macAddress: String? = null,   // MAC address (bluetooth) <- NEW
     val lastSeen: Long? = null
 )

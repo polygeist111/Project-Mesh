@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.greybox.projectmesh.bluetooth.BluetoothMessageClient
 import com.greybox.projectmesh.bluetooth.BluetoothServer
 import com.greybox.projectmesh.bluetooth.HttpOverBluetoothClient
 import com.greybox.projectmesh.db.MeshDatabase
@@ -211,6 +212,7 @@ class GlobalApp : Application(), DIAware {
                         offlineUser.uuid,
                         offlineUser.name,
                         offlineUser.address
+
                     )
 
                     //create convo with the offline test device
@@ -356,11 +358,23 @@ class GlobalApp : Application(), DIAware {
             )
         }
 
+        bind<BluetoothMessageClient>() with singleton {
+            val node: AndroidVirtualNode = instance()
+            BluetoothMessageClient(
+                mLogger = instance(),
+                rawHttp = instance(),
+                json = instance(),
+                di = di,
+                localVirtualAddr = node.address
+            )
+        }
+
         bind<BluetoothServer>() with singleton {
             BluetoothServer(
                 context = applicationContext,
                 rawHttp = instance(),
                 logger = instance(),
+                db = instance()
             )
         }
 
@@ -425,7 +439,7 @@ class GlobalApp : Application(), DIAware {
         onReady {
             // clears all data in the existing tables
             //GlobalScope.launch {
-              //  instance<MeshDatabase>().messageDao().clearTable()
+            //  instance<MeshDatabase>().messageDao().clearTable()
             //}
             val logger: MNetLogger = instance()
             instance<AppServer>().start()

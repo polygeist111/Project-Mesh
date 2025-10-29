@@ -40,6 +40,7 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import com.greybox.projectmesh.DeviceStatusManager
+import com.greybox.projectmesh.bluetooth.BluetoothMessageClient
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URI
@@ -53,30 +54,43 @@ class ChatScreenViewModel(
     // _uiState will be updated whenever there is a change in the UI state
     private val ipStr: String = virtualAddress.hostAddress
 
+    // add btMessageClient
+    private val bluetoothMessageClient: BluetoothMessageClient by di.instance()
+
     //get conversation id
     private val passedConversationId = savedStateHandle.get<String>("conversationId")
-
+    private val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
+    private val localUuid = sharedPrefs.getString("UUID", null) ?: "local-user"
+    // NEW
+    private val isOfflineMode = ipStr == "0.0.0.0" || passedConversationId != null
     //Get User info
+    // UPDATED: Get user entity differently based on mode
     private val userEntity = runBlocking {
-        GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)
+        if (isOfflineMode && passedConversationId != null) {
+            // Extract UUID from conversation ID and load by UUID
+            val uuids = passedConversationId.split("-")
+            val remoteUuid = uuids.find { it != localUuid }
+            remoteUuid?.let {
+                GlobalApp.GlobalUserRepo.userRepository.getUser(it)
+            }
+        } else {
+            // Load by IP (existing logic)
+            GlobalApp.GlobalUserRepo.userRepository.getUserByIp(ipStr)
+        }
     }
-
     // Use the retrieved user name (fallback to "Unknown" if no user is found)
     private val deviceName = userEntity?.name ?: "Unknown"
 
-    private val sharedPrefs: SharedPreferences by di.instance(tag = "settings")
-    private val localUuid = sharedPrefs.getString("UUID", null) ?: "local-user"
 
+    // UPDATED: Get userUuid differently based on mode  NEW
     private val userUuid: String = when {
-        passedConversationId != null && passedConversationId.contains("-") -> {
-            // Extract the UUID that's not the local UUID
+        isOfflineMode && passedConversationId != null -> {
+            // Extract from conversation ID
             val uuids = passedConversationId.split("-")
-            uuids.find { it != localUuid } ?: "unknown-${virtualAddress.hostAddress}"
+            uuids.find { it != localUuid } ?: "unknown"
         }
-        // Otherwise use the standard logic
         TestDeviceService.isOnlineTestDevice(virtualAddress) -> "test-device-uuid"
-        ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE ||
-                userEntity?.name == TestDeviceService.TEST_DEVICE_NAME_OFFLINE -> "offline-test-device-uuid"
+        ipStr == TestDeviceService.TEST_DEVICE_IP_OFFLINE -> "offline-test-device-uuid"
         else -> userEntity?.uuid ?: "unknown-${virtualAddress.hostAddress}"
     }
 
@@ -89,6 +103,22 @@ class ChatScreenViewModel(
     private val chatName = savedConversationId ?: conversationId
     //Log.d("ChatDebug", "USING CHAT NAME: $chatName (saved: $savedConversationId, generated: $conversationId)")
 
+    // bluetooth only flag
+    private val _btOnlyFlag = MutableStateFlow(sharedPrefs.getBoolean("bt_only_mode", false))
+    val btOnlyFlag: StateFlow<Boolean> = _btOnlyFlag
+
+    // listener to update the btOnly flag
+    private val prefListener =
+        SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
+            if (key == "bt_only_mode") {
+                _btOnlyFlag.value = sp.getBoolean("bt_only_mode", false)
+            }
+        }
+
+    override fun onCleared() {
+        sharedPrefs.unregisterOnSharedPreferenceChangeListener(prefListener)
+        super.onCleared()
+    }
 
 
     private val addressDotNotation = virtualAddress.requireAddressAsInt().addressToDotNotation()
@@ -129,7 +159,7 @@ class ChatScreenViewModel(
 
     // launch a coroutine
     init {
-
+        sharedPrefs.registerOnSharedPreferenceChangeListener(prefListener)
         val savedConversationId = savedStateHandle.get<String>("conversationId")
 
         // If we have a conversation ID from navigation, use it directly
@@ -177,7 +207,7 @@ class ChatScreenViewModel(
                     _uiState.update { prev ->
                         prev.copy(allChatMessages = initialMessages)
                     }
-                    Log.d("ChatDebug", "IMMEDIATELY LOADED ${initialMessages.size} MESSAGES FOR OFFLINE ACCESS")
+                    Log.d("ChatDebfug", "IMMEDIATELY LOADED ${initialMessages.size} MESSAGES FOR OFFLINE ACCESS")
                 } else {
                     Log.d("ChatDebug", "NO INITIAL MESSAGES FOUND FOR CHAT: $chatName")
                 }
@@ -273,6 +303,137 @@ class ChatScreenViewModel(
         }
     }
 
+    // BLUETOOTH LINKING
+    fun linkBluetoothDevice(macAddress: String) {
+        viewModelScope.launch {
+            try {
+                if (userEntity != null) {
+                    // Update the user with the MAC address in the database
+                    GlobalApp.GlobalUserRepo.userRepository.insertOrUpdateUser(
+                        uuid = userUuid,
+                        name = userEntity.name,
+                        address = userEntity.address,
+                        macAddress = macAddress
+                    )
+                    Log.d("ChatScreenViewModel", "Linked Bluetooth device $macAddress to user $userUuid")
+
+                    // Optional: Verify it was saved correctly
+                    val updatedUser = GlobalApp.GlobalUserRepo.userRepository.getUser(userUuid)
+                    Log.d("ChatScreenViewModel", "Verified MAC in database: ${updatedUser?.macAddress}")
+
+                } else {
+                    Log.w("ChatScreenViewModel", "Cannot link Bluetooth device - userEntity is null")
+                }
+            } catch (e: Exception) {
+                Log.e("ChatScreenViewModel", "Error linking Bluetooth device", e)
+            }
+        }
+    }
+
+    /*
+ * This is the Bluetooth equivalent of sendChatMessage() in ChatScreenViewModel
+ *
+ * This function:
+ * 1. Checks if a device is linked
+ * 2. Saves message to local database
+ * 3. Updates local conversation
+ * 4. Sends message via Bluetooth
+ */
+    fun sendBluetoothChatMessage(message: String, file: URI?) {
+        val sendTime = System.currentTimeMillis()
+        // TO DO: Implement a mechanism to make sure there is a valid BT device
+        //         before launching a coroutine
+
+        viewModelScope.launch {
+            // current user is the most recent version of the remote device
+            val currentUser = GlobalApp.GlobalUserRepo.userRepository.getUser(userUuid)
+
+            // this will make sure a device is linked
+            if (currentUser?.macAddress == null) {
+                Log.w("ChatScreenViewModel", "No linked Bluetooth device selected")
+                _uiState.update { prev ->
+                    prev.copy(offlineWarning = "No Bluetooth device selected. Pick a device first.")
+                }
+                return@launch
+            }
+
+            // added logs for debugging
+            val linkedMacAddress = currentUser.macAddress
+            Log.d("ChatScreenViewModel", "Sending Bluetooth message to MAC: $linkedMacAddress")
+
+            // Step 2: Create message entity (same as Wi-Fi)
+            // Note: keeping file=null for now to mirror skeleton; wire file transfers later.
+            val messageEntity = Message(
+                id = 0,
+                dateReceived = sendTime,
+                content = message,
+                sender = "Me",
+                chat = chatName,
+                file = file
+            )
+
+            // Step 3: Save to local database (same as Wi-Fi)
+            db.messageDao().addMessage(messageEntity)
+
+            // Step 4: Update conversation with the message
+            if (currentUser != null) {  // Use currentUser instead of userEntity
+                try {
+                    val remoteUser = UserEntity(
+                        uuid = userUuid,
+                        name = currentUser.name,
+                        address = currentUser.address,
+                        macAddress = currentUser.macAddress
+                    )
+
+                    val conversation = conversationRepository.getOrCreateConversation(
+                        localUuid = localUuid,
+                        remoteUser = remoteUser
+                    )
+
+                    conversationRepository.updateWithMessage(
+                        conversationId = conversation.id,
+                        message = messageEntity
+                    )
+
+                    Log.d("ChatScreenViewModel", "Updated conversation with sent Bluetooth message")
+                } catch (e: Exception) {
+                    Log.e("ChatScreenViewModel", "Failed to update conversation", e)
+                }
+            }
+
+            // Step 5: Send via Bluetooth
+            // changed to mirror sendChatMessage and let the btClient handle the HTTP/response
+            try {
+                val success = withContext(Dispatchers.IO) {
+                    withTimeoutOrNull(5000) {
+                        bluetoothMessageClient.sendBtChatMessageWithStatus(
+                            macAddress = linkedMacAddress,
+                            time = sendTime,
+                            message = message,
+                            f = file
+                        )
+                    } ?: false
+                }
+
+                if (success) {
+                    Log.d("ChatScreenViewModel", "Bluetooth message sent successfully to $linkedMacAddress")
+                } else {
+                    Log.e(
+                        "ChatScreenViewModel",
+                        "Failed to send Bluetooth message to $linkedMacAddress"
+                    )
+                    _uiState.update { prev ->
+                        prev.copy(offlineWarning = "Bluetooth message delivery failed.")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ChatScreenViewModel", "Error sending Bluetooth message: ${e.message}", e)
+                _uiState.update { prev ->
+                    prev.copy(offlineWarning = "Error sending Bluetooth message: ${e.message}")
+                }
+            }
+        }
+    }
 
     fun sendChatMessage(
         virtualAddress: InetAddress,

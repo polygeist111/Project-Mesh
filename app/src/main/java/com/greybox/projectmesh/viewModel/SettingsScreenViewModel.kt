@@ -37,6 +37,10 @@ class SettingsScreenViewModel(di: DI, savedStateHandle: SavedStateHandle): ViewM
     private val _saveToFolder = MutableStateFlow(loadSaveToFolder())
     val saveToFolder: StateFlow<String> = _saveToFolder
 
+    // bluetooth only state
+    private val _btOnlyMode = MutableStateFlow(loadBtOnlyMode())
+    val btOnlyMode: StateFlow<Boolean> = _btOnlyMode
+
     init {
         // Load the theme from SharedPreferences
         _theme.value = loadTheme()
@@ -44,6 +48,18 @@ class SettingsScreenViewModel(di: DI, savedStateHandle: SavedStateHandle): ViewM
         _deviceName.value = loadDeviceName()
         _autoFinish.value = loadAutoFinish()
         _saveToFolder.value = loadSaveToFolder()
+        _btOnlyMode.value = loadBtOnlyMode()
+    }
+
+    // load bluetooth only toggle setting
+    private fun loadBtOnlyMode(): Boolean {
+        return settingPrefs.getBoolean(BT_ONLY_MODE_KEY, false)
+    }
+
+    // store the user's preference
+    fun setBtOnlyMode(enabled: Boolean) {
+        _btOnlyMode.value = enabled
+        settingPrefs.edit().putBoolean(BT_ONLY_MODE_KEY, enabled).apply()
     }
 
     // Load theme from SharedPreferences
@@ -93,7 +109,7 @@ class SettingsScreenViewModel(di: DI, savedStateHandle: SavedStateHandle): ViewM
         return settingPrefs.getString(
             SAVE_TO_FOLDER_KEY,
             "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/Project Mesh") ?:
-            "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/Project Mesh"
+        "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)}/Project Mesh"
     }
 
     fun saveSaveToFolder(saveToFolder: String) {
@@ -115,5 +131,6 @@ class SettingsScreenViewModel(di: DI, savedStateHandle: SavedStateHandle): ViewM
         private const val DEVICE_NAME_KEY = "device_name"
         private const val AUTO_FINISH_KEY = "auto_finish"
         private const val SAVE_TO_FOLDER_KEY = "save_to_folder"
+        private const val BT_ONLY_MODE_KEY = "bt_only_mode"
     }
 }

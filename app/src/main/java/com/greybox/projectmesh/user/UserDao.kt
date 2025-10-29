@@ -27,4 +27,8 @@ interface UserDao {
 
     @Query("SELECT * FROM users")
     suspend fun getAllUsers(): List<UserEntity>
+
+    @Query("SELECT * FROM users WHERE macAddress = :mac LIMIT 1") // <-- NEW
+    suspend fun getUserByMac(mac: String): UserEntity?
 }
+

@@ -2,7 +2,6 @@ package com.greybox.projectmesh.views
 
 import android.content.Intent
 import android.content.SharedPreferences
-import android.graphics.Paint.Align
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
@@ -55,11 +54,13 @@ import com.greybox.projectmesh.ViewModelFactory
 import com.greybox.projectmesh.ui.theme.AppTheme
 import com.greybox.projectmesh.ui.theme.GradientButton
 import com.greybox.projectmesh.ui.theme.GradientLongButton
-import com.greybox.projectmesh.viewModel.HomeScreenViewModel
-import com.greybox.projectmesh.viewModel.SendScreenViewModel
 import com.greybox.projectmesh.viewModel.SettingsScreenViewModel
 import org.kodein.di.compose.localDI
 import org.kodein.di.instance
+import com.greybox.projectmesh.extension.requiredBtPermissions
+import com.greybox.projectmesh.extension.hasAll
+
+
 
 
 @Composable
@@ -68,15 +69,17 @@ fun SettingsScreen(
         factory = ViewModelFactory(
             di = localDI(),
             owner = LocalSavedStateRegistryOwner.current,
-            vmFactory = { di, savedStateHandle -> SettingsScreenViewModel(di, savedStateHandle)},
+            vmFactory = { di, savedStateHandle -> SettingsScreenViewModel(di, savedStateHandle) },
             defaultArgs = null,
-        )),
+        )
+    ),
     onThemeChange: (AppTheme) -> Unit,
     onLanguageChange: (String) -> Unit,
     onRestartServer: () -> Unit,
     onDeviceNameChange: (String) -> Unit,
     onAutoFinishChange: (Boolean) -> Unit,
-    onSaveToFolderChange: (String) -> Unit
+    onSaveToFolderChange: (String) -> Unit,
+    onBtOnlyModeChange: (Boolean) -> Unit = {},
 ) {
     val di = localDI()
     val context = LocalContext.current
@@ -85,10 +88,26 @@ fun SettingsScreen(
     val currDeviceName = viewModel.deviceName.collectAsState()
     val currAutoFinish = viewModel.autoFinish.collectAsState()
     val currSaveToFolder = viewModel.saveToFolder.collectAsState()
+    val btOnlyMode = viewModel.btOnlyMode.collectAsState()
 
     var showDialog by remember { mutableStateOf(false) }
 
     val settingPref: SharedPreferences by di.instance(tag = "settings")
+
+
+    // this will check if we got the permissions and if we did, then we can enable BT Only Mode
+    val btPermsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        val granted = result.values.all { it }
+        if (granted) {
+            viewModel.setBtOnlyMode(true)
+            onBtOnlyModeChange(true)
+            Toast.makeText(context, "Bluetooth Only Mode enabled", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Permissions required to enable Bluetooth Only Mode", Toast.LENGTH_LONG).show()
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()))
     {
@@ -128,6 +147,31 @@ fun SettingsScreen(
             )
             // Network Setting Section (Server Restart, Device Name Change)
             SectionHeader(title = R.string.network)
+            SettingItem(
+                label = stringResource(id = R.string.BTOnlyMode),
+                trailingContent = {
+                    GradientButton(
+                        text = if (btOnlyMode.value) "Disable" else "Enable",
+                        onClick = {
+                            if (btOnlyMode.value) {
+                                viewModel.setBtOnlyMode(false)
+                                onBtOnlyModeChange(false) // call back to the root
+                                Toast.makeText(context, "Bluetooth Only Mode disabled", Toast.LENGTH_SHORT).show()
+                            } else {
+                                val perms = context.requiredBtPermissions(needsScan = false, needsAdvertise = true)
+                                if (context.hasAll(perms)) {
+                                    viewModel.setBtOnlyMode(true)
+                                    onBtOnlyModeChange(true) // call back to the root
+                                    Toast.makeText(context, "Bluetooth Only Mode enabled", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    btPermsLauncher.launch(perms)
+                                }
+                            }
+                        }
+                    )
+                }
+            )
+
             SettingItem(
                 label = stringResource(id = R.string.server),
                 trailingContent = {

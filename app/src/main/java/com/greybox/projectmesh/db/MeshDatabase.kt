@@ -15,7 +15,7 @@ import com.greybox.projectmesh.user.UserEntity
         UserEntity::class,  // <- add this
         Conversation::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class MeshDatabase : RoomDatabase() {

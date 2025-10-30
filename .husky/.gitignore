@@ -1,5 +1,0 @@
-# Ignore these
-_
-
-# But not these
-!_/pre-commit

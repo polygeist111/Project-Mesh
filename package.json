@@ -5,7 +5,7 @@
     "lint-staged": "lint-staged"
   },
   "lint-staged": {
-    "**/*": "prettier --write .--ignore-unknown"
+    "**/*": "prettier --write .--ignore-unknown && echo 'Formatting a file :3'"
   },
   "devDependencies": {
     "husky": "^9.1.7",

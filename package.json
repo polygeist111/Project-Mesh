@@ -1,7 +1,7 @@
 {
   "scripts": {
     "format": "prettier --write . --ignore-unknown",
-    "prepare": "husky",
+    "prepare": "husky install",
     "lint-staged": "lint-staged"
   },
   "lint-staged": {

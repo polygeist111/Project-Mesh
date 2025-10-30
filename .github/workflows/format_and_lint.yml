@@ -12,6 +12,11 @@ on:
 
   # run on demand
   workflow_dispatch:
+    inputs:
+      message:
+        description: "Custom message for the deployment"
+        required: false
+        type: string
 
 # cancel any previously-started, yet still active runs of this workflow on the same branch
 concurrency:

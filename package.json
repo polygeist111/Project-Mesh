@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "format": "prettier --write . --ignore-unknown"
+    "format": "prettier --write . --ignore-unknown",
+    "prepare": "husky install"
   },
   "devDependencies": {
     "husky": "^9.1.7",

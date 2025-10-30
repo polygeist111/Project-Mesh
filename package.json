@@ -1,10 +1,11 @@
 {
   "scripts": {
     "format": "prettier --write . --ignore-unknown",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "lint-staged": "npx lint-staged"
   },
   "lint-staged": {
-    "*": "prettier --write --ignore-unknown"
+    "**/*": "prettier --write .--ignore-unknown"
   },
   "devDependencies": {
     "husky": "^9.1.7",

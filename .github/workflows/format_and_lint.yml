@@ -1,6 +1,7 @@
 ---
 # template source: https://github.com/bretfisher/super-linter-workflow/blob/main/templates/call-super-linter.yaml
 name: Lint Code Base
+run-name: ${{ github.event.inputs.custom_run_name || github.workflow }}
 
 on:
   # run anytime a PR is merged to main or a direct push to main
@@ -13,8 +14,8 @@ on:
   # run on demand
   workflow_dispatch:
     inputs:
-      message:
-        description: "Custom message for the deployment"
+      custom-run-name:
+        description: "Custom name for this Actions run"
         required: false
         type: string
 

@@ -33,15 +33,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
       - name: Generate kover coverage report
         run: ./gradlew koverXmlReport
-      - name: Show directory structure
-        run: ls
 
       - name: Add coverage report to PR
         id: kover
         uses: mi-kas/kover-report@v1
         with:
           path: |
-            ${{ github.workspace }}/project1/build/reports/kover/report.xml
+            ${{ github.workspace }}/project1/app/build/reports/kover/report.xml
           title: Code Coverage
           update-comment: true
           min-coverage-overall: 80

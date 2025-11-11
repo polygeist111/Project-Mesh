@@ -60,3 +60,7 @@ jobs:
           echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| Overall Coverage | ${{ steps.kover.outputs.coverage-overall }}% | ${{ steps.kover.outputs.coverage-overall >= env.min-coverage-overall && ':white_check_mark:' || ':x:' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Changed File Coverage | ${{ steps.kover.outputs.coverage-changed-files }}% | ${{ steps.kover.outputs.coverage-changed-files >= env.min-coverage-changed-files && ':white_check_mark:' || ':x:' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "(Changed File Coverage is currently bugged, disregard)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY

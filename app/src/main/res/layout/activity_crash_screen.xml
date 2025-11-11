@@ -16,5 +16,8 @@
     android:text="TextView"
     tools:layout_editor_absoluteX="13dp"
     tools:layout_editor_absoluteY="14dp"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent"
   />
+  <!--Layout constraints (toStartOf, toTopOf) added by Thalia Wood to bypass linting error blocking build. Please review and adjust based on the UI intent-->
 </androidx.constraintlayout.widget.ConstraintLayout>

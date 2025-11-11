@@ -1,4 +1,5 @@
-name: Measure coverage
+name: Measure Test Coverage
+run-name: ${{ github.event.inputs.custom_run_name || github.workflow }}
 
 on:
   # run anytime a PR is merged to main or a direct push to main

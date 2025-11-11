@@ -34,9 +34,6 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
       - name: Generate kover coverage report
         run: ./gradlew koverXmlReport
-      - name: Show directory structure
-        run: pwd && echo "--------" && ls && echo "--------" && ls app/ && echo "--------" && ls app/build/ && echo "--------" && ls app/build/reports/kover
-
       - name: Add coverage report to PR
         id: kover
         uses: mi-kas/kover-report@v1
@@ -48,3 +45,7 @@ jobs:
           min-coverage-overall: 80
           min-coverage-changed-files: 80
           coverage-counter-type: LINE
+      - name: Add short summary to workflow run summary
+        run: |
+          echo "Overall Coverage: ${{ steps.kover.outputs.coverage-overall }}" >> $GITHUB_STEP_SUMMARY
+          echo "Changed File Coverage: ${{ steps.kover.outputs.coverage-changed-files }}" >> $GITHUB_STEP_SUMMARY

@@ -32,7 +32,9 @@ jobs:
 
     steps:
       - name: Notify User to Scroll
-        run: echo "Scroll to the end of the page for artifacts :arrow_down:" >> $GITHUB_STEP_SUMMARY
+        run: |
+          echo "## Scroll to the end of the page for artifacts :arrow_down:" >> $GITHUB_STEP_SUMMARY
+          echo "---"
       - uses: actions/checkout@v4
       - name: Set up JDK 21
         uses: actions/setup-java@v4

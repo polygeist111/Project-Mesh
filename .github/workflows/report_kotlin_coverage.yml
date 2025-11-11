@@ -34,7 +34,7 @@ jobs:
       - name: Generate kover coverage report
         run: ./gradlew koverXmlReport
       - name: Show directory structure
-        run: ls && echo "--------" && ls app/ && echo "--------" && ls app/build/
+        run: pwd && echo "--------" && ls && echo "--------" && ls app/ && echo "--------" && ls app/build/ && echo "--------" && ls app/build/kover/reports
 
       - name: Add coverage report to PR
         id: kover

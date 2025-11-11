@@ -45,7 +45,12 @@ jobs:
           min-coverage-overall: 80
           min-coverage-changed-files: 80
           coverage-counter-type: LINE
-      - name: Add short summary to workflow run summary
         run: |
-          echo "Overall Coverage: ${{ steps.kover.outputs.coverage-overall }}" >> $GITHUB_STEP_SUMMARY
-          echo "Changed File Coverage: ${{ steps.kover.outputs.coverage-changed-files }}" >> $GITHUB_STEP_SUMMARY
+          echo "min-coverage-overall=${{ inputs.min-coverage-overall }}" >> $GITHUB_OUTPUT
+          echo "min-coverage-changed-files"=${{ inputs.min-coverage-changed-files }}" >> $GITHUB_OUTPUT"
+      - name: Add short summary to workflow run
+        run: |
+          echo "| Type | Coverage | Passing |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Overall Coverage | ${{ steps.kover.outputs.coverage-overall }}% | ${{ steps.kover.outputs.coverage-overall >= steps.kover.outputs.min-coverage-overall && ':white_check_mark:' || ':x:' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Changed File Coverage | ${{ steps.kover.outputs.coverage-changed-files }}% | ${{ steps.kover.outputs.coverage-changed-files >= steps.kover.outputs.min-coverage-changed-files && ':white_check_mark:' || ':x:' }} |" >> $GITHUB_STEP_SUMMARY

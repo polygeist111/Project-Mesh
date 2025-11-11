@@ -33,6 +33,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
       - name: Generate kover coverage report
         run: ./gradlew koverXmlReport
+      - name: Show directory structure
+        run: ls
 
       - name: Add coverage report to PR
         id: kover

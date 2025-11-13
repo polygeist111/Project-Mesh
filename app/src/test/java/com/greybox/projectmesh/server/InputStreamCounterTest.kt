@@ -4,8 +4,21 @@ import org.junit.Assert.*
 import org.junit.Test
 import java.io.ByteArrayInputStream
 
+/**
+ * JVM-only tests for InputStreamCounter.
+ *
+ * Verifies:
+ * - single-byte reads
+ * - buffered reads
+ * - offset reads
+ * - EOF behavior
+ * - close() flag
+ */
 class InputStreamCounterTest {
 
+    // -----------------------------------------
+    // Single-byte read: should count each byte
+    // -----------------------------------------
     @Test
     fun countSingleBytes() {
         val data = "hello world".toByteArray()
@@ -21,6 +34,9 @@ class InputStreamCounterTest {
         assertFalse(counter.closed)
     }
 
+    // ----------------------------------------------------------
+    // Buffered read: reading in chunks should count total bytes
+    // ----------------------------------------------------------
     @Test
     fun readBufferBytes() {
         val data = ByteArray(4096) { it.toByte() }
@@ -36,6 +52,9 @@ class InputStreamCounterTest {
         assertEquals(data.size, counter.bytesRead)
     }
 
+    // ----------------------------------------------------------------
+    // Offset read: read(buffer, off, len) must still count accurately
+    // ----------------------------------------------------------------
     @Test
     fun countOffsetBytes() {
         val data = "abcdefghi".toByteArray()
@@ -51,6 +70,9 @@ class InputStreamCounterTest {
         assertEquals(data.size, counter.bytesRead)
     }
 
+    // ---------------------------------------------------------
+    // EOF behavior: read after EOF should return -1 and not add
+    // ---------------------------------------------------------
     @Test
     fun checkEOF() {
         val data = "test".toByteArray()
@@ -59,6 +81,7 @@ class InputStreamCounterTest {
 
         val buffer = ByteArray(2)
         while (counter.read(buffer) != -1) {
+            // consume all data
         }
 
         val before = counter.bytesRead
@@ -68,6 +91,9 @@ class InputStreamCounterTest {
         assertEquals(before, counter.bytesRead)
     }
 
+    // --------------------------
+    // close(): should set flag
+    // --------------------------
     @Test
     fun checkClose() {
         val data = "xyz".toByteArray()

@@ -7,7 +7,7 @@ import java.io.ByteArrayInputStream
 class InputStreamCounterTest {
 
     @Test
-    fun readSingleBytes_countsAllBytes() {
+    fun countSingleBytes() {
         val data = "hello world".toByteArray()
         val input = ByteArrayInputStream(data)
         val counter = InputStreamCounter(input)
@@ -22,7 +22,7 @@ class InputStreamCounterTest {
     }
 
     @Test
-    fun readIntoBuffer_countsAllBytes() {
+    fun readBufferBytes() {
         val data = ByteArray(4096) { it.toByte() }
         val input = ByteArrayInputStream(data)
         val counter = InputStreamCounter(input)
@@ -37,7 +37,7 @@ class InputStreamCounterTest {
     }
 
     @Test
-    fun readWithOffset_countsAllBytes() {
+    fun countOffsetBytes() {
         val data = "abcdefghi".toByteArray()
         val input = ByteArrayInputStream(data)
         val counter = InputStreamCounter(input)
@@ -52,7 +52,7 @@ class InputStreamCounterTest {
     }
 
     @Test
-    fun bytesRead_doesNotIncreaseAfterEof() {
+    fun checkEOF() {
         val data = "test".toByteArray()
         val input = ByteArrayInputStream(data)
         val counter = InputStreamCounter(input)
@@ -69,7 +69,7 @@ class InputStreamCounterTest {
     }
 
     @Test
-    fun close_setsClosedFlag() {
+    fun checkClose() {
         val data = "xyz".toByteArray()
         val input = ByteArrayInputStream(data)
         val counter = InputStreamCounter(input)

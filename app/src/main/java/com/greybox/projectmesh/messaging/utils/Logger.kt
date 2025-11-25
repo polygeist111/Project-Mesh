@@ -8,43 +8,52 @@ import android.util.Log
  */
 
 object Logger {
+    internal const val TAG_PREFIX = "MeshChat_"
     private const val LOGGING_ENABLED = true
-    private const val TAG_PREFIX = "MeshChat_"
+
+    internal fun buildTag(tag: String): String {
+        return "$TAG_PREFIX$tag"
+    }
+
+    internal fun buildCriticalTag(tag: String): String {
+        return "${TAG_PREFIX}${tag}_CRITICAL"
+    }
 
     fun d(tag: String, message: String) {
         if (LOGGING_ENABLED) {
-            Log.d("$TAG_PREFIX$tag", message)
+            Log.d(buildTag(tag), message)
         }
     }
 
     fun i(tag: String, message: String) {
         if (LOGGING_ENABLED) {
-            Log.i("$TAG_PREFIX$tag", message)
+            Log.i(buildTag(tag), message)
         }
     }
 
     fun w(tag: String, message: String) {
         if (LOGGING_ENABLED) {
-            Log.w("$TAG_PREFIX$tag", message)
+            Log.w(buildTag(tag), message)
         }
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
         if (LOGGING_ENABLED) {
             if (throwable != null) {
-                Log.e("$TAG_PREFIX$tag", message, throwable)
+                Log.e(buildTag(tag), message, throwable)
             } else {
-                Log.e("$TAG_PREFIX$tag", message)
+                Log.e(buildTag(tag), message)
             }
         }
     }
 
     // Log important events that should be visible even in production
     fun critical(tag: String, message: String, throwable: Throwable? = null) {
+        val criticalTag = buildCriticalTag(tag)
         if (throwable != null) {
-            Log.e("$TAG_PREFIX${tag}_CRITICAL", message, throwable)
+            Log.e(criticalTag, message, throwable)
         } else {
-            Log.e("$TAG_PREFIX${tag}_CRITICAL", message)
+            Log.e(criticalTag, message)
         }
     }
 }

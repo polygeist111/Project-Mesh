@@ -4,6 +4,7 @@ plugins {
     id("kotlin-kapt")
     id("com.google.devtools.ksp") version "1.9.0-1.0.13"
     kotlin("plugin.serialization") version "1.9.0"
+    id("org.jetbrains.kotlinx.kover") version "0.9.3"
 }
 
 android {
@@ -146,3 +147,4 @@ dependencies {
     // For JSON serialisation
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 }
+

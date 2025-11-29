@@ -74,7 +74,7 @@ jobs:
 
       - name: Copy Coverage Report to Viewing Directory
         run: |
-          cp -r ./app/build/reports/kover/html/ ./app/build_reports/coverage_report/
+          cp -r ./app/build/reports/kover/html/ ./app/build_reports/coverage_report
           git add --force ./app/build_reports/coverage_report/
           git commit -m "Relocate coverage report for viewing"
           git push

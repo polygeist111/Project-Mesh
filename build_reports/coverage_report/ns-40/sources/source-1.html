@@ -1,0 +1,121 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
+  <title>Kover HTML Report Coverage Report > UserRepository</title>
+  <style type="text/css">
+    @import "../../css/coverage.css";
+    @import "../../css/idea.min.css";
+  </style>
+  <script type="text/javascript" src="../../js/highlight.min.js"></script>
+  <script type="text/javascript" src="../../js/highlightjs-line-numbers.min.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.greybox.projectmesh.user</a>
+</div>
+
+<h1>Coverage Summary for Class: UserRepository (com.greybox.projectmesh.user)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Branch, %
+</th>
+</tr>
+<tr>
+  <td class="name">UserRepository</td>
+    <td class="coverageStat"/>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<code class="sourceCode" id="sourceCode">&nbsp;package com.greybox.projectmesh.user
+&nbsp;
+&nbsp;import android.util.Log
+&nbsp;
+&nbsp;class UserRepository(private val userDao: UserDao) {
+&nbsp;
+&nbsp;    suspend fun insertOrUpdateUser(uuid: String, name: String, address: String?) {
+&nbsp;        val existing = userDao.getUserByUuid(uuid)
+&nbsp;        if (existing == null) {
+&nbsp;            // Insert new user with address
+&nbsp;            userDao.insertUser(
+&nbsp;                UserEntity(
+&nbsp;                    uuid = uuid,
+&nbsp;                    name = name,
+&nbsp;                    address = address
+&nbsp;                )
+&nbsp;            )
+&nbsp;        } else {
+&nbsp;            // Update existing user, copying over address
+&nbsp;            userDao.updateUser(
+&nbsp;                existing.copy(
+&nbsp;                    name = name,
+&nbsp;                    address = address
+&nbsp;                )
+&nbsp;            )
+&nbsp;        }
+&nbsp;    }
+&nbsp;
+&nbsp;    suspend fun getUserByIp(ip: String): UserEntity? {
+&nbsp;        return userDao.getUserByIp(ip)
+&nbsp;    }
+&nbsp;    suspend fun getUser(uuid: String): UserEntity? {
+&nbsp;        return userDao.getUserByUuid(uuid)
+&nbsp;    }
+&nbsp;    suspend fun getAllConnectedUsers(): List&lt;UserEntity&gt; {
+&nbsp;        return userDao.getAllConnectedUsers()
+&nbsp;    }
+&nbsp;
+&nbsp;    suspend fun getAllUsers(): List&lt;UserEntity&gt; {
+&nbsp;        return userDao.getAllUsers()
+&nbsp;    }
+&nbsp;
+&nbsp;    suspend fun hasUser(uuid: String): Boolean {
+&nbsp;        return userDao.hasWithID(uuid)
+&nbsp;    }
+&nbsp;
+&nbsp;    // Add more methods as needed
+&nbsp;}
+</code>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+      hljs.highlightAll()
+      hljs.initLineNumbersOnLoad();
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2025-11-29 23:35</div>
+</div>
+</body>
+</html>

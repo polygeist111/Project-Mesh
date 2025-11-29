@@ -44,15 +44,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Generate Kover Coverage Report
-        run: ./gradlew koverXmlReport
+        id: koverHtmlReport
+        run: ./gradlew koverHtmlReport
         continue-on-error: true
 
       - name: Download Kover CLI (only on test failure)
-        if: steps.generateKoverCoverageReport.outcome == "failure"
+        if: steps.koverHtmlReport.outcome == "failure"
         run: wget -O kover-cli.jar https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kover-cli/1.0.715/kover-cli-1.0.715.jar
 
       - name: Format Kover Coverage Reports Via CLI (only on test failure)
-        if: steps.generateKoverCoverageReport.outcome == "failure"
+        if: steps.koverHtmlReport.outcome == "failure"
         run: java -jar kover-cli.jar report build/kover/bin-reports/testDebugUnitTest.ic --classfiles build/tmp/kotlin-classes --src src/main/java --html build/reports/kover
 
       - name: Add Coverage Report to PR

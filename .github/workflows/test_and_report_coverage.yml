@@ -53,15 +53,13 @@ jobs:
         run: wget -O kover-cli.jar https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kover-cli/0.9.3/kover-cli-0.9.3.jar
         # ensure the versions in the link match the kover version in the top-level build.gradle.kts file
 
-      - name: Format Kover Coverage Reports Via CLI (only on test failure)
+      - name: Format Kover XML Coverage Report Via CLI (only on test failure)
         if: steps.koverHtmlReport.outcome == 'failure'
-        run: java -jar kover-cli.jar report ./app/build/kover/bin-reports/testDebugUnitTest.ic --classfiles ./app/build/tmp/kotlin-classes --src ./app/src/main/java --xml ./app/build/reports/kover
+        run: java -jar kover-cli.jar report ./app/build/kover/bin-reports/testDebugUnitTest.ic --classfiles ./app/build/tmp/kotlin-classes --src ./app/src/main/java --xml ./app/build/reports/kover.xml
 
-      - name: Show Kover Directory (debugging only)
-        run: |
-          ls ./app/build/reports/kover
-          echo "---"
-          pwd
+      - name: Format Kover HTML Coverage Report Via CLI (only on test failure)
+        if: steps.koverHtmlReport.outcome == 'failure'
+        run: java -jar kover-cli.jar report ./app/build/kover/bin-reports/testDebugUnitTest.ic --classfiles ./app/build/tmp/kotlin-classes --src ./app/src/main/java --html ./app/build/reports/kover/
 
       - name: Add Coverage Report to PR
         id: kover

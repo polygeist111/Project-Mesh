@@ -50,7 +50,8 @@ jobs:
 
       - name: Download Kover CLI (only on test failure)
         if: steps.koverHtmlReport.outcome == 'failure'
-        run: wget -O kover-cli.jar https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kover-cli/1.0.715/kover-cli-1.0.715.jar
+        run: wget -O kover-cli.jar https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kover-cli/0.9.3/kover-cli-0.9.3.jar
+        # ensure the versions in the link match the kover version in the top-level build.gradle.kts file
 
       - name: Format Kover Coverage Reports Via CLI (only on test failure)
         if: steps.koverHtmlReport.outcome == 'failure'

@@ -19,10 +19,7 @@ The CI pipeline behaves as follows:
 ### Sprint 5
 
 - For all workflows, add current build summary as commit/pr comments
-- For coverage reporting and complex linting output, add to custom output directory with gitignore (so it can be linked from commit/pr comments, but never pulls to local)
-  - to commit to ignored directory, use --force
-  - to generate reports in spite of failing tests, run a conditional to check if test tasks failed. If yes, download Kover CLI from https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kover-cli/1.0.715/kover-cli-1.0.715.jar and generate html report from binary
--
+- Add report systems to other workflows
 
 ### Backlog
 

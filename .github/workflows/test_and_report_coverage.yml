@@ -72,6 +72,11 @@ jobs:
           min-coverage-changed-files: ${{ env.min-coverage-changed-files }}
           coverage-counter-type: LINE
 
+      - name: Configure Git Identity
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
       - name: Copy Coverage Report to Viewing Directory
         run: |
           cp -r ./app/build/reports/kover/html/ ./build_reports/coverage_report

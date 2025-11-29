@@ -1,0 +1,112 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
+  <title>Kover HTML Report Coverage Report > ConversationDao</title>
+  <style type="text/css">
+    @import "../../css/coverage.css";
+    @import "../../css/idea.min.css";
+  </style>
+  <script type="text/javascript" src="../../js/highlight.min.js"></script>
+  <script type="text/javascript" src="../../js/highlightjs-line-numbers.min.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">debug.com.greybox.projectmesh.messaging.data.dao</a>
+</div>
+
+<h1>Coverage Summary for Class: ConversationDao (debug.com.greybox.projectmesh.messaging.data.dao)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Branch, %
+</th>
+</tr>
+<tr>
+  <td class="name">ConversationDao</td>
+    <td class="coverageStat"/>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<code class="sourceCode" id="sourceCode">&nbsp;package com.greybox.projectmesh.messaging.data.dao
+&nbsp;
+&nbsp;import androidx.room.Dao
+&nbsp;import androidx.room.Insert
+&nbsp;import androidx.room.OnConflictStrategy
+&nbsp;import androidx.room.Query
+&nbsp;import androidx.room.Update
+&nbsp;import com.greybox.projectmesh.messaging.data.entities.Conversation
+&nbsp;import kotlinx.coroutines.flow.Flow
+&nbsp;
+&nbsp;@Dao
+&nbsp;interface ConversationDao {
+&nbsp;    @Query(&quot;SELECT * FROM conversations ORDER BY last_message_time DESC&quot;)
+&nbsp;    fun getAllConversationsFlow(): Flow&lt;List&lt;Conversation&gt;&gt;
+&nbsp;
+&nbsp;    @Query(&quot;SELECT * FROM conversations WHERE id = :conversationId LIMIT 1&quot;)
+&nbsp;    suspend fun getConversationById(conversationId: String): Conversation?
+&nbsp;
+&nbsp;    @Query(&quot;SELECT * FROM conversations WHERE user_uuid = :userUuid LIMIT 1&quot;)
+&nbsp;    suspend fun getConversationByUserUuid(userUuid: String): Conversation?
+&nbsp;
+&nbsp;    @Insert(onConflict = OnConflictStrategy.REPLACE)
+&nbsp;    suspend fun insertConversation(conversation: Conversation)
+&nbsp;
+&nbsp;    @Update
+&nbsp;    suspend fun updateConversation(conversation: Conversation)
+&nbsp;
+&nbsp;    @Query(&quot;UPDATE conversations SET is_online = :isOnline, user_address = :userAddress WHERE user_uuid = :userUuid&quot;)
+&nbsp;    suspend fun updateUserConnectionStatus(userUuid: String, isOnline: Boolean, userAddress: String?)
+&nbsp;
+&nbsp;    @Query(&quot;UPDATE conversations SET last_message = :lastMessage, last_message_time = :timestamp WHERE id = :conversationId&quot;)
+&nbsp;    suspend fun updateLastMessage(conversationId: String, lastMessage: String, timestamp: Long)
+&nbsp;
+&nbsp;    @Query(&quot;UPDATE conversations SET unread_count = unread_count + 1 WHERE id = :conversationId&quot;)
+&nbsp;    suspend fun incrementUnreadCount(conversationId: String)
+&nbsp;
+&nbsp;    @Query(&quot;UPDATE conversations SET unread_count = 0 WHERE id = :conversationId&quot;)
+&nbsp;    suspend fun clearUnreadCount(conversationId: String)
+&nbsp;}
+</code>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+      hljs.highlightAll()
+      hljs.initLineNumbersOnLoad();
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2025-11-29 23:35</div>
+</div>
+</body>
+</html>

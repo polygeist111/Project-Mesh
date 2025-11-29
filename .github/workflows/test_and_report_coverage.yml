@@ -55,7 +55,7 @@ jobs:
 
       - name: Format Kover XML Coverage Report Via CLI (only on test failure)
         if: steps.koverHtmlReport.outcome == 'failure'
-        run: java -jar kover-cli.jar report ./app/build/kover/bin-reports/testDebugUnitTest.ic --classfiles ./app/build/tmp/kotlin-classes --src ./app/src/main/java --xml ./app/build/reports/kover.xml
+        run: java -jar kover-cli.jar report ./app/build/kover/bin-reports/testDebugUnitTest.ic --classfiles ./app/build/tmp/kotlin-classes --src ./app/src/main/java --xml ./app/build/reports/kover/report.xml
 
       - name: Format Kover HTML Coverage Report Via CLI (only on test failure)
         if: steps.koverHtmlReport.outcome == 'failure'

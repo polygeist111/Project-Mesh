@@ -44,21 +44,21 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Generate Kover Coverage Report
-        id: koverHtmlReport
-        run: ./gradlew koverHtmlReport
+        id: koverXmlReport
+        run: ./gradlew koverXmlReport
         continue-on-error: true
 
       - name: Download Kover CLI (only on test failure)
-        if: steps.koverHtmlReport.outcome == 'failure'
+        if: steps.koverXmlReport.outcome == 'failure'
         run: wget -O kover-cli.jar https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kover-cli/0.9.3/kover-cli-0.9.3.jar
         # ensure the versions in the link match the kover version in the top-level build.gradle.kts file
 
       - name: Format Kover XML Coverage Report Via CLI (only on test failure)
-        if: steps.koverHtmlReport.outcome == 'failure'
+        if: steps.koverXmlReport.outcome == 'failure'
         run: java -jar kover-cli.jar report ./app/build/kover/bin-reports/testDebugUnitTest.ic --classfiles ./app/build/tmp/kotlin-classes --src ./app/src/main/java --xml ./app/build/reports/kover/report.xml
 
       - name: Format Kover HTML Coverage Report Via CLI (only on test failure)
-        if: steps.koverHtmlReport.outcome == 'failure'
+        if: steps.koverXmlReport.outcome == 'failure'
         run: java -jar kover-cli.jar report ./app/build/kover/bin-reports/testDebugUnitTest.ic --classfiles ./app/build/tmp/kotlin-classes --src ./app/src/main/java --html ./app/build/reports/kover/html/
 
       - name: Add Coverage Report to PR
@@ -99,3 +99,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify Test/Build Outcome
+        if: steps.koverXmlReport.outcome == 'failure'
+        run: |
+          echo "Tests (or build) failed, marking workflow as failed"
+          exit 1

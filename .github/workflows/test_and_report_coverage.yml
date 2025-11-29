@@ -59,7 +59,7 @@ jobs:
 
       - name: Format Kover HTML Coverage Report Via CLI (only on test failure)
         if: steps.koverHtmlReport.outcome == 'failure'
-        run: java -jar kover-cli.jar report ./app/build/kover/bin-reports/testDebugUnitTest.ic --classfiles ./app/build/tmp/kotlin-classes --src ./app/src/main/java --html ./app/build/reports/kover/
+        run: java -jar kover-cli.jar report ./app/build/kover/bin-reports/testDebugUnitTest.ic --classfiles ./app/build/tmp/kotlin-classes --src ./app/src/main/java --html ./app/build/reports/kover/html/
 
       - name: Add Coverage Report to PR
         id: kover

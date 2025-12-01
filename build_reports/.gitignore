@@ -4,3 +4,5 @@
 # except
 !.gitignore
 !README.md
+!index.html
+!styles.css

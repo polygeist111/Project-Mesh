@@ -19,7 +19,10 @@ The CI pipeline behaves as follows:
 ### Sprint 5
 
 - For all workflows, add current build summary as commit/pr comments
-- Add report systems to other workflows
+- Alter system to use GitHub Pages instead of github HTML preview. This will fix CSS on previews
+  - Add script to change iFrame title and onscreen title + pass/fail indicator
+- Add orchestrator workflow for all reporting tasks
+  - determine how to allow multiple reusable workflows to share build cache
 
 ### Backlog
 

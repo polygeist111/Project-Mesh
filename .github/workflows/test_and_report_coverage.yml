@@ -2,9 +2,8 @@ name: Measure Test Coverage
 run-name: ${{ github.event.inputs.custom_run_name || github.workflow }}
 
 on:
-  # run anytime a PR is merged to main or a direct push to main
-  push:
-    branches: [main]
+  # run when called by another workflow
+  workflow_called:
 
   # run on any push to a PR branch
   pull_request:
@@ -72,15 +71,19 @@ jobs:
           min-coverage-changed-files: ${{ env.min-coverage-changed-files }}
           coverage-counter-type: LINE
 
-      - name: Configure Git Identity
+      - name: Configure Git Identity (if called individually)
+        if: ${{ github.event_name != 'workflow_call' }}
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
-      - name: Copy Coverage Report to Viewing Directory
+      - name: Copy Coverage Report & Test Outputs to Viewing Directory (if called individually)
+        if: ${{ github.event_name != 'workflow_call' }}
         run: |
           cp -r ./app/build/reports/kover/html/ ./build_reports/coverage_report
-          git add --force ./build_reports/coverage_report/
+          cp -r ./app/app/build/reports/tests/testDebugUnitTest ./build_reports/debug_testing_report
+          cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/release_testing_report
+          git add --force ./build_reports/
           git commit -m "Relocate coverage report for viewing"
           git push
         env:

@@ -1,15 +1,9 @@
----
-# template source: https://github.com/bretfisher/super-linter-workflow/blob/main/templates/call-super-linter.yaml
 name: Lint Code Base
 run-name: ${{ github.event.inputs.custom_run_name || github.workflow }}
 
 on:
-  # run anytime a PR is merged to main or a direct push to main
-  push:
-    branches: [main]
-
-  # run on any push to a PR branch
-  pull_request:
+  # run when called by another workflow
+  workflow_called:
 
   # run on demand
   workflow_dispatch:
@@ -28,29 +22,45 @@ permissions: read-all
 
 # adapted from https://mskelton.medium.com/auto-formatting-code-using-prettier-and-github-actions-ed458f58b7df
 jobs:
+  call-gradle-linter:
+    name: Call Gradle Linter
+    permissions:
+      contents: write
+    steps:
+      - name: Call Debug and Release Linters
+        # ostensibly, ./gradlew lint should run both, but in practice on my (Thalia Wood's), it only runs the Debug linter
+        run: |
+          ./gradlew lintDebug
+          ./gradlew lintRelease
+
+      - name: Configure Git Identity (if called individually)
+        if: ${{ github.event_name != 'workflow_call' }}
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - name: Copy Linting Reports to Viewing Directory (if called individually)
+        if: ${{ github.event_name != 'workflow_call' }}
+        run: |
+          cp ./app/build/reports/lint-results-debug.html ./build_reports/lint_results_debug/lint_results_debug.html
+          cp ./app/build/reports/lint-results-release.html ./build_reports/lint_results_release/lint_results_release.html
+          git add --force ./build_reports/
+          git commit -m "Relocate coverage report for viewing"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   call-super-linter:
-    #  needs: format
     name: Call Super-Linter
 
     permissions:
       contents: read # clone the repo to lint
       statuses: write # read/write to repo custom statuses
 
-    ### use Reusable Workflows to call my workflow remotely
-    ### https://docs.github.com/en/actions/learn-github-actions/reusing-workflows
-    ### you can also call workflows from inside the same repo via file path
-
-    # FIXME: customize uri to point to your own reusable linter repository
     uses: polygeist111/super-linter-workflow/.github/workflows/reusable-super-linter.yaml@main
     # TODO: update url to point to gb reusable linter, not thalia's
 
-    ### Optional settings examples
-
     # with:
-    ### For a DevOps-focused repository. Prevents some code-language linters from running
-    ### defaults to false
-    # devops-only: false
-
     ### A regex to exclude files from linting
     ### defaults to empty
     # filter-regex-exclude:

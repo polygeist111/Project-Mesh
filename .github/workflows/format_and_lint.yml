@@ -53,7 +53,7 @@ jobs:
 
   call-super-linter:
     name: Call Super-Linter
-
+    runs-on: ubuntu-latest
     permissions:
       contents: read # clone the repo to lint
       statuses: write # read/write to repo custom statuses

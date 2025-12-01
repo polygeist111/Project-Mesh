@@ -3,7 +3,7 @@ run-name: ${{ github.event.inputs.custom_run_name || github.workflow }}
 
 on:
   # run when called by another workflow
-  workflow_called:
+  workflow_call:
 
   # run on demand
   workflow_dispatch:
@@ -24,6 +24,7 @@ permissions: read-all
 jobs:
   call-gradle-linter:
     name: Call Gradle Linter
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:

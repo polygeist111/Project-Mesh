@@ -53,7 +53,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Ensure Report Dir is empty
-        run: rm rf ./build_reports/*
+        run: rm -rf ./build_reports/*
 
       - name: Download All Artifacts
         uses: actions/download-artifact@v5

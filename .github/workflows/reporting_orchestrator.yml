@@ -84,13 +84,18 @@ jobs:
 
           ls ./build_reports
           echo "----"
-          ls ./build_reports/lint_report_release
+          ls ./build_reports/lint_report_debug
 
           sed -i 's/1px; 1px;/1px 1px;/g' ./build_reports/lint_report_debug/lint_report_debug.html
 
           mkdir ./build_reports/lint_report_release
           cp -a ./build_reports/lint_report_release_artifact/. ./build_reports/lint_report_release/
           rm -r ./build_reports/lint_report_release_artifact
+
+          ls ./build_reports
+          echo "----"
+          ls ./build_reports/lint_report_release
+
           sed -i 's/1px; 1px;/1px 1px;/g' ./build_reports/lint_report_release/lint_report_release.html
 
           mkdir ./build_reports/test_report_debug

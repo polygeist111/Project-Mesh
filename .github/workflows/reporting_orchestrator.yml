@@ -75,8 +75,8 @@ jobs:
           rm -r ./build_reports/lint_report_debug_artifact
 
           mkdir ./build_reports/lint_report_release
-          cp -a ./build_reports/int_report_release_artifact/. ./build_reports/lint_report_release/
-          rm -r ./build_reports/int_report_release_artifact
+          cp -a ./build_reports/lint_report_release_artifact/. ./build_reports/lint_report_release/
+          rm -r ./build_reports/lint_report_release_artifact
 
           mkdir ./build_reports/test_report_debug
           cp -a ./build_reports/test_report_debug_artifact/. ./build_reports/test_report_debug/

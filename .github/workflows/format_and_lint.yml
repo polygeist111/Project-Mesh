@@ -71,6 +71,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Upload Lint Debug Artifact (if called by orchestrator)
+        if: ${{ inputs.skip_commit == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint_report_debug
+          path: ./app/build/reports/lint-results-release.html
+          retention-days: 1
+
+      - name: Upload Lint Release Artifact (if called by orchestrator)
+        if: ${{ inputs.skip_commit == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint_report_release
+          path: ./app/build/reports/lint-results-release.html
+          retention-days: 1
+
   call-super-linter:
     name: Call Super-Linter
     permissions:

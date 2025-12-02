@@ -59,20 +59,46 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check Out Code
+        uses: actions/checkout@v4
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: ./build_reports/
+          name: |
+            coverage_report
+            test_report_debug
+            test_report_release
+            lint_report_debug
+            lint_report_release
+
+      - name: Relocate Linting Reports to Dirs
+        run: |
+          mkdir ./build_reports/lint_results_debug
+          cp ./build_reports/lint-results-debug.html ./build_reports/lint_results_debug/lint_results_debug.html
+          rm ./build_reports/lint-results-debug.html
+          mkdir ./build_reports/lint_results_release
+          cp ./build_reports/lint-results-release.html ./build_reports/lint_results_release/lint_results_release.html
+          rm ./build_reports/lint-results-release.html
+
+      - name: Debug Artifact Download
+        run: ls ./build_reports
+
       - name: Configure Git Identity
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
       - name: Commit Reports to Viewing Directory
+        # cp -r ./app/build/reports/kover/html/ ./build_reports/coverage_report
+        # cp -r ./app/build/reports/tests/testDebugUnitTest ./build_reports/testing_report_debug
+        # cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/testing_report_release
+        # mkdir ./build_reports/lint_results_debug
+        # cp ./app/build/reports/lint-results-debug.html ./build_reports/lint_results_debug/lint_results_debug.html
+        # mkdir ./build_reports/lint_results_release
+        # cp ./app/build/reports/lint-results-release.html ./build_reports/lint_results_release/lint_results_release.html
         run: |
-          cp -r ./app/build/reports/kover/html/ ./build_reports/coverage_report
-          cp -r ./app/build/reports/tests/testDebugUnitTest ./build_reports/testing_report_debug
-          cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/testing_report_release
-          mkdir ./build_reports/lint_results_debug
-          cp ./app/build/reports/lint-results-debug.html ./build_reports/lint_results_debug/lint_results_debug.html
-          mkdir ./build_reports/lint_results_release
-          cp ./app/build/reports/lint-results-release.html ./build_reports/lint_results_release/lint_results_release.html
           git add --force ./build_reports/
           git commit -m "Relocate reports for viewing"
           git push

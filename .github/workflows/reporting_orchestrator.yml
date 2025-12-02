@@ -60,13 +60,15 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           path: ./build_reports/
-          # APKs will always take longer than this step's start, so no needless downloads
-
+          # TODO: edit to never pull APKs
       - name: Debug Artifact Download 1
         run: ls ./build_reports
 
       - name: Relocate Linting Reports to Dirs
         run: |
+          rm -r ./build_reports/app-debug-apk 2> /dev/null
+          rm =r ./build_reports/app-release-apk 2> /dev/null
+
           mkdir ./build_reports/coverage_report
           cp -a ./build_reports/coverage_report_artifact/. ./build_reports/coverage_report/
           rm -r ./build_reports/coverage_report_artifact

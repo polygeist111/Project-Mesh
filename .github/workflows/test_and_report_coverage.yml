@@ -15,6 +15,11 @@ on:
         description: "Custom name for this Actions run"
         required: false
         type: string
+      skip_commit:
+        description: "Skip committing reports"
+        required: false
+        type: boolean
+        default: false
 
 # cancel any previously-started, yet still active runs of this workflow on the same branch
 concurrency:
@@ -72,13 +77,13 @@ jobs:
           coverage-counter-type: LINE
 
       - name: Configure Git Identity (if called individually)
-        if: github.event_name != 'workflow_call'
+        if: ${{ inputs.skip_commit != true }}
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
       - name: Copy Coverage Report & Test Outputs to Viewing Directory (if called individually)
-        if: github.event_name != 'workflow_call'
+        if: ${{ inputs.skip_commit != true }}
         run: |
           cp -r ./app/build/reports/kover/html/ ./build_reports/coverage_report
           cp -r ./app/build/reports/tests/testDebugUnitTest ./build_reports/testing_report_debug

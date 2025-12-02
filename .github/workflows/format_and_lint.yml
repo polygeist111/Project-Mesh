@@ -12,6 +12,11 @@ on:
         description: "Custom name for this Actions run"
         required: false
         type: string
+      skip_commit:
+        description: "Skip committing reports"
+        required: false
+        type: boolean
+        default: false
 
 # cancel any previously-started, yet still active runs of this workflow on the same branch
 concurrency:
@@ -46,13 +51,13 @@ jobs:
           ./gradlew lintRelease
 
       - name: Configure Git Identity (if called individually)
-        if: github.event_name != 'workflow_call'
+        if: ${{ inputs.skip_commit != true }}
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
       - name: Copy Linting Reports to Viewing Directory (if called individually)
-        if: github.event_name != 'workflow_call'
+        if: ${{ inputs.skip_commit != true }}
         run: |
           mkdir ./build_reports/lint_results_debug
           cp ./app/build/reports/lint-results-debug.html ./build_reports/lint_results_debug/lint_results_debug.html

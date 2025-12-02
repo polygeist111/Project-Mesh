@@ -25,13 +25,19 @@ concurrency:
 jobs:
   format-and-lint:
     uses: ./.github/workflows/format_and_lint.yml
+    with:
+      skip_commit: "true"
 
   build-and-test:
     uses: ./.github/workflows/test_and_report_coverage.yml
+    with:
+      skip_commit: "true"
 
   upload-apks:
     # needs: build-and-test # uses cached build from prior job
     uses: ./.github/workflows/build_artifacts.yml
+    with:
+      skip_commit: "true"
 
   finalize-report-viewer:
     needs: [format-and-lint, build-and-test, upload-apks]

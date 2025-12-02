@@ -70,21 +70,21 @@ jobs:
           cp -a ./build_reports/coverage_report_artifact/. ./build_reports/coverage_report/
           rm -r ./build_reports/coverage_report_artifact
 
-          mkdir ./build_reports/lint_results_debug
-          cp -a ./build_reports/lint_results_debug_artifact/. ./build_reports/lint_results_debug/
-          rm -r ./build_reports/lint-results-debug_artifact
+          mkdir ./build_reports/lint_report_debug
+          cp -a ./build_reports/lint_report_debug_artifact/. ./build_reports/lint_report_debug/
+          rm -r ./build_reports/lint-report-debug_artifact
 
-          mkdir ./build_reports/lint_results_release
-          cp -a ./build_reports/int_results_release_artifact/. ./build_reports/lint_results_release/
-          rm -r ./build_reports/int_results_release_artifact
+          mkdir ./build_reports/lint_report_release
+          cp -a ./build_reports/int_report_release_artifact/. ./build_reports/lint_report_release/
+          rm -r ./build_reports/int_report_release_artifact
 
-          mkdir ./build_reports/test_results_debug
-          cp -a ./build_reports/test_results_debug_artifact/. ./build_reports/test_results_debug/
-          rm -r ./build_reports/test_results_debug_artifact
+          mkdir ./build_reports/test_report_debug
+          cp -a ./build_reports/test_report_debug_artifact/. ./build_reports/test_report_debug/
+          rm -r ./build_reports/test_report_debug_artifact
 
-          mkdir ./build_reports/test_results_release
-          cp -a ./build_reports/test_results_release_artifact/. ./build_reports/test_results_release/
-          rm -r ./build_reports/test_results_release_artifact
+          mkdir ./build_reports/test_report_release
+          cp -a ./build_reports/test_report_release_artifact/. ./build_reports/test_report_release/
+          rm -r ./build_reports/test_report_release_artifact
 
       - name: Debug Artifact Download 2
         run: ls ./build_reports
@@ -98,10 +98,10 @@ jobs:
         # cp -r ./app/build/reports/kover/html/ ./build_reports/coverage_report
         # cp -r ./app/build/reports/tests/testDebugUnitTest ./build_reports/testing_report_debug
         # cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/testing_report_release
-        # mkdir ./build_reports/lint_results_debug
-        # cp ./app/build/reports/lint-results-debug.html ./build_reports/lint_results_debug/lint_results_debug.html
-        # mkdir ./build_reports/lint_results_release
-        # cp ./app/build/reports/lint-results-release.html ./build_reports/lint_results_release/lint_results_release.html
+        # mkdir ./build_reports/lint_report_debug
+        # cp ./app/build/reports/lint-report-debug.html ./build_reports/lint_report_debug/lint_report_debug.html
+        # mkdir ./build_reports/lint_report_release
+        # cp ./app/build/reports/lint-report-release.html ./build_reports/lint_report_release/lint_report_release.html
         run: |
           git add --force ./build_reports/
           git commit -m "Relocate reports for viewing"

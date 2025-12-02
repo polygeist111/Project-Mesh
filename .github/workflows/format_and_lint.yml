@@ -62,9 +62,9 @@ jobs:
         if: ${{ inputs.skip_commit != true }}
         run: |
           mkdir ./build_reports/lint_results_debug
-          cp ./app/build/reports/lint-results-debug.html ./build_reports/lint_results_debug/lint_results_debug.html
+          cp ./app/build/reports/lint-results-debug.html ./build_reports/lint_report_debug/lint_report_debug.html
           mkdir ./build_reports/lint_results_release
-          cp ./app/build/reports/lint-results-release.html ./build_reports/lint_results_release/lint_results_release.html
+          cp ./app/build/reports/lint-results-release.html ./build_reports/lint_report_release/lint_report_release.html
           git add --force ./build_reports/
           git commit -m "Relocate coverage report for viewing"
           git push

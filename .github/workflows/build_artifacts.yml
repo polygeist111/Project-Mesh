@@ -47,7 +47,6 @@ jobs:
 
       - name: Check Out Code
         uses: actions/checkout@v4
-        if: ${{ inputs.skip_commit != true }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -100,7 +99,6 @@ jobs:
     steps:
       - name: Check Out Code
         uses: actions/checkout@v4
-        if: ${{ inputs.skip_commit != true }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

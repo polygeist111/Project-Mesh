@@ -36,8 +36,6 @@ jobs:
   upload-apks:
     # needs: build-and-test # uses cached build from prior job
     uses: ./.github/workflows/build_artifacts.yml
-    with:
-      skip_commit: "true"
 
   finalize-report-viewer:
     needs: [format-and-lint, build-and-test, upload-apks]

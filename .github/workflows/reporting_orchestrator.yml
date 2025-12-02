@@ -56,12 +56,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           path: ./build_reports/
-          name: |
-            coverage_report
-            test_report_debug
-            test_report_release
-            lint_report_debug
-            lint_report_release
+          # APKs will always take longer than this step's start, so no needless downloads
 
       - name: Relocate Linting Reports to Dirs
         run: |

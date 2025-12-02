@@ -5,7 +5,7 @@
 <html id="htmlId">
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
-  <title>Kover HTML Report Coverage Report > ContentResolverExtensionKt</title>
+  <title>Kover HTML Report Coverage Report > ListExtensionKt</title>
   <style type="text/css">
     @import "../../css/coverage.css";
     @import "../../css/idea.min.css";
@@ -22,7 +22,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
     <a href="../index.html">debug.com.greybox.projectmesh.extension</a>
 </div>
 
-<h1>Coverage Summary for Class: ContentResolverExtensionKt (debug.com.greybox.projectmesh.extension)</h1>
+<h1>Coverage Summary for Class: ListExtensionKt (debug.com.greybox.projectmesh.extension)</h1>
 
 <table class="coverageStats">
 <tr>
@@ -37,7 +37,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 </th>
 </tr>
 <tr>
-  <td class="name">ContentResolverExtensionKt</td>
+  <td class="name">ListExtensionKt</td>
 <td class="coverageStat">
   <span class="percent">
     0%
@@ -58,45 +58,25 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 <pre>
 <code class="sourceCode" id="sourceCode">&nbsp;package com.greybox.projectmesh.extension
 &nbsp;
-&nbsp;import android.content.ContentResolver
-&nbsp;import android.net.Uri
-&nbsp;import android.provider.OpenableColumns
-&nbsp;import androidx.core.net.toFile
-&nbsp;
-&nbsp;data class UriNameAndSize(
-&nbsp;    val name: String?,
-&nbsp;    val size: Long,
-&nbsp;)
-&nbsp;
 &nbsp;/*
-&nbsp;This is an extension function for ContentResolver class
-&nbsp;It will return a UriNameAndSize object that contains the name and size of the file
-&nbsp;Two Condition:
-&nbsp;1. The uri is a file uri
-&nbsp;2. The uri is a content uri
+&nbsp; This is an extension function on Kotlin&#39;s List class, allowing to apply an update to the
+&nbsp; first element in a list that matches a given condition, then returning a updated list
 &nbsp; */
-&nbsp;fun ContentResolver.getUriNameAndSize(uri: Uri): UriNameAndSize {
-&nbsp;    return if(uri.scheme == &quot;file&quot;) {
-&nbsp;        val uriFile = uri.toFile()
-&nbsp;        UriNameAndSize(uriFile.name, uriFile.length())
-&nbsp;    }else {
-&nbsp;        query(
-&nbsp;            uri, null, null, null, null
-&nbsp;        )?.use { cursor -&gt;
-&nbsp;            var nameIndex = 0
-&nbsp;            var sizeIndex = 0
-&nbsp;            if(cursor.moveToFirst() &amp;&amp;
-&nbsp;                cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME).also { nameIndex = it } &gt;= 1 &amp;&amp;
-&nbsp;                cursor.getColumnIndex(OpenableColumns.SIZE).also { sizeIndex = it } &gt;= 1
-&nbsp;            ) {
-&nbsp;                val size = if(cursor.isNull(sizeIndex)) { null } else {
-&nbsp;                    cursor.getString(sizeIndex)
-&nbsp;                }
-&nbsp;                UriNameAndSize(cursor.getString(nameIndex), size?.toLong() ?: -1L)
-&nbsp;            }else {
-&nbsp;                null
-&nbsp;            }
-&nbsp;        } ?: UriNameAndSize(null, -1)
+&nbsp;inline fun &lt;T&gt; List&lt;T&gt;.updateItem(
+&nbsp;    condition: (T) -&gt; Boolean,
+&nbsp;    function: (T) -&gt; T,
+&nbsp;): List&lt;T&gt; {
+&nbsp;    // Find the index of the first element that matches the condition
+&nbsp;    val index = indexOfFirst(condition)
+&nbsp;    // If no such element is found, return the original list
+&nbsp;    return if(index == -1){
+&nbsp;        this
+&nbsp;    }
+&nbsp;    // Otherwise, create a new list with the element at the found index updated using the provided function
+&nbsp;    else{
+&nbsp;        toMutableList().also {
+&nbsp;                newList -&gt; newList[index] = function(this[index])
+&nbsp;        }.toList()
 &nbsp;    }
 &nbsp;}
 </code>
@@ -122,7 +102,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 
 <div class="footer">
     
-    <div style="float:right;">generated on 2025-11-29 23:50</div>
+    <div style="float:right;">generated on 2025-12-02 04:51</div>
 </div>
 </body>
 </html>

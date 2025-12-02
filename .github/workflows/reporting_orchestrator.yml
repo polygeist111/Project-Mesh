@@ -81,10 +81,12 @@ jobs:
           mkdir ./build_reports/lint_report_debug
           cp -a ./build_reports/lint_report_debug_artifact/. ./build_reports/lint_report_debug/
           rm -r ./build_reports/lint_report_debug_artifact
+          sed -i 's/1px; 1px;/1px 1px;/g' ./build_reports/lint_report_debug/lint_report_debug.html
 
           mkdir ./build_reports/lint_report_release
           cp -a ./build_reports/lint_report_release_artifact/. ./build_reports/lint_report_release/
           rm -r ./build_reports/lint_report_release_artifact
+          sed -i 's/1px; 1px;/1px 1px;/g' ./build_reports/lint_report_release/lint_report_release.html
 
           mkdir ./build_reports/test_report_debug
           cp -a ./build_reports/test_report_debug_artifact/. ./build_reports/test_report_debug/
@@ -93,6 +95,10 @@ jobs:
           mkdir ./build_reports/test_report_release
           cp -a ./build_reports/test_report_release_artifact/. ./build_reports/test_report_release/
           rm -r ./build_reports/test_report_release_artifact
+
+          ls ./build_reports
+          echo "----"
+          ls ./build_reports/lint_report_release
 
       - name: Configure Git Identity
         run: |

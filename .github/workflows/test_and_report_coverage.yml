@@ -88,8 +88,8 @@ jobs:
         if: ${{ inputs.skip_commit != true }}
         run: |
           cp -r ./app/build/reports/kover/html/ ./build_reports/coverage_report
-          cp -r ./app/build/reports/tests/testDebugUnitTest ./build_reports/testing_report_debug
-          cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/testing_report_release
+          cp -r ./app/build/reports/tests/testDebugUnitTest ./build_reports/test_report_debug
+          cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/test_report_release
           git add --force ./build_reports/
           git commit -m "Relocate coverage report for viewing"
           git push
@@ -100,7 +100,7 @@ jobs:
         if: ${{ inputs.skip_commit == true }}
         uses: actions/upload-artifact@v5
         with:
-          name: coverage_report
+          name: coverage_report_artifact
           path: ./app/build/reports/kover/html
           retention-days: 1
 
@@ -108,7 +108,7 @@ jobs:
         if: ${{ inputs.skip_commit == true }}
         uses: actions/upload-artifact@v5
         with:
-          name: test_report_debug
+          name: test_report_debug_artifact
           path: ./app/build/reports/tests/testDebugUnitTest
           retention-days: 1
 
@@ -116,7 +116,7 @@ jobs:
         if: ${{ inputs.skip_commit == true }}
         uses: actions/upload-artifact@v5
         with:
-          name: test_report_release
+          name: test_report_release_artifact
           path: ./app/build/reports/tests/testReleaseUnitTest
           retention-days: 1
 

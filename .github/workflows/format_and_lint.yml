@@ -75,7 +75,7 @@ jobs:
         if: ${{ inputs.skip_commit == true }}
         uses: actions/upload-artifact@v5
         with:
-          name: lint_report_debug
+          name: lint_report_debug_artifact
           path: ./app/build/reports/lint-results-release.html
           retention-days: 1
 
@@ -83,7 +83,7 @@ jobs:
         if: ${{ inputs.skip_commit == true }}
         uses: actions/upload-artifact@v5
         with:
-          name: lint_report_release
+          name: lint_report_release_artifact
           path: ./app/build/reports/lint-results-release.html
           retention-days: 1
 

@@ -76,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: lint_report_debug_artifact
-          path: ./app/build/reports/lint-results-release.html
+          path: ./app/build/reports/lint-results-debug.html
           retention-days: 1
 
       - name: Upload Lint Release Artifact (if called by orchestrator)

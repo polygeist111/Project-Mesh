@@ -79,7 +79,7 @@ jobs:
           rm -r ./build_reports/coverage_report_artifact
 
           mkdir ./build_reports/lint_report_debug
-          cp -a ./build_reports/lint_report_debug_artifact/. ./build_reports/lint_report_debug/
+          cp ./build_reports/lint_report_debug_artifact/lint-results-debug.html ./build_reports/lint_report_debug/lint_report_debug.html
           rm -r ./build_reports/lint_report_debug_artifact
 
           ls ./build_reports
@@ -89,7 +89,7 @@ jobs:
           sed -i 's/1px; 1px;/1px 1px;/g' ./build_reports/lint_report_debug/lint_report_debug.html
 
           mkdir ./build_reports/lint_report_release
-          cp -a ./build_reports/lint_report_release_artifact/. ./build_reports/lint_report_release/
+          cp ./build_reports/lint_report_release_artifact/lint-results-release.html ./build_reports/lint_report_release/lint_report_release.html
           rm -r ./build_reports/lint_report_release_artifact
 
           ls ./build_reports

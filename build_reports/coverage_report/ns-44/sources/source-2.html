@@ -5,7 +5,7 @@
 <html id="htmlId">
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
-  <title>Kover HTML Report Coverage Report > SendScreenViewModel</title>
+  <title>Kover HTML Report Coverage Report > PingScreenViewModel</title>
   <style type="text/css">
     @import "../../css/coverage.css";
     @import "../../css/idea.min.css";
@@ -22,7 +22,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
     <a href="../index.html">com.greybox.projectmesh.viewModel</a>
 </div>
 
-<h1>Coverage Summary for Class: SendScreenViewModel (com.greybox.projectmesh.viewModel)</h1>
+<h1>Coverage Summary for Class: PingScreenViewModel (com.greybox.projectmesh.viewModel)</h1>
 
 <table class="coverageStats">
 
@@ -34,7 +34,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 </th>
 </tr>
   <tr>
-    <td class="name">SendScreenViewModel$1</td>
+    <td class="name">PingScreenViewModel$1</td>
     <td class="coverageStat"/>
   </tr>
 <tr>
@@ -50,54 +50,74 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 <pre>
 <code class="sourceCode" id="sourceCode">&nbsp;package com.greybox.projectmesh.viewModel
 &nbsp;
-&nbsp;import android.net.Uri
 &nbsp;import androidx.lifecycle.SavedStateHandle
 &nbsp;import androidx.lifecycle.ViewModel
 &nbsp;import androidx.lifecycle.viewModelScope
-&nbsp;import com.greybox.projectmesh.server.AppServer
+&nbsp;import com.greybox.projectmesh.GlobalApp
 &nbsp;import kotlinx.coroutines.flow.Flow
 &nbsp;import kotlinx.coroutines.flow.MutableStateFlow
 &nbsp;import kotlinx.coroutines.flow.asStateFlow
+&nbsp;import org.kodein.di.DI
+&nbsp;import com.greybox.projectmesh.server.AppServer
+&nbsp;import com.greybox.projectmesh.user.UserRepository
+&nbsp;import com.ustadmobile.meshrabiya.ext.addressToByteArray
+&nbsp;import com.ustadmobile.meshrabiya.ext.addressToDotNotation
+&nbsp;import com.ustadmobile.meshrabiya.ext.requireAddressAsInt
+&nbsp;import com.ustadmobile.meshrabiya.vnet.AndroidVirtualNode
+&nbsp;import com.ustadmobile.meshrabiya.vnet.VirtualNode
+&nbsp;import kotlinx.coroutines.flow.firstOrNull
+&nbsp;import kotlinx.coroutines.flow.last
 &nbsp;import kotlinx.coroutines.flow.update
 &nbsp;import kotlinx.coroutines.launch
-&nbsp;import org.kodein.di.DI
+&nbsp;import kotlinx.coroutines.runBlocking
 &nbsp;import org.kodein.di.instance
+&nbsp;import java.net.InetAddress
 &nbsp;
-&nbsp;data class SendScreenModel(
-&nbsp;    val outgoingTransfers: List&lt;AppServer.OutgoingTransferInfo&gt; = emptyList()
+&nbsp;data class PingScreenModel(
+&nbsp;    val deviceName: String? = null,
+&nbsp;    val virtualAddress: InetAddress = InetAddress.getByName(&quot;192.168.0.1&quot;),
+&nbsp;    val allOriginatorMessages: List&lt;VirtualNode.LastOriginatorMessage&gt; = emptyList()
 &nbsp;)
 &nbsp;
-&nbsp;class SendScreenViewModel(
+&nbsp;class PingScreenViewModel(
 &nbsp;    di: DI,
 &nbsp;    savedStateHandle: SavedStateHandle,
-&nbsp;    private val onSwitchToSelectDestNode: (List&lt;Uri&gt;) -&gt; Unit
+&nbsp;    virtualAddress: InetAddress
 &nbsp;): ViewModel() {
 &nbsp;    // _uiState will be updated whenever there is a change in the UI state
-&nbsp;    private val _uiState = MutableStateFlow(SendScreenModel())
+&nbsp;    private val _uiState = MutableStateFlow(
+&nbsp;        PingScreenModel(
+&nbsp;            deviceName = runBlocking {
+&nbsp;                GlobalApp.GlobalUserRepo.userRepository.getUserByIp(virtualAddress.hostAddress)
+&nbsp;                    ?.name
+&nbsp;                    ?: &quot;Unknown&quot;
+&nbsp;            },
+&nbsp;            virtualAddress = virtualAddress
+&nbsp;        )
+&nbsp;    )
 &nbsp;    // uiState is a read-only property that shows the current UI state
-&nbsp;    val uiState: Flow&lt;SendScreenModel&gt; = _uiState.asStateFlow()
+&nbsp;    val uiState: Flow&lt;PingScreenModel&gt; = _uiState.asStateFlow()
+&nbsp;    // di is used to get the AndroidVirtualNode instance
+&nbsp;    private val node: AndroidVirtualNode by di.instance()
 &nbsp;    private val appServer: AppServer by di.instance()
+&nbsp;    private var lastTimeReceived: Long = 0L
 &nbsp;
+&nbsp;    // launch a coroutine
 &nbsp;    init {
-&nbsp;        viewModelScope.launch{
-&nbsp;            appServer.outgoingTransfers.collect{
-&nbsp;                _uiState.update { prev -&gt;
-&nbsp;                    prev.copy(
-&nbsp;                        outgoingTransfers = it
-&nbsp;                    )
-&nbsp;                }
-&nbsp;
-&nbsp;            }
-&nbsp;        }
-&nbsp;    }
-&nbsp;
-&nbsp;    fun onFileChosen(uris: List&lt;Uri&gt;){//Can we copy this to the Chat screen model?
-&nbsp;        onSwitchToSelectDestNode(uris)
-&nbsp;    }
-&nbsp;
-&nbsp;    fun onDelete(transfer: AppServer.OutgoingTransferInfo){
 &nbsp;        viewModelScope.launch {
-&nbsp;            appServer.removeOutgoingTransfer(transfer.id)
+&nbsp;            // collect the state flow of the AndroidVirtualNode
+&nbsp;            node.state.collect{ localNodeState -&gt;
+&nbsp;                val newOriginatorMessage = localNodeState.originatorMessages[virtualAddress.requireAddressAsInt()]
+&nbsp;                if ( newOriginatorMessage != null &amp;&amp; lastTimeReceived != newOriginatorMessage.timeReceived ) {
+&nbsp;                    lastTimeReceived = newOriginatorMessage.timeReceived
+&nbsp;                    // update the UI state with the new state
+&nbsp;                    _uiState.update { prev -&gt;
+&nbsp;                        prev.copy(
+&nbsp;                            allOriginatorMessages = ((prev.allOriginatorMessages + newOriginatorMessage) as List&lt;VirtualNode.LastOriginatorMessage&gt;)
+&nbsp;                        )
+&nbsp;                    }
+&nbsp;                }
+&nbsp;            }
 &nbsp;        }
 &nbsp;    }
 &nbsp;}
@@ -124,7 +144,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 
 <div class="footer">
     
-    <div style="float:right;">generated on 2025-11-29 23:50</div>
+    <div style="float:right;">generated on 2025-12-02 04:51</div>
 </div>
 </body>
 </html>

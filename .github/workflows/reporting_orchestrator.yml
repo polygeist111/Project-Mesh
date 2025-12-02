@@ -25,6 +25,7 @@ concurrency:
 jobs:
   check-out-repo:
     name: Check Out Code
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:

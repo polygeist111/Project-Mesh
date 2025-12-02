@@ -4,6 +4,11 @@ run-name: ${{ github.event.inputs.custom_run_name || github.workflow }}
 on:
   # run when called by another workflow
   workflow_call:
+    skip_commit:
+      description: "Skip committing reports"
+      required: false
+      type: boolean
+      default: false
 
   # run on demand
   workflow_dispatch:
@@ -12,11 +17,6 @@ on:
         description: "Custom name for this Actions run"
         required: false
         type: string
-      skip_commit:
-        description: "Skip committing reports"
-        required: false
-        type: boolean
-        default: false
 
 # cancel any previously-started, yet still active runs of this workflow on the same branch
 concurrency:

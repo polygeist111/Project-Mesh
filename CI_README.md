@@ -24,6 +24,7 @@ The CI pipeline behaves as follows:
 - Add orchestrator workflow for all reporting tasks
   - determine how to allow multiple reusable workflows to share build cache
   - add link to super-linter actions output
+  - onsider whether to delete reports files after use
 
 ### Backlog
 

@@ -59,7 +59,7 @@ jobs:
 
       - name: Ensure Report Dir is empty
         run: |
-          export GLOBIGNORE="./build_reports/index.html:./build_reports/styles.css:./build_reports/README.md"
+          export GLOBIGNORE="./build_reports/index.html:./build_reports/styles.css:./build_reports/README.md:./build_reports/.gitignore"
           rm -rf ./build_reports/*
           unset GLOBIGNORE
 

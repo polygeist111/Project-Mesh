@@ -72,17 +72,19 @@ jobs:
           coverage-counter-type: LINE
 
       - name: Configure Git Identity (if called individually)
-        if: ${{ github.event_name != 'workflow_call' }}
+        if: github.event_name != 'workflow_call'
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
       - name: Copy Coverage Report & Test Outputs to Viewing Directory (if called individually)
-        if: ${{ github.event_name != 'workflow_call' }}
+        if: github.event_name != 'workflow_call'
         run: |
           cp -r ./app/build/reports/kover/html/ ./build_reports/coverage_report
-          cp -r ./app/app/build/reports/tests/testDebugUnitTest ./build_reports/debug_testing_report
-          cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/release_testing_report
+          mkdir ./build_reports/testing_report_debug
+          cp -r ./app/build/reports/tests/testDebugUnitTest ./build_reports/testing_report_debug
+          mkdir ./build_reports/testing_report_release
+          cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/testing_report_release
           git add --force ./build_reports/
           git commit -m "Relocate coverage report for viewing"
           git push

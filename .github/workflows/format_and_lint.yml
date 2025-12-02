@@ -46,13 +46,13 @@ jobs:
           ./gradlew lintRelease
 
       - name: Configure Git Identity (if called individually)
-        if: ${{ github.event_name != 'workflow_call' }}
+        if: github.event_name != 'workflow_call'
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
       - name: Copy Linting Reports to Viewing Directory (if called individually)
-        if: ${{ github.event_name != 'workflow_call' }}
+        if: github.event_name != 'workflow_call'
         run: |
           cp ./app/build/reports/lint-results-debug.html ./build_reports/lint_results_debug/lint_results_debug.html
           cp ./app/build/reports/lint-results-release.html ./build_reports/lint_results_release/lint_results_release.html

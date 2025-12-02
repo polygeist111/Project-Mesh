@@ -47,8 +47,10 @@ jobs:
       - name: Commit Reports to Viewing Directory
         run: |
           cp -r ./app/build/reports/kover/html/ ./build_reports/coverage_report
-          cp -r ./app/app/build/reports/tests/testDebugUnitTest ./build_reports/debug_testing_report
-          cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/release_testing_report
+          mkdir ./build_reports/testing_report_debug
+          cp -r ./app/build/reports/tests/testDebugUnitTest ./build_reports/testing_report_debug
+          mkdir ./build_reports/testing_report_release
+          cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/testing_report_release
           cp ./app/build/reports/lint-results-debug.html ./build_reports/lint_results_debug/lint_results_debug.html
           cp ./app/build/reports/lint-results-release.html ./build_reports/lint_results_release/lint_results_release.html
           git add --force ./build_reports/

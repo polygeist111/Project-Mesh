@@ -66,8 +66,8 @@ jobs:
 
       - name: Relocate Linting Reports to Dirs
         run: |
-          rm -r ./build_reports/app-debug-apk 2> /dev/null
-          rm =r ./build_reports/app-release-apk 2> /dev/null
+          rm -rf ./build_reports/app-debug-apk 2> /dev/null
+          rm -rf ./build_reports/app-release-apk 2> /dev/null
 
           mkdir ./build_reports/coverage_report
           cp -a ./build_reports/coverage_report_artifact/. ./build_reports/coverage_report/

@@ -23,25 +23,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-out-repo:
-    name: Check Out Code
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Check Out Code
-        uses: actions/checkout@v4
-
   format-and-lint:
     name: Format and Lint
-    needs: check-out-repo
     uses: ./.github/workflows/format_and_lint.yml
     with:
       skip_commit: true
 
   test-and-report-coverage:
     name: Test and Report Coverage
-    needs: check-out-repo
     uses: ./.github/workflows/test_and_report_coverage.yml
     with:
       skip_commit: true
@@ -58,6 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     steps:
       - name: Check Out Code
         uses: actions/checkout@v4

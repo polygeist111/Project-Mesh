@@ -11,6 +11,11 @@ run-name: ${{ github.event.inputs.custom_run_name || github.workflow }}
 on:
   # run when called by another workflow
   workflow_call:
+    skip_commit:
+      description: "Skip committing reports"
+      required: false
+      type: boolean
+      default: false
 
   # run on demand
   workflow_dispatch:
@@ -39,7 +44,9 @@ jobs:
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-      - uses: actions/checkout@v4
+      - name: Check Out Code
+        uses: actions/checkout@v4
+        if: ${{ inputs.skip_commit != true }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -84,12 +91,16 @@ jobs:
     #   run: gradle build
 
   dependency-submission:
+    name: Submit Dependencies
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check Out Code
+        uses: actions/checkout@v4
+        if: ${{ inputs.skip_commit != true }}
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:

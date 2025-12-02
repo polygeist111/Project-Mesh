@@ -34,7 +34,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Check Out Code
+        uses: actions/checkout@v4
+        if: ${{ inputs.skip_commit != true }}
 
       - name: Set up JDK
         uses: actions/setup-java@v3

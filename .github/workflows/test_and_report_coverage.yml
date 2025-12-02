@@ -25,12 +25,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  test_and_report_coverage:
+    name: Test and Report Coverage
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
+      - name: Check Out Code
+        uses: actions/checkout@v4
+        if: ${{ inputs.skip_commit != true }}
+
       - name: Define Coverage Minimums
         run: |
           echo "min-coverage-overall=80" >> $GITHUB_ENV

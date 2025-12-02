@@ -5,7 +5,7 @@
 <html id="htmlId">
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
-  <title>Kover HTML Report Coverage Report > MessageDao</title>
+  <title>Kover HTML Report Coverage Report > ConversationDao</title>
   <style type="text/css">
     @import "../../css/coverage.css";
     @import "../../css/idea.min.css";
@@ -22,7 +22,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
     <a href="../index.html">debug.com.greybox.projectmesh.messaging.data.dao</a>
 </div>
 
-<h1>Coverage Summary for Class: MessageDao (debug.com.greybox.projectmesh.messaging.data.dao)</h1>
+<h1>Coverage Summary for Class: ConversationDao (debug.com.greybox.projectmesh.messaging.data.dao)</h1>
 
 <table class="coverageStats">
 <tr>
@@ -33,7 +33,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 </th>
 </tr>
 <tr>
-  <td class="name">MessageDao</td>
+  <td class="name">ConversationDao</td>
     <td class="coverageStat"/>
 </tr>
 
@@ -47,42 +47,41 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 <code class="sourceCode" id="sourceCode">&nbsp;package com.greybox.projectmesh.messaging.data.dao
 &nbsp;
 &nbsp;import androidx.room.Dao
-&nbsp;import androidx.room.Delete
 &nbsp;import androidx.room.Insert
+&nbsp;import androidx.room.OnConflictStrategy
 &nbsp;import androidx.room.Query
-&nbsp;import com.greybox.projectmesh.messaging.data.entities.Message
+&nbsp;import androidx.room.Update
+&nbsp;import com.greybox.projectmesh.messaging.data.entities.Conversation
 &nbsp;import kotlinx.coroutines.flow.Flow
 &nbsp;
 &nbsp;@Dao
-&nbsp;interface MessageDao {
-&nbsp;    @Query(&quot;SELECT * FROM message&quot;)
-&nbsp;    fun getAll(): List&lt;Message&gt;
+&nbsp;interface ConversationDao {
+&nbsp;    @Query(&quot;SELECT * FROM conversations ORDER BY last_message_time DESC&quot;)
+&nbsp;    fun getAllConversationsFlow(): Flow&lt;List&lt;Conversation&gt;&gt;
 &nbsp;
-&nbsp;    @Query(&quot;SELECT * FROM message&quot;)
-&nbsp;    fun getAllFlow(): Flow&lt;List&lt;Message&gt;&gt;
+&nbsp;    @Query(&quot;SELECT * FROM conversations WHERE id = :conversationId LIMIT 1&quot;)
+&nbsp;    suspend fun getConversationById(conversationId: String): Conversation?
 &nbsp;
-&nbsp;    @Query(&quot;SELECT * FROM message WHERE chat = :chat ORDER BY dateReceived ASC&quot;)
-&nbsp;    fun getChatMessagesFlow(chat: String): Flow&lt;List&lt;Message&gt;&gt;
+&nbsp;    @Query(&quot;SELECT * FROM conversations WHERE user_uuid = :userUuid LIMIT 1&quot;)
+&nbsp;    suspend fun getConversationByUserUuid(userUuid: String): Conversation?
 &nbsp;
-&nbsp;    @Query(&quot;DELETE FROM message&quot;)
-&nbsp;    fun clearTable()
+&nbsp;    @Insert(onConflict = OnConflictStrategy.REPLACE)
+&nbsp;    suspend fun insertConversation(conversation: Conversation)
 &nbsp;
-&nbsp;    @Query(&quot;SELECT * FROM message WHERE chat IN (:chatNames) ORDER BY dateReceived ASC&quot;)
-&nbsp;    fun getChatMessagesFlowMultipleNames(chatNames: List&lt;String&gt;): Flow&lt;List&lt;Message&gt;&gt;
+&nbsp;    @Update
+&nbsp;    suspend fun updateConversation(conversation: Conversation)
 &nbsp;
-&nbsp;    //Synchronously Query to get messages immediately
-&nbsp;    @Query(&quot;SELECT * FROM message WHERE chat = :chat ORDER BY dateReceived ASC&quot;)
-&nbsp;    fun getChatMessagesSync(chat: String): List&lt;Message&gt;
+&nbsp;    @Query(&quot;UPDATE conversations SET is_online = :isOnline, user_address = :userAddress WHERE user_uuid = :userUuid&quot;)
+&nbsp;    suspend fun updateUserConnectionStatus(userUuid: String, isOnline: Boolean, userAddress: String?)
 &nbsp;
-&nbsp;    @Insert
-&nbsp;    suspend fun addMessage(m: Message)
+&nbsp;    @Query(&quot;UPDATE conversations SET last_message = :lastMessage, last_message_time = :timestamp WHERE id = :conversationId&quot;)
+&nbsp;    suspend fun updateLastMessage(conversationId: String, lastMessage: String, timestamp: Long)
 &nbsp;
-&nbsp;    @Delete
-&nbsp;    fun delete(m: Message)
+&nbsp;    @Query(&quot;UPDATE conversations SET unread_count = unread_count + 1 WHERE id = :conversationId&quot;)
+&nbsp;    suspend fun incrementUnreadCount(conversationId: String)
 &nbsp;
-&nbsp;    @Delete
-&nbsp;    suspend fun deleteAll(messages: List&lt;Message&gt;)
-&nbsp;
+&nbsp;    @Query(&quot;UPDATE conversations SET unread_count = 0 WHERE id = :conversationId&quot;)
+&nbsp;    suspend fun clearUnreadCount(conversationId: String)
 &nbsp;}
 </code>
 </pre>
@@ -107,7 +106,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 
 <div class="footer">
     
-    <div style="float:right;">generated on 2025-12-02 05:31</div>
+    <div style="float:right;">generated on 2025-12-02 05:53</div>
 </div>
 </body>
 </html>

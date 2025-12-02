@@ -5,7 +5,7 @@
 <html id="htmlId">
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
-  <title>Kover HTML Report Coverage Report > NetworkUtilsKt</title>
+  <title>Kover HTML Report Coverage Report > WifiListItemKt</title>
   <style type="text/css">
     @import "../../css/coverage.css";
     @import "../../css/idea.min.css";
@@ -22,9 +22,10 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
     <a href="../index.html">com.greybox.projectmesh.extension</a>
 </div>
 
-<h1>Coverage Summary for Class: NetworkUtilsKt (com.greybox.projectmesh.extension)</h1>
+<h1>Coverage Summary for Class: WifiListItemKt (com.greybox.projectmesh.extension)</h1>
 
 <table class="coverageStats">
+
 <tr>
   <th class="name">Class</th>
 <th class="coverageStat 
@@ -32,17 +33,115 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
   Branch, %
 </th>
 </tr>
+  <tr>
+    <td class="name">WifiListItemKt$WifiListItem$2</td>
+    <td class="coverageStat"/>
+  </tr>
 <tr>
-  <td class="name">NetworkUtilsKt</td>
+  <td class="name"><strong>Total</strong></td>
     <td class="coverageStat"/>
 </tr>
-
 </table>
 
 <br/>
 <br/>
 
-  <code class="sourceCode">Source code is not available<br /></code>
+
+<pre>
+<code class="sourceCode" id="sourceCode">&nbsp;package com.greybox.projectmesh.extension
+&nbsp;
+&nbsp;import androidx.compose.foundation.clickable
+&nbsp;import androidx.compose.foundation.layout.Column
+&nbsp;import androidx.compose.foundation.layout.Row
+&nbsp;import androidx.compose.foundation.layout.Spacer
+&nbsp;import androidx.compose.foundation.layout.fillMaxWidth
+&nbsp;import androidx.compose.foundation.layout.size
+&nbsp;import androidx.compose.foundation.layout.width
+&nbsp;import androidx.compose.material.icons.Icons
+&nbsp;import androidx.compose.material.icons.filled.Image
+&nbsp;import androidx.compose.material.icons.filled.SignalCellular4Bar
+&nbsp;import androidx.compose.material3.HorizontalDivider
+&nbsp;import androidx.compose.material3.Icon
+&nbsp;import androidx.compose.material3.ListItem
+&nbsp;import androidx.compose.material3.Text
+&nbsp;import androidx.compose.runtime.Composable
+&nbsp;import androidx.compose.ui.Alignment
+&nbsp;import androidx.compose.ui.Modifier
+&nbsp;import androidx.compose.ui.text.font.FontWeight
+&nbsp;import androidx.compose.ui.unit.dp
+&nbsp;import com.greybox.projectmesh.GlobalApp
+&nbsp;import com.ustadmobile.meshrabiya.ext.addressToDotNotation
+&nbsp;import com.ustadmobile.meshrabiya.vnet.VirtualNode
+&nbsp;import kotlinx.coroutines.runBlocking
+&nbsp;import com.greybox.projectmesh.user.UserRepository
+&nbsp;@Composable
+&nbsp;// Display a single connected wifi station
+&nbsp;fun WifiListItem(
+&nbsp;    wifiAddress: Int,
+&nbsp;    wifiEntry: VirtualNode.LastOriginatorMessage,
+&nbsp;    onClick: ((nodeAddress: String) -&gt; Unit)? = null,
+&nbsp;){
+&nbsp;    val wifiAddressDotNotation = wifiAddress.addressToDotNotation()
+&nbsp;    ListItem(
+&nbsp;        modifier = Modifier.fillMaxWidth().let{
+&nbsp;            if(onClick != null){
+&nbsp;                it.clickable(onClick = {
+&nbsp;                    onClick(wifiAddressDotNotation)
+&nbsp;                })
+&nbsp;            }
+&nbsp;            else{
+&nbsp;                it
+&nbsp;            }
+&nbsp;        },
+&nbsp;        leadingContent = {
+&nbsp;            // The image icon on the left side
+&nbsp;            Icon(
+&nbsp;                // replace this image with a custom icon or image
+&nbsp;                imageVector = Icons.Default.Image,
+&nbsp;                contentDescription = &quot;Profile Picture&quot;,
+&nbsp;                modifier = Modifier.size(28.dp)
+&nbsp;            )
+&nbsp;        },
+&nbsp;        headlineContent = {
+&nbsp;            // obtain the device name according to the ip address
+&nbsp;            val user = runBlocking {
+&nbsp;                GlobalApp.GlobalUserRepo.userRepository.getUserByIp(wifiAddressDotNotation)
+&nbsp;            }
+&nbsp;            val device = user?.name ?: &quot;Unknown&quot;
+&nbsp;            if(device != null){
+&nbsp;                Text(text= device, fontWeight = FontWeight.Bold)
+&nbsp;            }
+&nbsp;            else{
+&nbsp;                Text(text = &quot;Loading...&quot;, fontWeight = FontWeight.Bold)
+&nbsp;            }
+&nbsp;        },
+&nbsp;        supportingContent = {
+&nbsp;            Text(text = wifiAddressDotNotation)
+&nbsp;        },
+&nbsp;        trailingContent = {
+&nbsp;            // The mesh status with signal bars and text
+&nbsp;            Row(
+&nbsp;                verticalAlignment = Alignment.CenterVertically
+&nbsp;            ) {
+&nbsp;                Icon(
+&nbsp;                    imageVector = Icons.Default.SignalCellular4Bar,
+&nbsp;                    contentDescription = &quot;Mesh Signal Strength&quot;,
+&nbsp;                    modifier = Modifier.size(24.dp)
+&nbsp;                )
+&nbsp;                Spacer(modifier = Modifier.width(4.dp))
+&nbsp;                Column{
+&nbsp;                    Text(text = &quot;Mesh status&quot;)
+&nbsp;                    Spacer(modifier = Modifier.width(4.dp))
+&nbsp;                    Text(&quot;Ping: ${wifiEntry.originatorMessage.pingTimeSum}ms &quot;
+&nbsp;                            + &quot;Hops: ${wifiEntry.hopCount} &quot;)
+&nbsp;                }
+&nbsp;            }
+&nbsp;        }
+&nbsp;    )
+&nbsp;    HorizontalDivider()
+&nbsp;}
+</code>
+</pre>
 </div>
 
 <script type="text/javascript">
@@ -64,7 +163,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 
 <div class="footer">
     
-    <div style="float:right;">generated on 2025-12-02 05:31</div>
+    <div style="float:right;">generated on 2025-12-02 05:53</div>
 </div>
 </body>
 </html>

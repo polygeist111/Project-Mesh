@@ -5,7 +5,7 @@
 <html id="htmlId">
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"> 
-  <title>Kover HTML Report Coverage Report > OnboardingViewModel</title>
+  <title>Kover HTML Report Coverage Report > ReceiveScreenViewModel</title>
   <style type="text/css">
     @import "../../css/coverage.css";
     @import "../../css/idea.min.css";
@@ -22,9 +22,10 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
     <a href="../index.html">com.greybox.projectmesh.viewModel</a>
 </div>
 
-<h1>Coverage Summary for Class: OnboardingViewModel (com.greybox.projectmesh.viewModel)</h1>
+<h1>Coverage Summary for Class: ReceiveScreenViewModel (com.greybox.projectmesh.viewModel)</h1>
 
 <table class="coverageStats">
+
 <tr>
   <th class="name">Class</th>
 <th class="coverageStat 
@@ -32,11 +33,18 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
   Branch, %
 </th>
 </tr>
+  <tr>
+    <td class="name">ReceiveScreenViewModel$1</td>
+    <td class="coverageStat"/>
+  </tr>
+  <tr>
+    <td class="name">ReceiveScreenViewModel$onAccept$1</td>
+    <td class="coverageStat"/>
+  </tr>
 <tr>
-  <td class="name">OnboardingViewModel</td>
+  <td class="name"><strong>Total</strong></td>
     <td class="coverageStat"/>
 </tr>
-
 </table>
 
 <br/>
@@ -46,73 +54,75 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 <pre>
 <code class="sourceCode" id="sourceCode">&nbsp;package com.greybox.projectmesh.viewModel
 &nbsp;
+&nbsp;import androidx.lifecycle.SavedStateHandle
 &nbsp;import androidx.lifecycle.ViewModel
 &nbsp;import androidx.lifecycle.viewModelScope
+&nbsp;import com.greybox.projectmesh.GlobalApp
+&nbsp;import com.greybox.projectmesh.server.AppServer
+&nbsp;import kotlinx.coroutines.Dispatchers
+&nbsp;import kotlinx.coroutines.flow.Flow
 &nbsp;import kotlinx.coroutines.flow.MutableStateFlow
 &nbsp;import kotlinx.coroutines.flow.asStateFlow
+&nbsp;import kotlinx.coroutines.flow.update
 &nbsp;import kotlinx.coroutines.launch
-&nbsp;import java.util.UUID
-&nbsp;import com.greybox.projectmesh.user.UserRepository
-&nbsp;import android.content.SharedPreferences
-&nbsp;import org.acra.ACRA.log
+&nbsp;import kotlinx.coroutines.withContext
+&nbsp;import org.kodein.di.DI
+&nbsp;import org.kodein.di.instance
+&nbsp;import java.io.File
 &nbsp;
-&nbsp;data class OnboardingUiState(
-&nbsp;    val username: String
+&nbsp;data class ReceiveScreenModel(
+&nbsp;    val incomingTransfers: List&lt;AppServer.IncomingTransferInfo&gt; = emptyList(),
 &nbsp;)
 &nbsp;
-&nbsp;class OnboardingViewModel(
-&nbsp;    private val userRepository: UserRepository,
-&nbsp;    private val prefs: SharedPreferences,
-&nbsp;    private val localIp: String // Use the local IP here
-&nbsp;) : ViewModel() {
-&nbsp;
-&nbsp;    private val _uiState = MutableStateFlow(OnboardingUiState(username = &quot;&quot;))
-&nbsp;    val uiState = _uiState.asStateFlow()
-&nbsp;
-&nbsp;    fun onUsernameChange(newUsername: String) {
-&nbsp;        _uiState.value = _uiState.value.copy(username = newUsername)
-&nbsp;    }
-&nbsp;
-&nbsp;    fun handleFirstTimeSetup(onComplete: () -&gt; Unit) {
+&nbsp;class ReceiveScreenViewModel(di: DI, savedStateHandle: SavedStateHandle): ViewModel(){
+&nbsp;    private val _uiState = MutableStateFlow(ReceiveScreenModel())
+&nbsp;    val uiState: Flow&lt;ReceiveScreenModel&gt; = _uiState.asStateFlow()
+&nbsp;    private val appServer: AppServer by di.instance()
+&nbsp;    private val receiveDir: File by di.instance(tag = GlobalApp.TAG_RECEIVE_DIR)
+&nbsp;    init {
 &nbsp;        viewModelScope.launch {
-&nbsp;            // Generate or retrieve the user&#39;s UUID
-&nbsp;            var uuid = prefs.getString(&quot;UUID&quot;, null)
-&nbsp;            if (uuid.isNullOrEmpty()) {
-&nbsp;                uuid = UUID.randomUUID().toString()
-&nbsp;                prefs.edit().putString(&quot;UUID&quot;, uuid).apply()
+&nbsp;            appServer.incomingTransfers.collect{
+&nbsp;                _uiState.update { prev -&gt;
+&nbsp;                    prev.copy(
+&nbsp;                        incomingTransfers = it
+&nbsp;                    )
+&nbsp;                }
 &nbsp;            }
-&nbsp;            // Insert or update the user with the local IP
-&nbsp;            userRepository.insertOrUpdateUser(
-&nbsp;                uuid = uuid,
-&nbsp;                name = _uiState.value.username,
-&nbsp;                address = localIp
-&nbsp;            )
-&nbsp;            prefs.edit().putString(&quot;device_name&quot;, _uiState.value.username).apply()
-&nbsp;            prefs.edit().putBoolean(&quot;hasRunBefore&quot;, true).apply()
-&nbsp;            onComplete()
 &nbsp;        }
 &nbsp;    }
 &nbsp;
-&nbsp;    // In order to Generate Guest Username
-&nbsp;    fun blankUsernameGenerator(onResult: (String) -&gt; Unit) {
+&nbsp;    /*
+&nbsp;    If user accept the file, then the file will be downloaded to specific directory
+&nbsp;    1. Make sure the destination directory exist, if not, then create one.
+&nbsp;    2. Process the file transfer by using &quot;acceptIncomingTransfer&quot; function from the Server side
+&nbsp;     */
+&nbsp;    fun onAccept(transfer: AppServer.IncomingTransferInfo){
 &nbsp;        viewModelScope.launch {
-&nbsp;            val allUsers = userRepository.getAllUsers()
-&nbsp;            val guestUsernames = allUsers.mapNotNull { it.name }
-&nbsp;                .filter { it.startsWith(&quot;Guest&quot;) }
-&nbsp;
-&nbsp;            val guestNumbers = guestUsernames.mapNotNull { username -&gt;
-&nbsp;                username.removePrefix(&quot;Guest&quot;).toIntOrNull()
+&nbsp;            withContext(Dispatchers.IO){
+&nbsp;                if (!receiveDir.exists()){
+&nbsp;                    receiveDir.mkdirs()
+&nbsp;                }
+&nbsp;                val file = File(receiveDir, transfer.name)
+&nbsp;                appServer.acceptIncomingTransfer(transfer, file)
 &nbsp;            }
+&nbsp;        }
+&nbsp;    }
 &nbsp;
-&nbsp;            val nextGuestNumber = if (guestNumbers.isEmpty()) {
-&nbsp;                1
-&nbsp;            } else {
-&nbsp;                guestNumbers.maxOrNull()!! + 1
-&nbsp;            }
+&nbsp;    /*
+&nbsp;    If user decline the file, then call &quot;onDeclineIncomingTransfer&quot; function from the Server side
+&nbsp;     */
+&nbsp;    fun onDecline(transfer: AppServer.IncomingTransferInfo){
+&nbsp;        viewModelScope.launch{
+&nbsp;            appServer.onDeclineIncomingTransfer(transfer)
+&nbsp;        }
+&nbsp;    }
 &nbsp;
-&nbsp;            val generatedUsername = &quot;Guest$nextGuestNumber&quot;
-&nbsp;            log.d(&quot;Username&quot;,&quot;Username = $generatedUsername&quot;)
-&nbsp;            onResult(generatedUsername)
+&nbsp;    /*
+&nbsp;    If user delete the file, then call &quot;onDeleteIncomingTransfer&quot; function from the Server side
+&nbsp;     */
+&nbsp;    fun onDelete(transfer: AppServer.IncomingTransferInfo){
+&nbsp;        viewModelScope.launch {
+&nbsp;            appServer.onDeleteIncomingTransfer(transfer)
 &nbsp;        }
 &nbsp;    }
 &nbsp;}
@@ -139,7 +149,7 @@ Current scope: Kover HTML Report<span class="separator">|</span>    <a href="../
 
 <div class="footer">
     
-    <div style="float:right;">generated on 2025-11-30 00:00</div>
+    <div style="float:right;">generated on 2025-12-02 00:45</div>
 </div>
 </body>
 </html>

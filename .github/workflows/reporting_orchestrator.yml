@@ -52,11 +52,17 @@ jobs:
       - name: Check Out Code
         uses: actions/checkout@v4
 
+      - name: Ensure Report Dir is empty
+        run: rm rf ./build_reports/*
+
       - name: Download All Artifacts
         uses: actions/download-artifact@v5
         with:
           path: ./build_reports/
           # APKs will always take longer than this step's start, so no needless downloads
+
+      - name: Debug Artifact Download 1
+        run: ls ./build_reports
 
       - name: Relocate Linting Reports to Dirs
         run: |
@@ -80,7 +86,7 @@ jobs:
           unzip ./build_reports/test_results_release_artifact -d ./build_reports/test_results_release
           rm ./build_reports/test_results_release_artifact
 
-      - name: Debug Artifact Download
+      - name: Debug Artifact Download 2
         run: ls ./build_reports
 
       - name: Configure Git Identity

@@ -23,22 +23,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  generate-files:
-    name: Generate Files
-    runs-on: ubuntu-latest
+  check-out-repo:
+    name: Check Out Code
+    permissions:
+      contents: write
     steps:
       - name: Check Out Code
         uses: actions/checkout@v4
 
-      - name: Format and Lint
-        uses: ./.github/workflows/format_and_lint.yml
-        with:
-          skip_commit: true
+  format-and-lint:
+    name: Format and Lint
+    needs: check-out-code
+    uses: ./.github/workflows/format_and_lint.yml
+    with:
+      skip_commit: true
 
-      - name: Test and Report Coverage
-        uses: ./.github/workflows/test_and_report_coverage.yml
-        with:
-          skip_commit: true
+  test-and-report-coverage:
+    name: Test and Report Coverage
+    needs: check-out-code
+    uses: ./.github/workflows/test_and_report_coverage.yml
+    with:
+      skip_commit: true
 
   upload-apks:
     name: Upload APKs
@@ -47,14 +52,12 @@ jobs:
 
   finalize-report-viewer:
     name: Finalize Report Viewer
-    needs: generate-files
+    needs: [format-and-lint, build-and-test]
     if: always()
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-
       - name: Configure Git Identity
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"

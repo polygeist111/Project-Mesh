@@ -44,7 +44,7 @@ jobs:
 
       - name: Generate Kover Coverage Report
         id: koverXmlReport
-        run: ./gradlew koverXmlReport
+        run: ./gradlew koverXmlReport --continue
         continue-on-error: true
 
       - name: Download Kover CLI (only on test failure)
@@ -81,9 +81,7 @@ jobs:
         if: github.event_name != 'workflow_call'
         run: |
           cp -r ./app/build/reports/kover/html/ ./build_reports/coverage_report
-          mkdir ./build_reports/testing_report_debug
           cp -r ./app/build/reports/tests/testDebugUnitTest ./build_reports/testing_report_debug
-          mkdir ./build_reports/testing_report_release
           cp -r ./app/build/reports/tests/testReleaseUnitTest ./build_reports/testing_report_release
           git add --force ./build_reports/
           git commit -m "Relocate coverage report for viewing"

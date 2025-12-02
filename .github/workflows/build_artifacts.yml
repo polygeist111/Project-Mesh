@@ -11,11 +11,12 @@ run-name: ${{ github.event.inputs.custom_run_name || github.workflow }}
 on:
   # run when called by another workflow
   workflow_call:
-    skip_commit:
-      description: "Skip committing reports"
-      required: false
-      type: boolean
-      default: false
+    inputs:
+      skip_commit:
+        description: "Skip committing reports"
+        required: false
+        type: boolean
+        default: false
 
   # run on demand
   workflow_dispatch:

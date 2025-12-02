@@ -24,18 +24,21 @@ concurrency:
 
 jobs:
   generate-files:
-    - name: Check Out Code
-      uses: actions/checkout@v4
+    name: Generate Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Out Code
+        uses: actions/checkout@v4
 
-    - name: Generate Files
-      uses: ./.github/workflows/format_and_lint.yml
-      with:
-        skip_commit: true
+      - name: Format and Lint
+        uses: ./.github/workflows/format_and_lint.yml
+        with:
+          skip_commit: true
 
-    - name: Test and Report Coverage
-      uses: ./.github/workflows/test_and_report_coverage.yml
-      with:
-        skip_commit: true
+      - name: Test and Report Coverage
+        uses: ./.github/workflows/test_and_report_coverage.yml
+        with:
+          skip_commit: true
 
   upload-apks:
     name: Upload APKs

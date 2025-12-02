@@ -34,14 +34,14 @@ jobs:
 
   format-and-lint:
     name: Format and Lint
-    needs: check-out-code
+    needs: check-out-repo
     uses: ./.github/workflows/format_and_lint.yml
     with:
       skip_commit: true
 
   test-and-report-coverage:
     name: Test and Report Coverage
-    needs: check-out-code
+    needs: check-out-repo
     uses: ./.github/workflows/test_and_report_coverage.yml
     with:
       skip_commit: true

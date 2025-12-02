@@ -67,23 +67,23 @@ jobs:
       - name: Relocate Linting Reports to Dirs
         run: |
           mkdir ./build_reports/coverage_report
-          unzip ./build_reports/coverage_report_artifact -d ./build_reports/coverage_report
+          cp -a ./build_reports/coverage_report_artifact/. ./build_reports/coverage_report/
           rm ./build_reports/coverage_report_artifact
 
           mkdir ./build_reports/lint_results_debug
-          unzip ./build_reports/lint_results_debug_artifact -d ./build_reports/lint_results_debug
+          cp -a ./build_reports/lint_results_debug_artifact/. ./build_reports/lint_results_debug/
           rm ./build_reports/lint-results-debug_artifact
 
           mkdir ./build_reports/lint_results_release
-          unzip ./build_reports/int_results_release_artifact -d ./build_reports/lint_results_release
+          cp -a ./build_reports/int_results_release_artifact/. ./build_reports/lint_results_release/
           rm ./build_reports/int_results_release_artifact
 
           mkdir ./build_reports/test_results_debug
-          unzip ./build_reports/test_results_debug_artifact -d ./build_reports/test_results_debug
+          cp -a ./build_reports/test_results_debug_artifact/. ./build_reports/test_results_debug/
           rm ./build_reports/test_results_debug_artifact
 
           mkdir ./build_reports/test_results_release
-          unzip ./build_reports/test_results_release_artifact -d ./build_reports/test_results_release
+          cp -a ./build_reports/test_results_release_artifact/. ./build_reports/test_results_release/
           rm ./build_reports/test_results_release_artifact
 
       - name: Debug Artifact Download 2

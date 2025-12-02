@@ -35,6 +35,7 @@ jobs:
 
   finalize-report-viewer:
     needs: [format-and-lint, build-and-test, upload-apks]
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:

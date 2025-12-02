@@ -50,6 +50,9 @@ jobs:
       actions: write
       id-token: write
       pages: write
+    environment:
+      name: github-pages
+      url: ${{steps.deployment.outputs.page_url}}
     steps:
       - name: Check Out Code
         uses: actions/checkout@v4
@@ -62,8 +65,6 @@ jobs:
         with:
           path: ./build_reports/
           # TODO: edit to never pull APKs
-      - name: Debug Artifact Download 1
-        run: ls ./build_reports
 
       - name: Relocate Linting Reports to Dirs
         run: |
@@ -89,9 +90,6 @@ jobs:
           mkdir ./build_reports/test_report_release
           cp -a ./build_reports/test_report_release_artifact/. ./build_reports/test_report_release/
           rm -r ./build_reports/test_report_release_artifact
-
-      - name: Debug Artifact Download 2
-        run: ls ./build_reports
 
       - name: Configure Git Identity
         run: |
@@ -121,3 +119,10 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Link Pages in Build Summary
+        run: |
+          echo "All reports can be viewed at ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY

@@ -49,6 +49,7 @@ jobs:
       contents: write
       actions: write
       id-token: write
+      pages: write
     steps:
       - name: Check Out Code
         uses: actions/checkout@v4

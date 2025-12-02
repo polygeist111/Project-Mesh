@@ -28,6 +28,15 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Set Up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
       - name: Call Debug and Release Linters
         # ostensibly, ./gradlew lint should run both, but in practice on my (Thalia Wood's), it only runs the Debug linter
         run: |
